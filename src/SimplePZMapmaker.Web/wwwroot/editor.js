@@ -10,7 +10,7 @@ export function line(p,x0,y0,x1,y1,terrain,radius=1,history){
  const n=Math.max(Math.abs(x1-x0),Math.abs(y1-y0));for(let i=0;i<=n;i++){const t=n?i/n:0;paint(p,Math.round(x0+(x1-x0)*t),Math.round(y0+(y1-y0)*t),terrain,radius,history);}
 }
 export function canPlace(p,b){
- if(!b||!['house','shop','warehouse'].includes(b.kind)||![b.x,b.y,b.width,b.height].every(Number.isInteger)||b.width<6||b.height<6||b.width>64||b.height>64||b.x<1||b.y<1||b.x+b.width>=p.width-1||b.y+b.height>=p.height-1||Math.floor(b.x/256)!==Math.floor((b.x+b.width)/256)||Math.floor(b.y/256)!==Math.floor((b.y+b.height)/256))return false;
+ if(!b||!['house','shop','warehouse'].includes(b.kind)||![b.x,b.y,b.width,b.height].every(Number.isInteger)||b.width<6||b.height<6||b.width>64||b.height>64||b.x<1||b.y<1||b.x+b.width>=p.width||b.y+b.height>=p.height||Math.floor(b.x/256)!==Math.floor((b.x+b.width)/256)||Math.floor(b.y/256)!==Math.floor((b.y+b.height)/256))return false;
  if(p.buildings.some(a=>a!==b&&b.x<a.x+a.width+1&&b.x+b.width+1>a.x&&b.y<a.y+a.height+1&&b.y+b.height+1>a.y))return false;
  if(p.spawns.some(s=>s.x>=b.x&&s.x<=b.x+b.width&&s.y>=b.y&&s.y<=b.y+b.height))return false;
  for(let y=b.y;y<b.y+b.height;y++)for(let x=b.x;x<b.x+b.width;x++)if(p.terrain[y*p.width+x]===3)return false;
@@ -20,6 +20,8 @@ export function validateProject(p){
  const fail=m=>{throw Error(m);};
  if(!p||p.version!==1||!Number.isInteger(p.width)||!Number.isInteger(p.height)||p.width<256||p.height<256||p.width>1024||p.height>1024||p.width%256||p.height%256)fail('Неподдерживаемый размер или версия проекта.');
  if(typeof p.name!=='string'||!p.name.trim()||p.name.length>80||/[\x00-\x1f\x7f]/.test(p.name))fail('Проверьте название карты.');
+ if(!Number.isInteger(p.seed)||p.seed< -2147483648||p.seed>2147483647)fail('Seed должен быть целым числом от −2147483648 до 2147483647.');
+ if(p.bounds!==null&&p.bounds!==undefined){const b=p.bounds;if(![b.south,b.north,b.west,b.east].every(Number.isFinite)||b.south< -85||b.north>85||b.west< -180||b.east>180||b.south>=b.north||b.west>=b.east||b.north-b.south>.08||b.east-b.west>.12)fail('Географические границы проекта повреждены или слишком велики.');}
  if(!Number.isInteger(p.worldX)||!Number.isInteger(p.worldY)||p.worldX<0||p.worldY<0||p.worldX>1000||p.worldY>1000)fail('Координаты мира должны быть от 0 до 1000.');
  if(!Array.isArray(p.terrain)||p.terrain.length!==p.width*p.height||p.terrain.some(t=>!Number.isInteger(t)||t<0||t>6))fail('Слой земли повреждён.');
  if(!Array.isArray(p.zombies)||p.zombies.length!==p.width*p.height/64||p.zombies.some(v=>!Number.isInteger(v)||v<0||v>255))fail('Слой зомби повреждён.');
@@ -38,6 +40,6 @@ export class History{
   this.past.push(item);if(this.past.length>30)this.past.shift();this.future=[];
  }
  apply(p,item,reverse){for(const c of item.changes)p[c.layer][c.index]=reverse?c.old:c.value;Object.assign(p,structuredClone(reverse?item.before:item.after));}
- undo(p){const item=this.past.pop();if(!item)return false;this.apply(p,item,true);this.future.push(item);return true;}
- redo(p){const item=this.future.pop();if(!item)return false;this.apply(p,item,false);this.past.push(item);return true;}
+ undo(p){this.commit(p);const item=this.past.pop();if(!item)return false;this.apply(p,item,true);this.future.push(item);return true;}
+ redo(p){this.commit(p);const item=this.future.pop();if(!item)return false;this.apply(p,item,false);this.past.push(item);return true;}
 }

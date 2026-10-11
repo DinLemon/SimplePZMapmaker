@@ -36,7 +36,6 @@
    <div class="map-legend"><span><i class="legend-spawn"></i>Появление</span><span><i class="legend-cell"></i>Граница ячейки</span></div>
    <div class="zoom-controls"><button id="zoom-out" aria-label="Уменьшить масштаб">−</button><output id="zoom-value">100%</output><button id="zoom-in" aria-label="Увеличить масштаб">+</button></div>
    <canvas id="minimap" width="150" height="150" aria-label="Обзор всей карты"></canvas>
-   <div id="busy-overlay" class="busy-overlay" hidden><div class="spinner"></div><span id="busy-message">Обработка</span><button id="cancel-operation">Отменить операцию</button></div>
   </div>
  </section>
  <aside class="inspector" aria-label="Свойства карты">
@@ -51,6 +50,7 @@
 </main>
 <footer><span id="coordinates">X — · Y —</span><span id="status" role="status">Готово</span><span id="attribution">Геоданные не используются</span></footer>
 <div id="toast" class="toast" role="alert" hidden></div>
+<dialog id="operation-dialog" aria-label="Выполнение операции"><div class="operation-content"><div class="spinner"></div><span id="busy-message" role="status">Обработка</span><button id="cancel-operation">Отменить операцию</button></div></dialog>
 <input id="project-file" type="file" accept=".json,.pzmap" hidden><input id="geodata-file" type="file" accept=".json,.geojson" hidden>
 
 <dialog id="new-dialog"><form id="new-form"><div class="dialog-heading"><div><div class="eyebrow">НОВЫЙ ПРОЕКТ</div><h2>С чего начнём карту</h2></div><button type="button" data-close="new-dialog" aria-label="Закрыть">×</button></div><label>Название<input id="new-name" maxlength="80" value="Новая карта" required></label><div class="two-fields"><label>Размер<select id="new-size"><option value="256">256 × 256</option><option value="512">512 × 512</option><option value="768">768 × 768</option><option value="1024">1024 × 1024</option></select></label><label>Основа<select id="new-kind"><option value="town">Небольшой город</option><option value="wilderness">Лес и река</option><option value="blank">Пустой участок</option></select></label></div><label>Seed<input id="new-seed" type="number" min="-2147483648" max="2147483647" value="42" required></label><label class="range-label">Лес <output id="new-forest-value">35%</output><input id="new-forest" type="range" min="0" max="100" value="35"></label><label class="range-label">Застройка <output id="new-buildings-value">55%</output><input id="new-buildings" type="range" min="0" max="100" value="55"></label><p class="hint">Seed позволяет повторить генерацию. После создания можно изменить каждую часть карты вручную.</p><div class="dialog-actions"><button type="button" data-close="new-dialog">Назад</button><button type="submit" class="primary">Создать карту</button></div></form></dialog>

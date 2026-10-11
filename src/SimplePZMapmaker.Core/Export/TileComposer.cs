@@ -16,11 +16,11 @@ internal sealed class TileComposer
         project=p;ox=cellX*256;oy=cellY*256;
         for(var y=0;y<256;y++)for(var x=0;x<256;x++) {
             var terrain=p.Terrain[(oy+y)*p.Width+ox+x];
-            Navigation[y*256+x]=terrain==Terrain.Water?(byte)9:terrain==Terrain.Forest&&Tree(x,y)?(byte)1:(byte)0;
+            Navigation[y*256+x]=terrain==Terrain.Water?(byte)8:(byte)0;
         }
         foreach(var b in p.Buildings.Where(b=>b.X/256==cellX&&b.Y/256==cellY))Compose(b);
     }
-    private bool Tree(int x,int y) => ((uint)((ox+x)*73856093)^((uint)(oy+y)*19349663)^(uint)project.Seed)%19==0;
+    private bool Tree(int x,int y) => ((uint)((ox+x)*73856093)^((uint)(oy+y)*19349663)^(uint)project.Seed)%19==0 && !project.Spawns.Any(s=>Math.Abs(s.X-ox-x)<=2&&Math.Abs(s.Y-oy-y)<=2);
     internal List<string> At(int x,int y,int z) {
         var index=y*256+x;
         if(z==1)return roofs.Contains(index)?["floors_interior_tilesandwood_01_40"]:[];
@@ -49,7 +49,7 @@ internal sealed class TileComposer
             AddRoom("bedroom",mid,half,x+w-mid,y+h-half,building);
             for(var yy=y;yy<y+h;yy++) {
                 var door=yy==y+2||yy==half+2;
-                Add(mid,yy,door?"walls_exterior_house_01_10":"walls_exterior_house_01_0",door?(byte)0:(byte)4);
+                Add(mid,yy,door?"walls_exterior_house_01_10":"walls_exterior_house_01_0",4);
                 if(door)Add(mid,yy,"fixtures_doors_01_0");
             }
             for(var xx=mid;xx<x+w;xx++)Add(xx,half,"walls_exterior_house_01_1",2);
@@ -62,7 +62,7 @@ internal sealed class TileComposer
         }
         for(var xx=x;xx<x+w;xx++) {
             var door=xx==x+Math.Min(3,w/2);var window=xx==x+w-3&&!door;
-            Add(xx,y,door?"walls_exterior_house_01_11":window?"walls_exterior_house_01_9":"walls_exterior_house_01_1",door?(byte)0:(byte)2);
+            Add(xx,y,door?"walls_exterior_house_01_11":window?"walls_exterior_house_01_9":"walls_exterior_house_01_1",2);
             if(door)Add(xx,y,"fixtures_doors_01_1");if(window)Add(xx,y,"fixtures_windows_01_1");
             Add(xx,y+h,xx==x+2?"walls_exterior_house_01_9":"walls_exterior_house_01_1",2);
             if(xx==x+2)Add(xx,y+h,"fixtures_windows_01_1");

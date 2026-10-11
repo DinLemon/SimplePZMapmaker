@@ -3,9 +3,11 @@ namespace SimplePZMapmaker.Core;
 public sealed record ImportResult(MapProject Project,int ImportedFeatures,int SkippedBuildings,List<string> Warnings);
 public static class GeographicImporter {
     private sealed record Feature(Dictionary<string,string> Tags,List<List<(double X,double Y)>> Rings,bool Polygon);
-    public static ImportResult Import(string json,MapProject project,GeoBounds? bounds=null)
+    public static ImportResult Import(string json,MapProject project,GeoBounds? bounds=null,CancellationToken cancellationToken=default)
     {
         ProjectValidator.Validate(project);
+        if(string.IsNullOrWhiteSpace(json))throw new ArgumentException("Файл геоданных пуст или не задан.");
+        cancellationToken.ThrowIfCancellationRequested();
         if(json.Length>16_000_000)throw new ArgumentException("Файл геоданных превышает 16 МБ.");
         using var document=Parse(json); var root=document.RootElement;
         var features=ReadFeatures(root); if(features.Count==0)throw new ArgumentException("В файле нет поддерживаемых линий или полигонов.");
@@ -25,19 +27,25 @@ public static class GeographicImporter {
         var left=(p.Width-(bounds.East-bounds.West)*cos*scale)/2;var top=(p.Height-(bounds.North-bounds.South)*scale)/2;
         (double X,double Y) Project((double X,double Y) v)=>(left+(v.X-bounds.West)*cos*scale,top+(bounds.North-v.Y)*scale);
         var transformed=features.Select(f=>f with{Rings=f.Rings.Select(r=>r.Select(Project).ToList()).ToList()}).ToList();
+        double work=0;
+        foreach(var f in transformed.Where(f=>f.Polygon&&!f.Tags.ContainsKey("building"))){var outer=f.Rings[0];var rows=Math.Clamp(outer.Max(v=>v.Y)-outer.Min(v=>v.Y)+2,0,p.Height);var columns=Math.Clamp(outer.Max(v=>v.X)-outer.Min(v=>v.X)+2,0,p.Width);work+=rows*(columns+f.Rings.Sum(r=>r.Count));}
+        if(work>40_000_000)throw new ArgumentException("Контуры слишком сложные для выбранной карты. Уменьшите участок, размер карты или упростите GeoJSON.");
         var imported=0;var skipped=0;
         foreach(var f in transformed.Where(f=>f.Polygon&&!f.Tags.ContainsKey("building"))) {
+            cancellationToken.ThrowIfCancellationRequested();
             var natural=f.Tags.GetValueOrDefault("natural");var land=f.Tags.GetValueOrDefault("landuse");
             var terrain=natural is "water" or "wetland" || land=="reservoir" ? Terrain.Water : natural=="wood"||land=="forest" ? Terrain.Forest : natural is "beach" or "sand" ? Terrain.Sand : Terrain.Grass;
-            FillPolygon(p,f.Rings,terrain);imported++;
+            FillPolygon(p,f.Rings,terrain,cancellationToken);imported++;
         }
         foreach(var f in transformed.Where(f=>!f.Polygon || f.Tags.ContainsKey("highway"))) {
+            cancellationToken.ThrowIfCancellationRequested();
             var water=f.Tags.ContainsKey("waterway"); if(!water&&!f.Tags.ContainsKey("highway"))continue;
             var highway=f.Tags.GetValueOrDefault("highway");var radius=water?2:highway is "motorway" or "trunk" ? 5:highway is "footway" or "path" or "cycleway" ? 1:3;
             foreach(var ring in f.Rings)for(var i=1;i<ring.Count;i++) DrawLine(p,ring[i-1],ring[i],radius,water?Terrain.Water:Terrain.Road);
             imported++;
         }
         foreach(var f in transformed.Where(f=>f.Polygon&&f.Tags.ContainsKey("building"))) {
+            cancellationToken.ThrowIfCancellationRequested();
             var ring=f.Rings[0]; var x=(int)Math.Floor(Math.Clamp(ring.Min(v=>v.X),-100000,100000));var y=(int)Math.Floor(Math.Clamp(ring.Min(v=>v.Y),-100000,100000));
             var w=(int)Math.Clamp(Math.Ceiling(ring.Max(v=>v.X)-x),0,100000);var h=(int)Math.Clamp(Math.Ceiling(ring.Max(v=>v.Y)-y),0,100000);
             var kind=f.Tags.ContainsKey("shop") || f.Tags.GetValueOrDefault("building")=="retail" ? "shop":f.Tags.GetValueOrDefault("building") is "warehouse" or "industrial" ? "warehouse":"house";
@@ -68,13 +76,22 @@ public static class GeographicImporter {
             result.Add(new(tags,rings,polygon));
         }
         if(root.TryGetProperty("elements",out var elements)&&elements.ValueKind==JsonValueKind.Array) {
+            var relationMembers=new HashSet<long>();
+            foreach(var relation in elements.EnumerateArray().Where(e=>e.TryGetProperty("members",out _)))foreach(var member in relation.GetProperty("members").EnumerateArray())if(member.TryGetProperty("ref",out var reference)&&reference.TryGetInt64(out var id))relationMembers.Add(id);
             foreach(var el in elements.EnumerateArray()) {
+                if(el.TryGetProperty("id",out var elementId)&&elementId.TryGetInt64(out var wayId)&&relationMembers.Contains(wayId)&&el.TryGetProperty("type",out var elementType)&&elementType.GetString()=="way")continue;
                 var tags=Tags(el,"tags");if(el.TryGetProperty("geometry",out var geometry)&&geometry.ValueKind==JsonValueKind.Array) {
                     var ring=geometry.EnumerateArray().Where(v=>v.TryGetProperty("lon",out _)&&v.TryGetProperty("lat",out _)).Select(v=>Point(v.GetProperty("lon").GetDouble(),v.GetProperty("lat").GetDouble())).ToList();
                     Add(tags,[ring],tags.ContainsKey("building")||tags.ContainsKey("landuse")||tags.GetValueOrDefault("natural") is "water" or "wood" or "sand" or "beach" or "wetland");
                 } else if(el.TryGetProperty("members",out var members)&&members.ValueKind==JsonValueKind.Array) {
-                    var rings=members.EnumerateArray().Where(m=>m.TryGetProperty("geometry",out _)).Select(m=>m.GetProperty("geometry").EnumerateArray().Select(v=>Point(v.GetProperty("lon").GetDouble(),v.GetProperty("lat").GetDouble())).ToList()).Where(r=>r.Count>=4&&r[0]==r[^1]).ToList();
-                    foreach(var ring in rings) Add(tags,[ring],true);
+                    var outerSegments=new List<List<(double X,double Y)>>();var innerSegments=new List<List<(double X,double Y)>>();
+                    foreach(var member in members.EnumerateArray())if(member.TryGetProperty("geometry",out var memberGeometry)&&memberGeometry.ValueKind==JsonValueKind.Array){
+                        var segment=memberGeometry.EnumerateArray().Where(v=>v.TryGetProperty("lon",out _)&&v.TryGetProperty("lat",out _)).Select(v=>Point(v.GetProperty("lon").GetDouble(),v.GetProperty("lat").GetDouble())).ToList();
+                        if(segment.Count<2)continue;
+                        (member.TryGetProperty("role",out var role)&&role.GetString()=="inner"?innerSegments:outerSegments).Add(segment);
+                    }
+                    var outers=Stitch(outerSegments);var inners=Stitch(innerSegments);
+                    foreach(var outer in outers){var rings=new List<List<(double,double)>>{outer};foreach(var inner in inners)if(Inside(inner[0].X,inner[0].Y,outer))rings.Add(inner);Add(tags,rings,true);}
                 }
             }
         }else if(root.TryGetProperty("features",out var features)&&features.ValueKind==JsonValueKind.Array) {
@@ -89,11 +106,32 @@ public static class GeographicImporter {
         } else throw new ArgumentException("Поддерживаются GeoJSON FeatureCollection и JSON Overpass.");
         return result;
     }
-    private static void FillPolygon(MapProject p,List<List<(double X,double Y)>> rings,Terrain terrain)
+    private static List<List<(double X,double Y)>> Stitch(List<List<(double X,double Y)>> segments)
     {
-        var ring=rings[0]; var minX=(int)Math.Clamp(Math.Floor(ring.Min(v=>v.X)),0,p.Width-1);var maxX=(int)Math.Clamp(Math.Ceiling(ring.Max(v=>v.X)),0,p.Width-1);
+        var endpoints=new Dictionary<(double,double),List<int>>();var used=new bool[segments.Count];
+        void Link((double,double) point,int index){if(!endpoints.TryGetValue(point,out var list))endpoints[point]=list=[];list.Add(index);}
+        for(var i=0;i<segments.Count;i++){Link(segments[i][0],i);Link(segments[i][^1],i);}
+        var result=new List<List<(double,double)>>();
+        for(var i=0;i<segments.Count;i++){if(used[i])continue;used[i]=true;var ring=new List<(double,double)>(segments[i]);
+            while(ring[^1]!=ring[0]){
+                if(!endpoints.TryGetValue(ring[^1],out var candidates))break;var next=candidates.FindIndex(j=>!used[j]);if(next<0)break;var index=candidates[next];used[index]=true;var segment=segments[index];
+                if(segment[0]==ring[^1])ring.AddRange(segment.Skip(1));else for(var j=segment.Count-2;j>=0;j--)ring.Add(segment[j]);
+            }
+            if(ring.Count>=4&&ring[0]==ring[^1])result.Add(ring);
+        }
+        return result;
+    }
+    private static void FillPolygon(MapProject p,List<List<(double X,double Y)>> rings,Terrain terrain,CancellationToken token)
+    {
+        var ring=rings[0];
         var minY=(int)Math.Clamp(Math.Floor(ring.Min(v=>v.Y)),0,p.Height-1);var maxY=(int)Math.Clamp(Math.Ceiling(ring.Max(v=>v.Y)),0,p.Height-1);
-        for(var y=minY;y<=maxY;y++)for(var x=minX;x<=maxX;x++) if(Inside(x+0.5,y+0.5,ring)&&!rings.Skip(1).Any(h=>Inside(x+0.5,y+0.5,h)))p.Terrain[y*p.Width+x]=terrain;
+        var intersections=new List<double>();
+        for(var y=minY;y<=maxY;y++) {
+            token.ThrowIfCancellationRequested();intersections.Clear();var scan=y+0.5;
+            foreach(var contour in rings)for(int i=0,j=contour.Count-1;i<contour.Count;j=i++)if((contour[i].Y>scan)!=(contour[j].Y>scan))intersections.Add(contour[i].X+(scan-contour[i].Y)*(contour[j].X-contour[i].X)/(contour[j].Y-contour[i].Y));
+            intersections.Sort();
+            for(var i=0;i+1<intersections.Count;i+=2){var first=(int)Math.Clamp(Math.Ceiling(intersections[i]-.5),0,p.Width);var end=(int)Math.Clamp(Math.Ceiling(intersections[i+1]-.5),0,p.Width);for(var x=first;x<end;x++)p.Terrain[y*p.Width+x]=terrain;}
+        }
     }
     private static bool Inside(double x,double y,List<(double X,double Y)> ring) {
         var inside=false;for(int i=0,j=ring.Count-1;i<ring.Count;j=i++)if((ring[i].Y>y)!=(ring[j].Y>y)&&x<(ring[j].X-ring[i].X)*(y-ring[i].Y)/(ring[j].Y-ring[i].Y)+ring[i].X)inside=!inside;return inside;

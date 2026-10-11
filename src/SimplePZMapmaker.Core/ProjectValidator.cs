@@ -16,8 +16,8 @@ public static class ProjectValidator
         {
             if(b is null || b.Kind is not ("house" or "shop" or "warehouse") || string.IsNullOrEmpty(b.Id) || !ids.Add(b.Id) || b.Name is null || b.Name.Length>100) Fail("Неизвестное или повреждённое здание.");
             if(b.Width is <6 or >64 || b.Height is <6 or >64 || b.X<1 || b.Y<1 || b.X>p.Width-b.Width-1 || b.Y>p.Height-b.Height-1 || b.X/256!=(b.X+b.Width)/256 || b.Y/256!=(b.Y+b.Height)/256) Fail("Здание выходит за границу карты или пересекает границу ячейки 256×256. Переместите его.");
-            for(var y=b.Y;y<b.Y+b.Height;y++) for(var x=b.X;x<b.X+b.Width;x++)
-            {var i=y*p.Width+x; if(!occupied.Add(i)) Fail("Здания пересекаются."); if(p.Terrain[i]==Terrain.Water) Fail("Здание стоит на воде.");}
+            for(var y=b.Y;y<=b.Y+b.Height;y++) for(var x=b.X;x<=b.X+b.Width;x++)
+            {var i=y*p.Width+x; if(!occupied.Add(i)) Fail("Стены или помещения зданий пересекаются."); if(x<b.X+b.Width&&y<b.Y+b.Height&&p.Terrain[i]==Terrain.Water) Fail("Здание стоит на воде.");}
         }
         foreach(var s in p.Spawns)
         {
@@ -29,6 +29,7 @@ public static class ProjectValidator
     }
     public static void ValidateBounds(GeoBounds b)
     {
+        if(b is null)throw new ArgumentException("Не задан выбранный участок. Укажите координаты границ.");
         if(!double.IsFinite(b.South)||!double.IsFinite(b.North)||!double.IsFinite(b.West)||!double.IsFinite(b.East)|| b.South< -85 || b.North>85 || b.West< -180 || b.East>180 || b.South>=b.North || b.West>=b.East || b.North-b.South>0.08 || b.East-b.West>0.12) Fail("Выберите участок до 0,08° по широте и 0,12° по долготе, без пересечения линии перемены дат.");
     }
     [System.Diagnostics.CodeAnalysis.DoesNotReturn]

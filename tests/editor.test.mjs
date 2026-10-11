@@ -14,3 +14,9 @@ test('undo and redo restore terrain and objects together',()=>{
  h.undo(p);assert.equal(p.terrain[20*256+20],0);assert.equal(p.buildings.length,0);h.redo(p);assert.equal(p.terrain[20*256+20],2);assert.equal(p.buildings.length,1);
 });
 test('malformed project and water spawns rejected',()=>{assert.throws(()=>validateProject({}));const p=blank(256);p.terrain[p.spawns[0].y*256+p.spawns[0].x]=3;assert.throws(()=>validateProject(p));});
+test('unchanged metadata focus cannot resurrect undone objects',()=>{
+ const p=blank(),h=new History();h.begin(p);p.buildings.push({id:'a',kind:'house',x:30,y:30,width:12,height:10,name:'Дом'});h.commit(p);
+ h.begin(p);h.undo(p);h.begin(p);paint(p,70,70,2,1,h);h.commit(p);h.undo(p);assert.equal(p.buildings.length,0);assert.equal(p.terrain[70*256+70],0);
+});
+test('seed and bounds are validated before save or export',()=>{for(const seed of [undefined,2**40,1.5]){const p=blank();p.seed=seed;assert.throws(()=>validateProject(p));}const p=blank();p.bounds={north:60,south:50,east:30,west:20};assert.throws(()=>validateProject(p));});
+test('final usable perimeter and cell crossings match native validation',()=>{const p=blank(),b={id:'edge',kind:'house',name:'Дом',x:249,y:20,width:6,height:6};assert.equal(canPlace(p,b),true);assert.equal(canPlace(p,{...b,x:250}),false);});

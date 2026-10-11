@@ -21,9 +21,12 @@ async function api(path,data,signal){
 }
 async function task(message,run){
  if(busy){toast('Дождитесь завершения текущей операции.');return;}
- busy=true;controller=new AbortController();$('busy-overlay').hidden=false;$('busy-message').textContent=message;status(message);
+ finish();document.activeElement?.blur();history.commit(project);
+ busy=true;controller=new AbortController();$('busy-message').textContent=message;status(message);
+ for(const element of document.querySelectorAll('.topbar,main,footer,dialog:not(#operation-dialog)'))element.inert=true;
+ $('operation-dialog').showModal();
  try{await run(controller.signal);status('Готово');}catch(e){if(e.name==='AbortError'){toast('Операция отменена.');status('Отменено');}else{toast(e.message,true);status('Проверьте данные');}}
- finally{busy=false;controller=null;$('busy-overlay').hidden=true;update();}
+ finally{busy=false;controller=null;$('operation-dialog').close();for(const element of document.querySelectorAll('.topbar,main,footer,dialog'))element.inert=false;update();}
 }
 function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);}
 function autosave(){
@@ -148,6 +151,7 @@ $('view-iso').onclick=()=>{isometric=true;$('view-iso').classList.add('active');
 $('fit-map').onclick=fit;$('zoom-in').onclick=()=>scaleAt(1.25);$('zoom-out').onclick=()=>scaleAt(.8);
 $('undo').onclick=()=>{finish();if(history.undo(project)){selectedId=null;selectedSpawn=-1;changed();}};$('redo').onclick=()=>{if(history.redo(project)){selectedId=null;selectedSpawn=-1;changed();}};
 $('project-name').onfocus=()=>history.begin(project);$('project-name').onchange=()=>{const value=$('project-name').value.trim();if(!value||/[\x00-\x1f\x7f]/.test(value)){toast('Введите название карты.',true);update();return;}project.name=value;history.commit(project);changed();};
+$('project-name').onblur=()=>history.commit(project);
 for(const [id,key] of [['world-x','worldX'],['world-y','worldY']])$(id).onchange=()=>{const value=+$(id).value;if(!Number.isInteger(value)||value<0||value>1000){toast('Координата ячейки: целое число от 0 до 1000.',true);update();return;}history.begin(project);project[key]=value;history.commit(project);changed();};
 $('apply-building').onclick=()=>{const b=project.buildings.find(b=>b.id===selectedId);if(!b)return;const updated={...b,name:$('building-name').value,x:+$('building-x').value,y:+$('building-y').value,width:+$('building-width').value,height:+$('building-height').value};
  if(!canPlace({...project,buildings:project.buildings.filter(a=>a!==b)},updated)){toast('Здание пересекается с объектами, водой или границей ячейки.',true);return;}history.begin(project);Object.assign(b,updated);history.commit(project);changed();};
@@ -158,7 +162,7 @@ $('new-map').onclick=()=>{if(busy)return;$('new-dialog').showModal();};
 $('new-form').onsubmit=e=>{e.preventDefault();task('Создаём карту…',async signal=>{const p=await api('/api/generate',{size:+$('new-size').value,seed:+$('new-seed').value,kind:$('new-kind').value,name:$('new-name').value,forestDensity:+$('new-forest').value,buildingDensity:+$('new-buildings').value,zombieDensity:+$('zombie-density').value},signal);adopt(p);$('new-dialog').close();toast('Карта создана. Можно рисовать.');});};
 $('save-project').onclick=()=>{try{validateProject(project);download(new Blob([JSON.stringify(project)],{type:'application/json'}),project.name.replace(/[<>:"/\\|?*]/g,'_')+'.pzmap.json');$('save-state').textContent='Проект сохранён в файл';toast('Проект сохранён. Открывайте этот файл для продолжения.');}catch(e){toast(e.message,true);}};
 $('load-project').onclick=()=>{if(!busy)$('project-file').click();};
-$('project-file').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>16_000_000)throw Error('Проект превышает 16 МБ.');adopt(JSON.parse(await file.text()));toast('Проект открыт.');}catch(error){toast(error.message,true);}finally{e.target.value='';}};
+$('project-file').onchange=e=>{const file=e.target.files[0];if(!file)return;task('Открываем проект…',async signal=>{if(file.size>16_000_000)throw Error('Проект превышает 16 МБ.');const text=await file.text();signal.throwIfAborted();adopt(JSON.parse(text));toast('Проект открыт.');}).finally(()=>e.target.value='');};
 $('open-help').onclick=()=>$('help-dialog').showModal();
 $('open-import').onclick=()=>{if(!busy)$('import-dialog').showModal();};
 function bounds(){const lat=+$('import-lat').value,lon=+$('import-lon').value,extent=+$('import-extent').value;const dy=extent/111320/2,dx=dy/Math.cos(lat*Math.PI/180);if(!Number.isFinite(dx)||Math.abs(lat)>84||Math.abs(lon)>179)throw Error('Проверьте координаты выбранного участка.');return {south:lat-dy,north:lat+dy,west:lon-dx,east:lon+dx};}
@@ -171,6 +175,7 @@ $('geodata-file').onchange=e=>{const file=e.target.files[0];if(!file)return;task
 $('export-map').onclick=()=>{try{validateProject(project);$('export-summary').textContent=`${project.width/256} × ${project.height/256} ячеек; ${project.buildings.length} зданий; начало: ${project.worldX}, ${project.worldY}.`;$('export-dialog').showModal();}catch(e){toast(e.message,true);}};
 $('download-mod').onclick=()=>task('Собираем карту для Build 42…',async signal=>{download(await api('/api/export',project,signal),'SimplePZMap.zip');$('export-dialog').close();toast('ZIP собран. Инструкция и исходный проект находятся внутри.');});
 $('cancel-operation').onclick=()=>controller?.abort();
+$('operation-dialog').addEventListener('cancel',e=>{e.preventDefault();controller?.abort();});
 document.addEventListener('keydown',e=>{if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)||document.querySelector('dialog[open]'))return;
  if(e.code==='Space'){space=true;e.preventDefault();return;}if(busy)return;
  if(e.ctrlKey||e.metaKey){if(e.key.toLowerCase()==='z'){e.preventDefault();$(e.shiftKey?'redo':'undo').click();}else if(e.key.toLowerCase()==='s'){e.preventDefault();$('save-project').click();}else if(e.key.toLowerCase()==='o'){e.preventDefault();$('load-project').click();}return;}

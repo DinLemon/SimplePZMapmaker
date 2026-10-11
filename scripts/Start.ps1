@@ -1,9 +1,14 @@
+param([switch]$NoBrowser)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'WorkspaceEnv.ps1')
 $env:PZMAP_WORKSPACE=$taskRoot
 $url='http://127.0.0.1:48765'
 $running=$false
-try{$state=Invoke-RestMethod -Uri "$url/api/environment" -TimeoutSec 2; $running=$state.version -eq '0.1.0'}catch{}
+try{$state=Invoke-RestMethod -Uri "$url/api/environment" -TimeoutSec 2}catch{$state=$null}
+if($state -and $state.version -eq '0.1.0'){
+ if([IO.Path]::GetFullPath($state.workspace).TrimEnd('\') -ne [IO.Path]::GetFullPath($taskRoot).TrimEnd('\')){throw 'Port 48765 is occupied by SimplePZMapmaker from another directory. Stop that instance first.'}
+ $running=$true
+}
 if(-not $running){
  $exe=Join-Path $taskRoot 'artifacts\app\SimplePZMapmaker.Web.exe'
  if(-not(Test-Path -LiteralPath $exe)){& (Join-Path $PSScriptRoot 'publish.ps1');if($LASTEXITCODE -ne 0){throw 'Publish failed.'}}
@@ -16,4 +21,4 @@ if(-not $running){
  }
  if(-not $running){throw "Server did not start. See $logs"}
 }
-Start-Process $url
+if(-not $NoBrowser){Start-Process $url}

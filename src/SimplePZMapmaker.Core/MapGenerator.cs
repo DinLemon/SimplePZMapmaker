@@ -36,7 +36,7 @@ public static class MapGenerator
         for(var yy=Math.Max(0,y-radius);yy<=Math.Min(p.Height-1,y+radius);yy++) for(var xx=Math.Max(0,x-radius);xx<=Math.Min(p.Width-1,x+radius);xx++) p.Terrain[yy*p.Width+xx]=Terrain.Road;
     }
     public static bool CanPlace(MapProject p,Building b) {
-        if(b.X<1||b.Y<1||b.X+b.Width>=p.Width-1||b.Y+b.Height>=p.Height-1||b.X/256!=(b.X+b.Width)/256||b.Y/256!=(b.Y+b.Height)/256) return false;
+        if(b.X<1||b.Y<1||b.X+b.Width>=p.Width||b.Y+b.Height>=p.Height||b.X/256!=(b.X+b.Width)/256||b.Y/256!=(b.Y+b.Height)/256) return false;
         if(p.Buildings.Any(a=>b.X<a.X+a.Width+1&&b.X+b.Width+1>a.X&&b.Y<a.Y+a.Height+1&&b.Y+b.Height+1>a.Y)) return false;
         for(var y=b.Y;y<b.Y+b.Height;y++) for(var x=b.X;x<b.X+b.Width;x++) if(p.Terrain[y*p.Width+x] is Terrain.Water or Terrain.Road) return false;
         return true;

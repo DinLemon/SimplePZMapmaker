@@ -22,7 +22,7 @@ app.Use(async(context,next)=> {
         if(context.Response.HasStarted)throw;
         context.Response.StatusCode=400;await context.Response.WriteAsJsonAsync(new{error=e is ArgumentException?e.Message:"Не удалось прочитать данные. Проверьте проект или файл геоданных."});
     }
-    catch(Exception e) when(e is HttpRequestException or TaskCanceledException) {
+    catch(Exception e) when(e is HttpRequestException or OperationCanceledException) {
         if(context.RequestAborted.IsCancellationRequested)return;
         context.Response.StatusCode=502;await context.Response.WriteAsJsonAsync(new{error=e is HttpRequestException?e.Message:"Сервис не ответил вовремя. Уменьшите участок или повторите позже."});
     }
@@ -30,8 +30,8 @@ app.Use(async(context,next)=> {
 app.UseDefaultFiles();app.UseStaticFiles();
 app.MapGet("/api/environment",()=>new {version="0.1.0",target="Project Zomboid Build 42",gameFound=Directory.Exists(@"./game-installation\media"),gamePath=@"./game-installation",cellSize=256,chunkSize=8,workspace});
 app.MapPost("/api/generate",(GenerationOptions options)=>MapGenerator.Generate(options));
-app.MapPost("/api/import/geojson",(GeoImportRequest request)=>GeographicImporter.Import(request.Json,request.Project,request.Bounds));
-app.MapPost("/api/import/osm",async(OsmImportRequest request,OsmClient client,CancellationToken token)=>{ProjectValidator.Validate(request.Project);return GeographicImporter.Import(await client.Fetch(request.Bounds,token),request.Project,request.Bounds);});
+app.MapPost("/api/import/geojson",(GeoImportRequest request,CancellationToken token)=>GeographicImporter.Import(request.Json,request.Project,request.Bounds,token));
+app.MapPost("/api/import/osm",async(OsmImportRequest request,OsmClient client,CancellationToken token)=>{ProjectValidator.Validate(request.Project);return GeographicImporter.Import(await client.Fetch(request.Bounds,token),request.Project,request.Bounds,token);});
 app.MapPost("/api/search",async(SearchRequest request,OsmClient client,CancellationToken token)=>await client.Search(request.Query,token));
 app.MapPost("/api/export",(MapProject project)=>Results.File(NativeMapExporter.Export(project),"application/zip","SimplePZMap.zip"));
 app.MapPost("/api/validate",(MapProject project)=>{ProjectValidator.Validate(project);return Results.Ok(new{valid=true});});
