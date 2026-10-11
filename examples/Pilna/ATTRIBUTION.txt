@@ -1,0 +1,15 @@
+Map data © OpenStreetMap contributors.
+https://www.openstreetmap.org/copyright
+Open Database License (ODbL) 1.0: https://opendatacommons.org/licenses/odbl/1-0/
+
+Source: OpenStreetMap via Overpass API, retrieved2026-10-12.
+Place reference: https://www.openstreetmap.org/way/158713814
+Identification reference supplied by the user: https://ru.wikipedia.org/wiki/Пильна
+
+osm-source.json is the source geographic database, available under ODbL.
+pilna.pzmap.json is derived geographic data produced by SimplePZMapmaker;
+geographic data is available under ODbL. Pilna-B42.zip contains a generated
+game map, source project and attribution. Keep this attribution with all copies.
+Room interiors, furniture, spawns and zombie distribution are invented for gameplay.
+The generated files contain tile identifiers, not Project Zomboid artwork.
+Application source code has its own GPL-2.0-or-later licence.

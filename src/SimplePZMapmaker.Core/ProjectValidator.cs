@@ -5,7 +5,7 @@ public static class ProjectValidator
     {
         ArgumentNullException.ThrowIfNull(p);
         if(p.Version!=1) Fail("Версия проекта не поддерживается.");
-        if(p.Width is <256 or >1024 || p.Height is <256 or >1024 || p.Width%256!=0 || p.Height%256!=0) Fail("Размер карты: от 256 до 1024, кратный 256.");
+        if(p.Width is <256 or >2048 || p.Height is <256 or >2048 || p.Width%256!=0 || p.Height%256!=0) Fail("Размер карты: от 256 до 2048, кратный 256.");
         if(string.IsNullOrWhiteSpace(p.Name) || p.Name.Length>80 || p.Name.Any(char.IsControl)) Fail("Название: от 1 до 80 символов без переносов строк.");
         if(p.WorldX is <0 or >1000 || p.WorldY is <0 or >1000) Fail("Координаты мира: от 0 до 1000 ячеек.");
         if(p.Terrain is null || p.Terrain.Length!=p.Width*p.Height || p.Terrain.Any(t=>!Enum.IsDefined(t))) Fail("Слой земли повреждён.");
@@ -26,6 +26,8 @@ public static class ProjectValidator
             if(p.Buildings.Any(b=>s.X>=b.X && s.X<=b.X+b.Width && s.Y>=b.Y && s.Y<=b.Y+b.Height)) Fail("Поставьте точку появления снаружи здания.");
         }
         if(p.Bounds is not null) ValidateBounds(p.Bounds);
+        if(p.MetresPerTile is double metres && (!double.IsFinite(metres)||metres<=0||metres>100000))Fail("Масштаб геоданных повреждён.");
+        if(p.ImportSummary is { } summary && (summary.SourceFeatures is <0 or >30000||summary.SourceBuildings is <0 or >30000||summary.PlacedBuildings is <0 or >4000||summary.SkipReasons is null||summary.SkipReasons.Count>20||summary.SkipReasons.Any(s=>s.Key.Length>100||s.Value is <0 or >30000)))Fail("Отчёт импорта повреждён.");
     }
     public static void ValidateBounds(GeoBounds b)
     {

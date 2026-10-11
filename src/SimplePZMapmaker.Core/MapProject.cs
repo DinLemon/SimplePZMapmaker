@@ -16,6 +16,15 @@ public sealed class MapProject
     public List<SpawnPoint> Spawns { get; set; }=[];
     public List<string> Attribution { get; set; }=[];
     public GeoBounds? Bounds { get; set; }
+    public double? MetresPerTile { get; set; }
+    public ImportSummary? ImportSummary {get;set;}
+}
+public sealed class ImportSummary
+{
+    public int SourceFeatures {get;set;}
+    public int SourceBuildings {get;set;}
+    public int PlacedBuildings {get;set;}
+    public Dictionary<string,int> SkipReasons {get;set;}=[];
 }
 public sealed class Building
 {

@@ -3,7 +3,7 @@ public static class MapGenerator
 {
     public static MapProject Generate(GenerationOptions o)
     {
-        if(o.Size is <256 or >1024 || o.Size%256!=0 || o.Kind is not ("town" or "wilderness" or "blank") || o.ForestDensity is <0 or >100 || o.BuildingDensity is <0 or >100 || o.ZombieDensity is <0 or >255) throw new ArgumentException("Проверьте размер, тип карты и плотность объектов.");
+        if(o.Size is <256 or >2048 || o.Size%256!=0 || o.Kind is not ("town" or "wilderness" or "blank") || o.ForestDensity is <0 or >100 || o.BuildingDensity is <0 or >100 || o.ZombieDensity is <0 or >255) throw new ArgumentException("Проверьте размер, тип карты и плотность объектов.");
         var n=o.Size; var p=new MapProject {Name=o.Name,Width=n,Height=n,Seed=o.Seed,Terrain=new Terrain[n*n],Zombies=new int[n*n/64]};
         var random=new Random(o.Seed);
         if(o.Kind!="blank")
@@ -25,10 +25,8 @@ public static class MapGenerator
                     if(CanPlace(p,b)) {p.Buildings.Add(b); for(var yy=y-1;yy<=y+10;yy++) for(var xx=x-1;xx<=x+12;xx++) p.Terrain[yy*n+xx]=Terrain.Grass;}
                 }
             }
-            for(var y=0;y<n/8;y++) for(var x=0;x<n/8;x++) {
-                var near=p.Buildings.Any(b=>Math.Abs(b.X/8-x)<=2 && Math.Abs(b.Y/8-y)<=2);
-                p.Zombies[y*(n/8)+x]=near ? o.ZombieDensity:o.ZombieDensity/12;
-            }
+            Array.Fill(p.Zombies,o.ZombieDensity/12);
+            foreach(var b in p.Buildings)for(var y=Math.Max(0,b.Y/8-2);y<=Math.Min(n/8-1,b.Y/8+2);y++)for(var x=Math.Max(0,b.X/8-2);x<=Math.Min(n/8-1,b.X/8+2);x++)p.Zombies[y*(n/8)+x]=o.ZombieDensity;
         }
         p.Spawns.Add(FindSafeSpawn(p)); ProjectValidator.Validate(p); return p;
     }

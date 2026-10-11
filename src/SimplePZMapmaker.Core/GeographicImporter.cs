@@ -1,6 +1,11 @@
 using System.Text.Json;
 namespace SimplePZMapmaker.Core;
-public sealed record ImportResult(MapProject Project,int ImportedFeatures,int SkippedBuildings,List<string> Warnings);
+public sealed record ImportResult(MapProject Project,int ImportedFeatures,int SkippedBuildings,List<string> Warnings)
+{
+    public int SourceBuildings {get;init;}
+    public int SourceFeatures {get;init;}
+    public Dictionary<string,int> SkipReasons {get;init;}=[];
+}
 public static class GeographicImporter {
     private sealed record Feature(Dictionary<string,string> Tags,List<List<(double X,double Y)>> Rings,bool Polygon);
     public static ImportResult Import(string json,MapProject project,GeoBounds? bounds=null,CancellationToken cancellationToken=default)
@@ -24,13 +29,14 @@ public static class GeographicImporter {
         if(!p.Attribution.Contains(source))p.Attribution.Add(source);
         var cos=Math.Cos((bounds.North+bounds.South)/2*Math.PI/180);
         var scale=Math.Min((p.Width-16)/((bounds.East-bounds.West)*cos),(p.Height-16)/(bounds.North-bounds.South));
+        p.MetresPerTile=111320/scale;
         var left=(p.Width-(bounds.East-bounds.West)*cos*scale)/2;var top=(p.Height-(bounds.North-bounds.South)*scale)/2;
         (double X,double Y) Project((double X,double Y) v)=>(left+(v.X-bounds.West)*cos*scale,top+(bounds.North-v.Y)*scale);
         var transformed=features.Select(f=>f with{Rings=f.Rings.Select(r=>r.Select(Project).ToList()).ToList()}).ToList();
         double work=0;
         foreach(var f in transformed.Where(f=>f.Polygon&&!f.Tags.ContainsKey("building"))){var outer=f.Rings[0];var rows=Math.Clamp(outer.Max(v=>v.Y)-outer.Min(v=>v.Y)+2,0,p.Height);var columns=Math.Clamp(outer.Max(v=>v.X)-outer.Min(v=>v.X)+2,0,p.Width);work+=rows*(columns+f.Rings.Sum(r=>r.Count));}
         if(work>40_000_000)throw new ArgumentException("Контуры слишком сложные для выбранной карты. Уменьшите участок, размер карты или упростите GeoJSON.");
-        var imported=0;var skipped=0;
+        var imported=0;var skipped=0;var skipReasons=new Dictionary<string,int>();
         foreach(var f in transformed.Where(f=>f.Polygon&&!f.Tags.ContainsKey("building"))) {
             cancellationToken.ThrowIfCancellationRequested();
             var natural=f.Tags.GetValueOrDefault("natural");var land=f.Tags.GetValueOrDefault("landuse");
@@ -40,7 +46,10 @@ public static class GeographicImporter {
         foreach(var f in transformed.Where(f=>!f.Polygon || f.Tags.ContainsKey("highway"))) {
             cancellationToken.ThrowIfCancellationRequested();
             var water=f.Tags.ContainsKey("waterway"); if(!water&&!f.Tags.ContainsKey("highway"))continue;
-            var highway=f.Tags.GetValueOrDefault("highway");var radius=water?2:highway is "motorway" or "trunk" ? 5:highway is "footway" or "path" or "cycleway" ? 1:3;
+            var highway=f.Tags.GetValueOrDefault("highway");
+            double widthMetres=water?8:highway is "motorway" or "trunk"?16:highway is "primary" or "secondary"?10:highway is "footway" or "path" or "cycleway"?2:6;
+            if(f.Tags.TryGetValue("width",out var widthText)&&double.TryParse(widthText.Replace(" m",""),System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out var specifiedWidth)&&specifiedWidth>0&&specifiedWidth<=60)widthMetres=specifiedWidth;
+            var radius=Math.Clamp((int)Math.Round(widthMetres/p.MetresPerTile.Value/2),0,24);
             foreach(var ring in f.Rings)for(var i=1;i<ring.Count;i++) DrawLine(p,ring[i-1],ring[i],radius,water?Terrain.Water:Terrain.Road);
             imported++;
         }
@@ -51,13 +60,18 @@ public static class GeographicImporter {
             var kind=f.Tags.ContainsKey("shop") || f.Tags.GetValueOrDefault("building")=="retail" ? "shop":f.Tags.GetValueOrDefault("building") is "warehouse" or "industrial" ? "warehouse":"house";
             var b=new Building{Id=$"import-{x}-{y}-{p.Buildings.Count}",X=x,Y=y,Width=Math.Max(6,w),Height=Math.Max(6,h),Kind=kind,Name=f.Tags.GetValueOrDefault("name",kind=="shop"?"Магазин":kind=="warehouse"?"Склад":"Дом")};
             b.Name=b.Name[..Math.Min(100,b.Name.Length)];
-            if(w>64||h>64||!MapGenerator.CanPlace(p,b)){skipped++;continue;}
+            if(w>64||h>64||!MapGenerator.CanPlace(p,b)){
+                skipped++;
+                var reason=w>64||h>64?"Слишком большой контур":b.X<1||b.Y<1||b.X+b.Width>=p.Width||b.Y+b.Height>=p.Height?"За границей карты":b.X/256!=(b.X+b.Width)/256||b.Y/256!=(b.Y+b.Height)/256?"Граница ячейки":p.Buildings.Any(a=>b.X<a.X+a.Width+1&&b.X+b.Width+1>a.X&&b.Y<a.Y+a.Height+1&&b.Y+b.Height+1>a.Y)?"Пересечение зданий":"Вода или дорога";
+                skipReasons[reason]=skipReasons.GetValueOrDefault(reason)+1;continue;
+            }
             p.Buildings.Add(b);imported++;
         }
         p.Spawns=[MapGenerator.FindSafeSpawn(p)];
+        p.ImportSummary=new(){SourceFeatures=features.Count,SourceBuildings=transformed.Count(f=>f.Polygon&&f.Tags.ContainsKey("building")),PlacedBuildings=p.Buildings.Count,SkipReasons=new(skipReasons)};
         foreach(var b in p.Buildings)for(var y=b.Y/8;y<=(b.Y+b.Height)/8;y++)for(var x=b.X/8;x<=(b.X+b.Width)/8;x++)p.Zombies[y*(p.Width/8)+x]=90;
         ProjectValidator.Validate(p);
-        return new(p,imported,skipped,skipped>0?[$"Пропущено зданий: {skipped}. Причины: размер, вода, дорога, пересечение или граница ячейки. Остальные контуры адаптированы к сетке; интерьеры сгенерированы."]:[]);
+        return new(p,imported,skipped,skipped>0?[$"Пропущено зданий: {skipped}. "+string.Join("; ",skipReasons.Select(r=>$"{r.Key}: {r.Value}"))+". Контуры адаптированы к сетке; интерьеры сгенерированы."]:[]){SourceBuildings=transformed.Count(f=>f.Polygon&&f.Tags.ContainsKey("building")),SourceFeatures=features.Count,SkipReasons=skipReasons};
     }
     private static JsonDocument Parse(string json){try{return JsonDocument.Parse(json,new(){MaxDepth=48});}catch(JsonException){throw new ArgumentException("Не удалось прочитать JSON геоданных.");}}
     private static List<Feature> ReadFeatures(JsonElement root)

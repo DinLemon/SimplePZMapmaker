@@ -1,4 +1,5 @@
 $taskRoot=Split-Path -Parent $PSScriptRoot
+$env:PZMAP_WORKSPACE=$taskRoot
 $env:TEMP=Join-Path $taskRoot 'work\tmp'
 $env:TMP=$env:TEMP
 $env:DOTNET_CLI_HOME=Join-Path $taskRoot 'work\dotnet-home'

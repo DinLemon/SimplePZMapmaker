@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {blank,paint,line,canPlace,History,validateProject} from '../src/SimplePZMapmaker.Web/wwwroot/editor.js';
+import {blank,paint,line,canPlace,History,validateProject,boundsFromSearchResult} from '../src/SimplePZMapmaker.Web/wwwroot/editor.js';
 test('brush clips at edges and preserves buildings from water',()=>{
  const p=blank(256);p.buildings.push({id:'a',kind:'house',x:10,y:10,width:12,height:10,name:'Дом'});
  paint(p,-1,0,3,4);assert.equal(p.terrain[0],3);paint(p,12,12,3,2);assert.equal(p.terrain[12*256+12],0);assert.equal(p.terrain.length,65536);
@@ -20,3 +20,13 @@ test('unchanged metadata focus cannot resurrect undone objects',()=>{
 });
 test('seed and bounds are validated before save or export',()=>{for(const seed of [undefined,2**40,1.5]){const p=blank();p.seed=seed;assert.throws(()=>validateProject(p));}const p=blank();p.bounds={north:60,south:50,east:30,west:20};assert.throws(()=>validateProject(p));});
 test('final usable perimeter and cell crossings match native validation',()=>{const p=blank(),b={id:'edge',kind:'house',name:'Дом',x:249,y:20,width:6,height:6};assert.equal(canPlace(p,b),true);assert.equal(canPlace(p,{...b,x:250}),false);});
+test('2048 project survives browser validation',()=>{assert.equal(validateProject(blank(2048)).width,2048);});
+test('search result retains entire Pilna boundary and rejects oversized cities',()=>{
+ assert.deepEqual(boundsFromSearchResult({boundingbox:['55.5363','55.5781','45.8833','45.9422']}),{south:55.5363,north:55.5781,west:45.8833,east:45.9422});
+ assert.equal(boundsFromSearchResult({boundingbox:['0','90','0','180']}),null);assert.equal(boundsFromSearchResult({boundingbox:['oops']}),null);
+});
+test('broad fill history stays compact and undo remains exact',()=>{
+ const p=blank(512),h=new History();h.begin(p);for(let i=0;i<p.terrain.length;i++){h.touch('terrain',i,p.terrain[i]);p.terrain[i]=5;}h.commit(p);
+ assert.ok(JSON.stringify(h.past).length<8_000_000,'Broad fill keeps hundreds of thousands of history objects');
+ h.undo(p);assert.ok(p.terrain.every(v=>v===0));h.redo(p);assert.ok(p.terrain.every(v=>v===5));
+});

@@ -11,5 +11,9 @@ try{
  if($env:PZMAP_BROWSER_TESTS -eq '1'){
   node scripts/verify-browser.mjs
   if($LASTEXITCODE -ne 0){throw 'Browser checks failed.'}
+  node scripts/verify-review.mjs
+  if($LASTEXITCODE -ne 0){throw 'Browser cancellation checks failed.'}
+  node scripts/verify-pilna.mjs
+  if($LASTEXITCODE -ne 0){throw 'Pilna browser checks failed.'}
  }
 }finally{Pop-Location}

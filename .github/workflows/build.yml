@@ -1,0 +1,28 @@
+name: Build and verify
+on:
+  push:
+    branches: [develop]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Core, editor and application checks
+        shell: pwsh
+        run: ./scripts/verify.ps1
+      - name: Publish Windows application
+        shell: pwsh
+        run: ./scripts/publish.ps1
+      - name: Verify all cells of the example mod
+        shell: pwsh
+        run: node scripts/verify-native-map.mjs

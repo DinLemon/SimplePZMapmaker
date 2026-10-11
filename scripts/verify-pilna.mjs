@@ -1,0 +1,34 @@
+import {chromium} from '../work/qa/node_modules/playwright/index.mjs';
+import assert from 'node:assert/strict';
+import {fileURLToPath} from 'node:url';
+import {blank} from '../src/SimplePZMapmaker.Web/wwwroot/editor.js';
+const browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1600,height:1000}});
+const errors=[];page.on('pageerror',e=>errors.push(e.message));
+try{
+ const legacy=blank();legacy.name='Старый проект';
+ await page.addInitScript(p=>{if(!sessionStorage.getItem('migration-fixture')){localStorage.setItem('simple-pz-mapmaker:project:v1',JSON.stringify(p));sessionStorage.setItem('migration-fixture','done');}},legacy);
+ await page.goto('http://127.0.0.1:48765');await page.waitForFunction(()=>document.querySelector('#game-status')?.textContent.includes('найден'));
+ assert.equal(await page.locator('#project-name').inputValue(),'Старый проект');
+ await page.waitForFunction(()=>document.querySelector('#save-state').textContent.includes('Автосохранено'));
+ assert.equal(await page.evaluate(()=>localStorage.getItem('simple-pz-mapmaker:project:v1')),null);
+ const response=await page.request.get('http://127.0.0.1:48765/api/examples/pilna');assert.equal(response.status(),200);
+ const project=await response.json();assert.equal(project.width,2048);assert.equal(project.name,'Пильна');assert.ok(project.buildings.length>1300);assert.ok(project.terrain.includes(3));assert.ok(project.terrain.includes(2));
+ await page.locator('#load-pilna').click();await page.waitForFunction(()=>document.querySelector('#size-stat')?.textContent==='2048 × 2048');
+ assert.equal(await page.locator('#building-count').textContent(),String(project.buildings.length));
+ await page.waitForFunction(()=>document.querySelector('#save-state').textContent.includes('Автосохранено'),null,{timeout:10000});
+ await page.reload();await page.waitForFunction(()=>document.querySelector('#size-stat').textContent==='2048 × 2048');
+ assert.equal(await page.locator('#project-name').inputValue(),'Пильна');
+ assert.ok((await page.locator('#scale-stat').textContent()).includes('2,29'));
+ await page.screenshot({path:fileURLToPath(new URL('../work/qa-results/pilna.png',import.meta.url)),fullPage:true});
+ await page.locator('#open-import').click();await page.locator('#place-query').fill('Пильна Нижегородская область');await page.locator('#search-form button').click();
+ await page.locator('#place-results button').first().waitFor();await page.locator('#place-results button').first().click();
+ assert.equal(await page.locator('#use-place-bounds').isChecked(),true);assert.equal(await page.locator('#import-size').inputValue(),'2048');
+ assert.equal(await page.locator('#import-extent').isDisabled(),true);
+ await page.locator('#import-dialog [data-close]').click();
+ const download=page.waitForEvent('download');await page.locator('#save-project').click();await (await download).saveAs(fileURLToPath(new URL('../work/qa-results/pilna-roundtrip.pzmap.json',import.meta.url)));
+ await page.locator('#project-file').setInputFiles(fileURLToPath(new URL('../work/qa-results/pilna-roundtrip.pzmap.json',import.meta.url)));await page.waitForFunction(()=>document.querySelector('#size-stat').textContent==='2048 × 2048');
+ const zip=page.waitForEvent('download');await page.locator('#export-map').click();await page.locator('#download-mod').click();await (await zip).saveAs(fileURLToPath(new URL('../work/qa-results/pilna-browser-export.zip',import.meta.url)));
+ const independent=await browser.newPage();await independent.goto('http://127.0.0.1:48765');await independent.waitForFunction(()=>document.querySelector('#size-stat')?.textContent==='256 × 256');
+ assert.equal(await independent.locator('#project-name').inputValue(),'Тихий город');await independent.close();
+ assert.deepEqual(errors,[]);console.log('PASS legacy autosave migration,2048 Pilna recovery, isolated browser sessions, scale report, whole search bounds, save/reopen and export with no browser errors');
+}finally{await browser.close();}

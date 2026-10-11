@@ -1,12 +1,17 @@
-import {blank,paint,line,canPlace,History,validateProject} from './editor.js';
+import {blank,paint,line,canPlace,History,validateProject,boundsFromSearchResult} from './editor.js';
 
 const $=id=>document.getElementById(id);
 const colors=['#8b9768','#526b4b','#787975','#507b85','#c6b58d','#8e765e','#a5a395'];
 const terrainNames=['трава','лес','асфальт','вода','песок','земля','тротуар'];
 const catalog={house:{width:12,height:10,name:'Дом'},shop:{width:14,height:10,name:'Магазин'},warehouse:{width:20,height:14,name:'Склад'}};
 const recoveryKey='simple-pz-mapmaker:project:v1';
+const recoveryClientKey='simple-pz-mapmaker:recovery-client:v1';
+let recoveryId=crypto.randomUUID().replaceAll('-','');
+try{const existing=localStorage.getItem(recoveryClientKey);if(/^[a-f0-9]{32}$/.test(existing||''))recoveryId=existing;else localStorage.setItem(recoveryClientKey,recoveryId);}catch{}
+let autosaveRevision=0,recoveryQueue=Promise.resolve();
 let project=blank(),history=new History(),tool='brush',terrain=0,buildingKind='house';
 let selectedId=null,selectedSpawn=-1,gesture=null,cursor=null,isometric=false,showGrid=true;
+let selectedPlaceBounds=null;
 let zoom=1,pan={x:0,y:0},space=false,busy=false,controller=null,saveTimer,toastTimer,frame=0,dirty=true;
 const canvas=$('map-canvas'),ctx=canvas.getContext('2d'),mini=$('minimap'),mctx=mini.getContext('2d');
 const raster=document.createElement('canvas'),rctx=raster.getContext('2d');
@@ -30,8 +35,12 @@ async function task(message,run){
 }
 function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);}
 function autosave(){
- $('save-state').textContent='Есть изменения';clearTimeout(saveTimer);
- saveTimer=setTimeout(()=>{try{localStorage.setItem(recoveryKey,JSON.stringify(project));$('save-state').textContent='Автосохранено на этом компьютере';}catch{$('save-state').textContent='Автосохранение недоступно — сохраните файл';}},650);
+ const revision=++autosaveRevision;$('save-state').textContent='Есть изменения';clearTimeout(saveTimer);
+ saveTimer=setTimeout(()=>{recoveryQueue=recoveryQueue.catch(()=>{}).then(async()=>{
+  if(revision!==autosaveRevision)return;
+  try{await api('/api/recovery/'+recoveryId,project);if(revision===autosaveRevision)$('save-state').textContent='Автосохранено в папке проекта';try{localStorage.removeItem(recoveryKey);}catch{}}
+  catch{if(revision===autosaveRevision)$('save-state').textContent='Автосохранение недоступно — сохраните файл';}
+ });},650);
 }
 function update(){
  $('project-name').value=project.name;$('inspector-title').textContent=project.name;$('size-stat').textContent=`${project.width} × ${project.height}`;
@@ -40,6 +49,8 @@ function update(){
  $('world-x').value=project.worldX;$('world-y').value=project.worldY;$('undo').disabled=!history.past.length;$('redo').disabled=!history.future.length;
  $('attribution').textContent=project.attribution.length?project.attribution.join(' · '):'Геоданные не используются';
  $('attribution').title=project.attribution.join('\n');
+ $('geography-panel').hidden=!project.metresPerTile;
+ if(project.metresPerTile){$('scale-stat').textContent=project.metresPerTile.toLocaleString('ru-RU',{maximumFractionDigits:2})+' м / клетка';const report=project.importSummary;$('import-summary').textContent=report?`При импорте размещено ${report.placedBuildings} из ${report.sourceBuildings} зданий. `+Object.entries(report.skipReasons).map(([k,v])=>`${k}: ${v}`).join('; '):'Географическая основа карты';}
  $('zoom-value').textContent=Math.round(zoom*100)+'%';
  const b=project.buildings.find(b=>b.id===selectedId);$('selection-panel').hidden=!b;
  if(b){$('building-name').value=b.name;$('building-x').value=b.x;$('building-y').value=b.y;$('building-width').value=b.width;$('building-height').value=b.height;}
@@ -165,10 +176,19 @@ $('load-project').onclick=()=>{if(!busy)$('project-file').click();};
 $('project-file').onchange=e=>{const file=e.target.files[0];if(!file)return;task('Открываем проект…',async signal=>{if(file.size>16_000_000)throw Error('Проект превышает 16 МБ.');const text=await file.text();signal.throwIfAborted();adopt(JSON.parse(text));toast('Проект открыт.');}).finally(()=>e.target.value='');};
 $('open-help').onclick=()=>$('help-dialog').showModal();
 $('open-import').onclick=()=>{if(!busy)$('import-dialog').showModal();};
-function bounds(){const lat=+$('import-lat').value,lon=+$('import-lon').value,extent=+$('import-extent').value;const dy=extent/111320/2,dx=dy/Math.cos(lat*Math.PI/180);if(!Number.isFinite(dx)||Math.abs(lat)>84||Math.abs(lon)>179)throw Error('Проверьте координаты выбранного участка.');return {south:lat-dy,north:lat+dy,west:lon-dx,east:lon+dx};}
+function bounds(){if($('use-place-bounds').checked&&selectedPlaceBounds)return {...selectedPlaceBounds};const lat=+$('import-lat').value,lon=+$('import-lon').value,extent=+$('import-extent').value;const dy=extent/111320/2,dx=dy/Math.cos(lat*Math.PI/180);if(!Number.isFinite(dx)||Math.abs(lat)>84||Math.abs(lon)>179)throw Error('Проверьте координаты выбранного участка.');return {south:lat-dy,north:lat+dy,west:lon-dx,east:lon+dx};}
 function preview(){try{const b=bounds();$('osm-preview').src=`https://www.openstreetmap.org/export/embed.html?bbox=${b.west},${b.south},${b.east},${b.north}&layer=mapnik`;$('osm-preview').parentElement.classList.add('loaded');}catch(e){toast(e.message,true);}}
 $('refresh-preview').onclick=preview;for(const id of ['import-lat','import-lon','import-extent'])$(id).onchange=()=>{$('osm-preview').parentElement.classList.remove('loaded');$('osm-preview').removeAttribute('src');};
-$('search-form').onsubmit=e=>{e.preventDefault();task('Ищем место в OpenStreetMap…',async signal=>{const items=await api('/api/search',{query:$('place-query').value},signal);$('place-results').replaceChildren();if(!items.length)toast('Место не найдено. Уточните город или адрес.');for(const item of items){const b=document.createElement('button');b.type='button';b.textContent=item.display_name;b.onclick=()=>{$('import-lat').value=item.lat;$('import-lon').value=item.lon;preview();$('place-results').replaceChildren();};$('place-results').append(b);}});};
+$('use-place-bounds').onchange=()=>{for(const id of ['import-lat','import-lon','import-extent'])$(id).disabled=$('use-place-bounds').checked;preview();};
+$('search-form').onsubmit=e=>{e.preventDefault();task('Ищем место в OpenStreetMap…',async signal=>{const items=await api('/api/search',{query:$('place-query').value},signal);$('place-results').replaceChildren();if(!items.length)toast('Место не найдено. Уточните город или адрес.');for(const item of items){const b=document.createElement('button');b.type='button';b.textContent=item.display_name;b.onclick=()=>{
+  selectedPlaceBounds=boundsFromSearchResult(item);$('use-place-bounds').disabled=!selectedPlaceBounds;$('use-place-bounds').checked=!!selectedPlaceBounds;
+  $('import-lat').value=item.lat;$('import-lon').value=item.lon;
+  if(selectedPlaceBounds){const metres=(selectedPlaceBounds.north-selectedPlaceBounds.south)*111320;$('import-size').value=metres>2000?'2048':metres>1000?'1024':'512';}
+  else toast('Место слишком большое для полного импорта. Выберите участок вокруг центра.');
+  for(const id of ['import-lat','import-lon','import-extent'])$(id).disabled=!!selectedPlaceBounds;
+  preview();$('place-results').replaceChildren();
+ };$('place-results').append(b);}});};
+$('load-pilna').onclick=()=>task('Открываем карту Пильны…',async signal=>{const response=await fetch('/api/examples/pilna',{signal});if(!response.ok)throw Error('Пример Пильны не найден в этой сборке.');adopt(await response.json());toast('Пильна открыта. Можно редактировать и собрать мод.');});
 $('import-osm-button').onclick=()=>task('Загружаем участок OSM. Это может занять до 100 секунд…',async signal=>{const result=await api('/api/import/osm',{project:blank(+$('import-size').value),bounds:bounds()},signal);result.project.name=$('place-query').value.trim().slice(0,80)||'Карта из OSM';result.project.worldX=project.worldX;result.project.worldY=project.worldY;adopt(result.project);$('import-dialog').close();toast(`Импортировано объектов: ${result.importedFeatures}. ${result.warnings.join(' ')}`);});
 $('import-file-button').onclick=()=>{if(!busy)$('geodata-file').click();};
 $('geodata-file').onchange=e=>{const file=e.target.files[0];if(!file)return;task('Читаем геоданные…',async signal=>{if(file.size>16_000_000)throw Error('Файл превышает 16 МБ.');const result=await api('/api/import/geojson',{project:blank(+$('import-size').value),json:await file.text(),bounds:null},signal);result.project.name=file.name.replace(/\.(geo)?json$/i,'').slice(0,80)||'Импорт';result.project.worldX=project.worldX;result.project.worldY=project.worldY;adopt(result.project);$('import-dialog').close();toast(`Импортировано объектов: ${result.importedFeatures}. ${result.warnings.join(' ')}`);}).finally(()=>e.target.value='');};
@@ -182,7 +202,7 @@ document.addEventListener('keydown',e=>{if(['INPUT','SELECT','TEXTAREA'].include
  const keys={b:'brush',a:'rectangle',r:'road',h:'building',p:'spawn',v:'select',z:'zombies'};if(keys[e.key.toLowerCase()])setTool(keys[e.key.toLowerCase()]);if(e.key==='Delete')deleteSelection();
 });document.addEventListener('keyup',e=>{if(e.code==='Space')space=false;});window.addEventListener('blur',()=>{space=false;finish();});
 async function start(){
- let recovered=false;try{const text=localStorage.getItem(recoveryKey);if(text){adopt(JSON.parse(text));recovered=true;status('Восстановлено автосохранение');}}catch{toast('Автосохранение повреждено. Откройте ранее сохранённый файл.',true);}
+ let recovered=false;try{const response=await fetch('/api/recovery/'+recoveryId);if(response.ok){adopt(await response.json());recovered=true;status('Восстановлено автосохранение');}else{const text=localStorage.getItem(recoveryKey);if(text){adopt(JSON.parse(text));recovered=true;status('Переносим автосохранение в папку проекта');}}}catch{toast('Автосохранение недоступно. Откройте ранее сохранённый файл.',true);}
  if(!recovered)await task('Готовим первую карту…',async signal=>adopt(await api('/api/generate',{size:256,seed:42,kind:'town',name:'Тихий город'},signal)));
  try{const environment=await fetch('/api/environment').then(r=>r.json());$('game-status').textContent=environment.gameFound?'Project Zomboid найден':'Игра не найдена: экспорт доступен';}catch{$('game-status').textContent='Не удалось проверить игру';}
  update();

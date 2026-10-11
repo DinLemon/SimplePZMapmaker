@@ -19,3 +19,12 @@ Final: fixed busy UI — active progress dialog, frozen project interactions, re
 Final: Ruling: seed/bounds, footprint parity and checkout identity notes upgraded for fix — accepting an unexportable project, overlapping external walls or opening another checkout can mislead a non-programmer. All addressed with regressions/manual launcher checks. No deferred minors remain; plan progress updated.
 Native verification: 16 emitted tile names found in the installed game's 29,058 named tile definitions. 1024x1024/150-building export before final fix pass took 0.87s, ZIP1,010,573 bytes. No in-game playthrough claimed.
 Live network: Nominatim succeeds; public Overpass import not validated because servers returned504/500/timeout. Offline GeoJSON/Overpass fixtures work.
+
+## Pilna continuation — docs/superpowers/plans/2026-10-12-pilna.md
+
+- User authorized full development, real Pilna import and GitHub repository creation/push. Files and caches remain in the supplied G: workspace.
+- Initial live Overpass request succeeded: 2378 features / 1789 building outlines. A later application request returned504. Captured source is committed with ODbL attribution for reproducible offline import.
+- Tasks1/2: tests observed RED before2048 support and metre-scaled roads; final27 core /11 editor tests pass. Imported1439 buildings, skipped350 with explicit reasons. Published UI verifies whole-place bounds, example loading, project roundtrip and native export.
+- Task3: independent fresh reviewer found history allocation, localStorage quota and stale-server acceptance. One fix pass added byte-page history/64MiB budget, workspace recovery with browser-id isolation/legacy migration, exact launcher version check. Core/editor/browser regressions, full-field undo/redo/budget experiment and launcher smoke pass. No game playthrough claimed.
+- Native audit: both stored example and actual browser ZIP pass independent readback of64 cells,65,536 chunks,4281 rooms,1439 buildings and20 installed tile names.
+- Task4: private DinLemon/SimplePZMapmaker created; tracked-source audit, commit/push and remote verification follow.

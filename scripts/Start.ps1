@@ -5,8 +5,9 @@ $env:PZMAP_WORKSPACE=$taskRoot
 $url='http://127.0.0.1:48765'
 $running=$false
 try{$state=Invoke-RestMethod -Uri "$url/api/environment" -TimeoutSec 2}catch{$state=$null}
-if($state -and $state.version -eq '0.1.0'){
+if($state -and $state.version){
  if([IO.Path]::GetFullPath($state.workspace).TrimEnd('\') -ne [IO.Path]::GetFullPath($taskRoot).TrimEnd('\')){throw 'Port 48765 is occupied by SimplePZMapmaker from another directory. Stop that instance first.'}
+ if($state.version -ne '0.2.0'){throw 'A stale SimplePZMapmaker server is running. Stop SimplePZMapmaker.Web.exe and run Start.cmd again to load version0.2.'}
  $running=$true
 }
 if(-not $running){
@@ -17,7 +18,7 @@ if(-not $running){
  Start-Process -FilePath $exe -WorkingDirectory (Split-Path -Parent $exe) -WindowStyle Hidden -RedirectStandardOutput (Join-Path $logs 'server.log') -RedirectStandardError (Join-Path $logs 'server-errors.log') | Out-Null
  for($i=0;$i -lt 40;$i++){
   Start-Sleep -Milliseconds 250
-  try{$state=Invoke-RestMethod -Uri "$url/api/environment" -TimeoutSec 1;if($state.version -eq '0.1.0'){$running=$true;break}}catch{}
+  try{$state=Invoke-RestMethod -Uri "$url/api/environment" -TimeoutSec 1;if($state.version -eq '0.2.0'){$running=$true;break}}catch{}
  }
  if(-not $running){throw "Server did not start. See $logs"}
 }
