@@ -26,3 +26,6 @@ jobs:
       - name: Verify all cells of the example mod
         shell: pwsh
         run: node scripts/verify-native-map.mjs
+      - name: Package application
+        shell: pwsh
+        run: ./scripts/package.ps1

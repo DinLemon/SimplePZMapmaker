@@ -7,6 +7,8 @@
 - Nominatim search and initial live Overpass download succeeded. Later Overpass requests returned 504; the committed real source JSON makes the example reproducible offline. Network reliability is not claimed.
 - Fresh review: three material findings fixed in one pass (large history allocation, browser storage quota, stale launcher version). Full-field history experiment verifies exact undo/redo and the 64 MiB retention budget. Original 0.1 review fixes remain covered by regression tests.
 - Launcher checked with `-NoBrowser` against the published application. Temporary files, caches, autosaves, logs, QA tools and screenshots remain beneath `work/` in the requested workspace.
+- Private [GitHub repository](https://github.com/DinLemon/SimplePZMapmaker), default branch develop: initial source/example HEAD verified via API; Windows Actions run38183714437 succeeded at0b27575 (tests, build, publish, native verification).
+- Packaged Windows archive extracted and launched from a separate workspace on G:. Packaged server passed the Pilna browser cycle,2048 recovery and legacy migration; launcher resolves the extracted workspace. Requires .NET10 ASP.NET Core Runtime, not an SDK.
 
 **Actual in-game playthrough, roof visibility, loot and multiplayer compatibility remain unverified.** File-format checks do not establish playability. B41, heightfields, railway geometry and multistorey buildings are not implemented; the isometric view is schematic. Building footprints/interiors are simplified and skipped outlines are reported explicitly.
 

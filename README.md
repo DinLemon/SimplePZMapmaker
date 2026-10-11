@@ -6,7 +6,9 @@
 
 1. Запустите `Start.cmd` из корня проекта.
 2. Откроется `http://127.0.0.1:48765`.
-3. Приложение требует установленный **.NET 10 ASP.NET Core Runtime**. Для пересборки нужен .NET 10 SDK; на текущем компьютере он установлен.
+3. Готовый архив требует установленный **.NET 10 ASP.NET Core Runtime**. Для первого запуска из исходников и пересборки нужен .NET 10 SDK; на текущем компьютере он установлен.
+
+Архив готового приложения доступен в [Releases](https://github.com/DinLemon/SimplePZMapmaker/releases). Распакуйте его целиком и запустите `Start.cmd`: пересборка и SDK не нужны, ASP.NET Core Runtime всё ещё требуется. Исходный код соответствующей версии доступен по её Git-тегу.
 
 Собранное приложение: `artifacts/app/SimplePZMapmaker.Web.exe`. `Start.cmd` запускает сервер в фоне. Для остановки завершите только процесс `SimplePZMapmaker.Web.exe` в диспетчере задач. Логи — `work/logs/`. Сервер слушает только loopback.
 
@@ -61,6 +63,7 @@ Google Maps не используется как источник экспорт
 dotnet run --project src/SimplePZMapmaker.Web
 ./scripts/verify.ps1
 ./scripts/publish.ps1
+./scripts/package.ps1
 ```
 
 Основные тесты не требуют NuGet-пакетов. Браузерные проверки требуют Playwright только в `work/qa/`:
