@@ -1,7 +1,8 @@
 namespace SimplePZMapmaker.Core.Export;
 
-internal sealed record Room(string Name,int X,int Y,int Width,int Height,int Building);
-internal sealed class TileComposer
+internal sealed record RoomRect(int X,int Y,int Width,int Height);
+internal sealed record Room(string Name,int X,int Y,int Width,int Height,int Building,int Level=0,List<RoomRect>? Rectangles=null);
+internal sealed partial class TileComposer
 {
     private readonly MapProject project;
     private readonly int ox,oy;
@@ -18,12 +19,14 @@ internal sealed class TileComposer
             var terrain=p.Terrain[(oy+y)*p.Width+ox+x];
             Navigation[y*256+x]=terrain==Terrain.Water?(byte)8:(byte)0;
         }
-        foreach(var b in p.Buildings.Where(b=>b.X/256==cellX&&b.Y/256==cellY))Compose(b);
+        foreach(var b in p.Buildings.Where(b=>b.X/256==cellX&&b.Y/256==cellY)){if(b.Design is null)Compose(b);else ComposeDesign(b);}
     }
     private bool Tree(int x,int y) => ((uint)((ox+x)*73856093)^((uint)(oy+y)*19349663)^(uint)project.Seed)%19==0 && !project.Spawns.Any(s=>Math.Abs(s.X-ox-x)<=2&&Math.Abs(s.Y-oy-y)<=2);
     internal List<string> At(int x,int y,int z) {
         var index=y*256+x;
+        if(layers.TryGetValue(z*65536+index,out var designed))return designed;
         if(z==1)return roofs.Contains(index)?["floors_interior_tilesandwood_01_40"]:[];
+        if(z!=0)return [];
         if(ground.TryGetValue(index,out var overrideTiles))return overrideTiles;
         var t=project.Terrain[(oy+y)*project.Width+ox+x];
         var floor=t switch{Terrain.Forest=>"blends_natural_01_16",Terrain.Road=>"blends_street_01_0",Terrain.Water=>"blends_natural_02_0",Terrain.Sand=>"blends_natural_01_0",Terrain.Dirt=>"blends_natural_01_64",Terrain.Pavement=>"blends_street_01_48",_=>"blends_natural_01_32"};

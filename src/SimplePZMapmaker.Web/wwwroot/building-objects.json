@@ -1,0 +1,7 @@
+{
+ "bed":{"n":[{"dx":0,"dy":0,"tile":"furniture_bedding_01_69"},{"dx":0,"dy":1,"tile":"furniture_bedding_01_68"}],"w":[{"dx":0,"dy":0,"tile":"furniture_bedding_01_70"},{"dx":1,"dy":0,"tile":"furniture_bedding_01_71"}]},
+ "seat":{"n":[{"dx":0,"dy":0,"tile":"furniture_seating_indoor_01_11"}],"w":[{"dx":0,"dy":0,"tile":"furniture_seating_indoor_01_10"}]},
+ "storage":{"n":[{"dx":0,"dy":0,"tile":"furniture_storage_01_11"}],"w":[{"dx":0,"dy":0,"tile":"furniture_storage_01_10"}]},
+ "counter":{"n":[{"dx":0,"dy":0,"tile":"fixtures_counters_01_0"}],"w":[{"dx":0,"dy":0,"tile":"fixtures_counters_01_6"}]},
+ "sink":{"n":[{"dx":0,"dy":0,"tile":"fixtures_sinks_01_0"}],"w":[{"dx":0,"dy":0,"tile":"fixtures_sinks_01_3"}]}
+}

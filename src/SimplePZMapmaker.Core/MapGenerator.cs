@@ -20,9 +20,10 @@ public static class MapGenerator
                 for(var x=24;x<n*0.70;x+=48) for(var y=8;y<n-8;y++) PaintRoad(p,x,y,5);
                 for(var y=34;y<n-24;y+=24) for(var x=34;x<n*0.7-20;x+=24) {
                     if(random.Next(100)>=o.BuildingDensity) continue;
-                    var b=new Building{Id=$"generated-{o.Seed}-{x}-{y}",X=x,Y=y,Width=12,Height=10,Kind=random.Next(10)==0?"shop":"house",Name=""};
-                    b.Name=b.Kind=="shop"?"Магазин":"Дом";
-                    if(CanPlace(p,b)) {p.Buildings.Add(b); for(var yy=y-1;yy<=y+10;yy++) for(var xx=x-1;xx<=x+12;xx++) p.Terrain[yy*n+xx]=Terrain.Grass;}
+                    var kind=BuildingDesigner.Kinds[random.Next(BuildingDesigner.Kinds.Length)];
+                    var b=new Building{Id=$"generated-{o.Seed}-{x}-{y}",X=x,Y=y,Width=12+random.Next(4)*2,Height=10+random.Next(4)*2,Kind=kind,Name=BuildingDesigner.Names[kind]};
+                    b.Design=BuildingDesigner.Generate(b,kind is "apartments" or "hotel"?random.Next(2,5):kind is "school" or "clinic"?2:1,random.Next(),new[]{"rect","l","t","annex"}[random.Next(4)]);
+                    if(CanPlace(p,b)) {p.Buildings.Add(b);}
                 }
             }
             Array.Fill(p.Zombies,o.ZombieDensity/12);
@@ -33,10 +34,11 @@ public static class MapGenerator
     private static void PaintRoad(MapProject p,int x,int y,int radius) {
         for(var yy=Math.Max(0,y-radius);yy<=Math.Min(p.Height-1,y+radius);yy++) for(var xx=Math.Max(0,x-radius);xx<=Math.Min(p.Width-1,x+radius);xx++) p.Terrain[yy*p.Width+xx]=Terrain.Road;
     }
-    public static bool CanPlace(MapProject p,Building b) {
+    public static bool CanPlace(MapProject p,Building b,bool avoidRoads=true) {
         if(b.X<1||b.Y<1||b.X+b.Width>=p.Width||b.Y+b.Height>=p.Height||b.X/256!=(b.X+b.Width)/256||b.Y/256!=(b.Y+b.Height)/256) return false;
-        if(p.Buildings.Any(a=>b.X<a.X+a.Width+1&&b.X+b.Width+1>a.X&&b.Y<a.Y+a.Height+1&&b.Y+b.Height+1>a.Y)) return false;
-        for(var y=b.Y;y<b.Y+b.Height;y++) for(var x=b.X;x<b.X+b.Width;x++) if(p.Terrain[y*p.Width+x] is Terrain.Water or Terrain.Road) return false;
+        var occupied=BuildingDesigner.Occupied(b).Select(i=>(b.Y+i/(b.Width+1))*p.Width+b.X+i%(b.Width+1)).ToHashSet();
+        if(p.Buildings.Where(a=>a!=b&&b.X<a.X+a.Width+1&&b.X+b.Width+1>a.X&&b.Y<a.Y+a.Height+1&&b.Y+b.Height+1>a.Y).Any(a=>BuildingDesigner.Occupied(a).Any(i=>occupied.Contains((a.Y+i/(a.Width+1))*p.Width+a.X+i%(a.Width+1)))))return false;
+        for(var y=0;y<b.Height;y++) for(var x=0;x<b.Width;x++) if(BuildingDesigner.Occupies(b,x,y)&&(p.Terrain[(b.Y+y)*p.Width+b.X+x]==Terrain.Water||avoidRoads&&p.Terrain[(b.Y+y)*p.Width+b.X+x]==Terrain.Road)) return false;
         return true;
     }
     public static SpawnPoint FindSafeSpawn(MapProject p) {

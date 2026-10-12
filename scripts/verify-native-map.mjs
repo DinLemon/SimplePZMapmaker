@@ -26,8 +26,8 @@ assert.equal(headers.length,project.width*project.height/65536);
 const allTiles=new Set();let chunks=0,rooms=0,buildings=0;
 for(const [name,bytes] of headers){
  const r=new Reader(bytes);assert.equal(r.magic(),'LOTH');assert.equal(r.int(),1);const tileCount=r.int();assert.ok(tileCount>0&&tileCount<1000);for(let i=0;i<tileCount;i++)allTiles.add(r.line());
- assert.equal(r.int(),8);assert.equal(r.int(),8);const min=r.int(),max=r.int();assert.equal(min,0);assert.equal(max,1);const roomCount=r.int();rooms+=roomCount;
- for(let i=0;i<roomCount;i++){r.line();assert.equal(r.int(),0);const rects=r.int();assert.ok(rects>0&&rects<100);for(let j=0;j<rects;j++){const x=r.int(),y=r.int(),w=r.int(),h=r.int();assert.ok(x>=0&&y>=0&&w>0&&h>0&&x+w<=256&&y+h<=256);}const objects=r.int();assert.ok(objects>=0&&objects<1000);for(let j=0;j<objects*3;j++)r.int();}
+ assert.equal(r.int(),8);assert.equal(r.int(),8);const min=r.int(),max=r.int();assert.equal(min,0);assert.ok(max>=1&&max<=31);const roomCount=r.int();rooms+=roomCount;
+ for(let i=0;i<roomCount;i++){r.line();const z=r.int();assert.ok(z>=min&&z<max);const rects=r.int();assert.ok(rects>0&&rects<=4096);for(let j=0;j<rects;j++){const x=r.int(),y=r.int(),w=r.int(),h=r.int();assert.ok(x>=0&&y>=0&&w>0&&h>0&&x+w<=256&&y+h<=256);}const objects=r.int();assert.ok(objects>=0&&objects<1000);for(let j=0;j<objects*3;j++)r.int();}
  const buildingCount=r.int();buildings+=buildingCount;for(let i=0;i<buildingCount;i++){const count=r.int();assert.ok(count>0&&count<=roomCount);for(let j=0;j<count;j++){const id=r.int();assert.ok(id>=0&&id<roomCount);}}
  assert.equal(bytes.length-r.offset,1024,'Zombie grid is not32x32');
  const match=name.match(/(\d+)_(\d+)\.lotheader$/);assert.ok(match);const cx=+match[1],cy=+match[2];assert.ok(cx>=project.worldX&&cx<project.worldX+project.width/256&&cy>=project.worldY&&cy<project.worldY+project.height/256);
@@ -35,8 +35,8 @@ for(const [name,bytes] of headers){
  const p=new Reader(pack);assert.equal(p.magic(),'LOTP');assert.equal(p.int(),1);assert.equal(p.int(),1024);const positions=[];for(let i=0;i<1024;i++){positions.push(Number(pack.readBigInt64LE(p.offset)));p.offset+=8;}
  for(let i=0;i<1024;i++){
   assert.ok(positions[i]>=8204&&positions[i]<pack.length);p.offset=positions[i];let squares=0;
-  while(squares<128){const n=p.int();if(n===-1){const skip=p.int();assert.ok(skip>0);squares+=skip;}else{assert.ok(n>=2&&n<30);const room=p.int();assert.ok(room>=-1&&room<roomCount);for(let j=1;j<n;j++){const tile=p.int();assert.ok(tile>=0&&tile<tileCount);}squares++;}}
-  assert.equal(squares,128);assert.equal(p.offset,i<1023?positions[i+1]:pack.length);chunks++;
+  const squareCount=64*(max-min+1);while(squares<squareCount){const n=p.int();if(n===-1){const skip=p.int();assert.ok(skip>0);squares+=skip;}else{assert.ok(n>=2&&n<30);const room=p.int();assert.ok(room>=-1&&room<roomCount);for(let j=1;j<n;j++){const tile=p.int();assert.ok(tile>=0&&tile<tileCount);}squares++;}}
+  assert.equal(squares,squareCount);assert.equal(p.offset,i<1023?positions[i+1]:pack.length);chunks++;
  }
  const navigation=entries.get(folder+`chunkdata_${cx}_${cy}.bin`);assert.ok(navigation);assert.equal(navigation.readUInt16BE(0),1);let cursor=2;
  for(let i=0;i<1024;i++){const kind=navigation[cursor++];assert.ok(kind<=5);if(kind===2){assert.ok(cursor+64<=navigation.length);for(let j=0;j<64;j++)assert.ok(navigation[cursor+j]<=63);cursor+=64;}}
@@ -44,6 +44,8 @@ for(const [name,bytes] of headers){
 }
 assert.equal(buildings,project.buildings.length);
 const worldmap=[...entries].find(([name])=>name.endsWith('/worldmap.xml'));assert.ok(worldmap[1].toString('utf8').includes('cellSize="256"'));
-const attribution=[...entries].find(([name])=>name.endsWith('/ATTRIBUTION.txt'));assert.ok(attribution[1].toString('utf8').includes('OpenStreetMap'));
-if(process.argv[3]){const definitions=await readFile(process.argv[3],'utf8'),known=new Set([...definitions.matchAll(/\/\/ ([a-zA-Z0-9_]+_\d+)/g)].map(m=>m[1]));for(const name of allTiles)assert.ok(known.has(name),`Unknown installed game tile: ${name}`);}
+const attribution=[...entries].find(([name])=>name.endsWith('/ATTRIBUTION.txt'));assert.ok(attribution);for(const item of [...project.attribution,...project.buildings.flatMap(b=>b.attribution||[]),...(project.buildingLibrary||[]).flatMap(b=>b.attribution||[])])assert.ok(attribution[1].toString('utf8').includes(item),'Attribution lost');
+if(process.argv[3]){const definitions=await readFile(process.argv[3],'utf8'),known=new Set([...definitions.matchAll(/\/\/ ([a-zA-Z0-9_]+_\d+)/g)].map(m=>m[1]));for(const name of allTiles)assert.ok(known.has(name),`Unknown installed game tile: ${name}`);
+ const catalog=JSON.parse(await readFile(new URL('../src/SimplePZMapmaker.Web/wwwroot/building-objects.json',import.meta.url),'utf8'));for(const [kind,directions] of Object.entries(catalog))for(const [direction,parts] of Object.entries(directions))for(const part of parts){const props=definitions.match(new RegExp('// '+part.tile+'\\r?\\n\\s*tile\\s*\\{([^}]+)\\}'))?.[1];assert.ok(props,'Missing furniture tile '+part.tile);assert.equal(props.match(/Facing = (\w+)/)?.[1],direction.toUpperCase(),kind+' orientation');const grid=props.match(/SpriteGridPos = ([\d,]+)/)?.[1];if(parts.length>1)assert.equal(grid,`${part.dx},${part.dy}`,kind+' grid position');else assert.equal(grid,undefined,kind+' must be a complete single-square object');}
+}
 console.log(JSON.stringify({file,cells:headers.length,chunks,rooms,buildings,tileNames:allTiles.size,status:'valid native B42 structure',gameplay:'not playtested'}));

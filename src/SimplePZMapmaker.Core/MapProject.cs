@@ -3,7 +3,7 @@ namespace SimplePZMapmaker.Core;
 public enum Terrain : byte { Grass, Forest, Road, Water, Sand, Dirt, Pavement }
 public sealed class MapProject
 {
-    public int Version { get; set; }=1;
+    public int Version { get; set; }=2;
     public string Name { get; set; }="Новая карта";
     public int Width { get; set; }=256;
     public int Height { get; set; }=256;
@@ -13,6 +13,7 @@ public sealed class MapProject
     public Terrain[] Terrain { get; set; }=[];
     public int[] Zombies { get; set; }=[];
     public List<Building> Buildings { get; set; }=[];
+    public List<Building> BuildingLibrary {get;set;}=[];
     public List<SpawnPoint> Spawns { get; set; }=[];
     public List<string> Attribution { get; set; }=[];
     public GeoBounds? Bounds { get; set; }
@@ -25,6 +26,7 @@ public sealed class ImportSummary
     public int SourceBuildings {get;set;}
     public int PlacedBuildings {get;set;}
     public Dictionary<string,int> SkipReasons {get;set;}=[];
+    public List<string> Notes {get;set;}=[];
 }
 public sealed class Building
 {
@@ -35,6 +37,38 @@ public sealed class Building
     public int Width { get; set; }=12;
     public int Height { get; set; }=10;
     public string Name { get; set; }="Дом";
+    public BuildingDesign? Design {get;set;}
+    public string? SourceId {get;set;}
+    public string? SourceKind {get;set;}
+    public string? SourceLevels {get;set;}
+    public string? SourceRoof {get;set;}
+    public List<string> Attribution {get;set;}=[];
+    public string LevelsOrigin {get;set;}="inferred";
+    public bool Modified {get;set;}
+}
+public sealed class BuildingDesign {
+    public string Material {get;set;}="wood";
+    public string Roof {get;set;}="flat";
+    public string Shape {get;set;}="rect";
+    public int Variant {get;set;}
+    public List<BuildingFloor> Floors {get;set;}=[];
+}
+public sealed class BuildingFloor {
+    public string Cells {get;set;}="";
+    public Dictionary<string,string> Rooms {get;set;}=[];
+    public List<BuildingEdge> Edges {get;set;}=[];
+    public List<BuildingObject> Objects {get;set;}=[];
+}
+public sealed class BuildingEdge {
+    public int X {get;set;} public int Y {get;set;}
+    public string Edge {get;set;}="n";
+    public string Kind {get;set;}="wall";
+    public bool Edited {get;set;}
+}
+public sealed class BuildingObject {
+    public int X {get;set;} public int Y {get;set;}
+    public string Kind {get;set;}="storage";
+    public string Direction {get;set;}="n";
 }
 public sealed class SpawnPoint { public int X { get; set; } public int Y { get; set; } }
 public sealed class GeoBounds { public double South { get; set; } public double West { get; set; } public double North { get; set; } public double East { get; set; } }

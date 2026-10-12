@@ -40,7 +40,7 @@ try {
  await page.screenshot({path:fileURLToPath(new URL('../work/qa-results/editor.png',import.meta.url)),fullPage:true});
  const fixturePath=fileURLToPath(new URL('../work/qa-results/geodata.geojson',import.meta.url));
  await writeFile(fixturePath,JSON.stringify({type:'FeatureCollection',features:[{type:'Feature',properties:{highway:'residential'},geometry:{type:'LineString',coordinates:[[30,50],[30.002,50.002]]}}]}));
- await page.getByRole('button',{name:'Импорт реального места OSM / GeoJSON',exact:false}).click();await page.locator('#geodata-file').setInputFiles(fixturePath);await page.waitForFunction(()=>document.querySelector('#attribution').textContent.includes('GeoJSON'));
+ await page.getByRole('button',{name:'Импорт реального места OSM / GeoJSON',exact:false}).click();await page.locator('#preserve-building-edits').uncheck();await page.locator('#geodata-file').setInputFiles(fixturePath);await page.waitForFunction(()=>document.querySelector('#attribution').textContent.includes('GeoJSON'));
  const importProject=page.waitForEvent('download');await page.getByRole('button',{name:'Сохранить',exact:true}).click();await (await importProject).saveAs(fileURLToPath(new URL('../work/qa-results/geo-import.pzmap.json',import.meta.url)));
  await page.setViewportSize({width:1100,height:800});await page.screenshot({path:fileURLToPath(new URL('../work/qa-results/compact.png',import.meta.url)),fullPage:true});
  assert.deepEqual(errors,[]);console.log('PASS live editor creates a blank map without browser errors');

@@ -5,7 +5,7 @@ import {blank} from '../src/SimplePZMapmaker.Web/wwwroot/editor.js';
 const browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1600,height:1000}});
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
 try{
- const legacy=blank();legacy.name='Старый проект';
+ const legacy=blank();legacy.version=1;legacy.name='Старый проект';
  await page.addInitScript(p=>{if(!sessionStorage.getItem('migration-fixture')){localStorage.setItem('simple-pz-mapmaker:project:v1',JSON.stringify(p));sessionStorage.setItem('migration-fixture','done');}},legacy);
  await page.goto('http://127.0.0.1:48765');await page.waitForFunction(()=>document.querySelector('#game-status')?.textContent.includes('найден'));
  assert.equal(await page.locator('#project-name').inputValue(),'Старый проект');
@@ -26,9 +26,9 @@ try{
  assert.equal(await page.locator('#import-extent').isDisabled(),true);
  await page.locator('#import-dialog [data-close]').click();
  const download=page.waitForEvent('download');await page.locator('#save-project').click();await (await download).saveAs(fileURLToPath(new URL('../work/qa-results/pilna-roundtrip.pzmap.json',import.meta.url)));
- await page.locator('#project-file').setInputFiles(fileURLToPath(new URL('../work/qa-results/pilna-roundtrip.pzmap.json',import.meta.url)));await page.waitForFunction(()=>document.querySelector('#size-stat').textContent==='2048 × 2048');
+ await page.locator('#project-file').setInputFiles(fileURLToPath(new URL('../work/qa-results/pilna-roundtrip.pzmap.json',import.meta.url)));await page.waitForFunction(()=>!document.querySelector('#operation-dialog').open&&document.querySelector('#size-stat').textContent==='2048 × 2048');
  const zip=page.waitForEvent('download');await page.locator('#export-map').click();await page.locator('#download-mod').click();await (await zip).saveAs(fileURLToPath(new URL('../work/qa-results/pilna-browser-export.zip',import.meta.url)));
- const independent=await browser.newPage();await independent.goto('http://127.0.0.1:48765');await independent.waitForFunction(()=>document.querySelector('#size-stat')?.textContent==='256 × 256');
+ const independent=await browser.newPage();await independent.goto('http://127.0.0.1:48765');await independent.waitForFunction(()=>document.querySelector('#game-status')?.textContent.includes('найден')&&!document.querySelector('#operation-dialog').open&&document.querySelector('#size-stat')?.textContent==='256 × 256');
  assert.equal(await independent.locator('#project-name').inputValue(),'Тихий город');await independent.close();
  assert.deepEqual(errors,[]);console.log('PASS legacy autosave migration,2048 Pilna recovery, isolated browser sessions, scale report, whole search bounds, save/reopen and export with no browser errors');
 }finally{await browser.close();}

@@ -8,7 +8,7 @@ public sealed record ImportResult(MapProject Project,int ImportedFeatures,int Sk
 }
 public static class GeographicImporter {
     private sealed record Feature(Dictionary<string,string> Tags,List<List<(double X,double Y)>> Rings,bool Polygon);
-    public static ImportResult Import(string json,MapProject project,GeoBounds? bounds=null,CancellationToken cancellationToken=default)
+    public static ImportResult Import(string json,MapProject project,GeoBounds? bounds=null,CancellationToken cancellationToken=default,bool preserveEdits=false)
     {
         ProjectValidator.Validate(project);
         if(string.IsNullOrWhiteSpace(json))throw new ArgumentException("Файл геоданных пуст или не задан.");
@@ -25,6 +25,7 @@ public static class GeographicImporter {
         if(project.Height!=project.Width) {p.Height=project.Height;p.Terrain=new Terrain[p.Width*p.Height];p.Zombies=new int[p.Width*p.Height/64];}
         p.WorldX=project.WorldX;p.WorldY=project.WorldY;p.Bounds=bounds;
         p.Attribution=[..project.Attribution];
+        p.BuildingLibrary=JsonSerializer.Deserialize<List<Building>>(JsonSerializer.Serialize(project.BuildingLibrary))!;
         var source=root.TryGetProperty("elements",out _) ? "Map data © OpenStreetMap contributors — https://www.openstreetmap.org/copyright — ODbL 1.0":"Источник: импортированный GeoJSON. Права на исходные данные определяет их поставщик.";
         if(!p.Attribution.Contains(source))p.Attribution.Add(source);
         var cos=Math.Cos((bounds.North+bounds.South)/2*Math.PI/180);
@@ -36,7 +37,7 @@ public static class GeographicImporter {
         double work=0;
         foreach(var f in transformed.Where(f=>f.Polygon&&!f.Tags.ContainsKey("building"))){var outer=f.Rings[0];var rows=Math.Clamp(outer.Max(v=>v.Y)-outer.Min(v=>v.Y)+2,0,p.Height);var columns=Math.Clamp(outer.Max(v=>v.X)-outer.Min(v=>v.X)+2,0,p.Width);work+=rows*(columns+f.Rings.Sum(r=>r.Count));}
         if(work>40_000_000)throw new ArgumentException("Контуры слишком сложные для выбранной карты. Уменьшите участок, размер карты или упростите GeoJSON.");
-        var imported=0;var skipped=0;var skipReasons=new Dictionary<string,int>();
+        var imported=0;var skipped=0;var limitedLevels=0;var approximateRoofs=0;var skipReasons=new Dictionary<string,int>();
         foreach(var f in transformed.Where(f=>f.Polygon&&!f.Tags.ContainsKey("building"))) {
             cancellationToken.ThrowIfCancellationRequested();
             var natural=f.Tags.GetValueOrDefault("natural");var land=f.Tags.GetValueOrDefault("landuse");
@@ -53,13 +54,30 @@ public static class GeographicImporter {
             foreach(var ring in f.Rings)for(var i=1;i<ring.Count;i++) DrawLine(p,ring[i-1],ring[i],radius,water?Terrain.Water:Terrain.Road);
             imported++;
         }
+        if(preserveEdits)foreach(var old in project.Buildings.Where(b=>b.Modified)){
+            var kept=JsonSerializer.Deserialize<Building>(JsonSerializer.Serialize(old))!;
+            foreach(var index in BuildingDesigner.Occupied(kept,false)){var px=kept.X+index%(kept.Width+1);var py=kept.Y+index/(kept.Width+1);p.Terrain[py*p.Width+px]=project.Terrain[py*project.Width+px];}
+            if(!MapGenerator.CanPlace(p,kept,false))throw new ArgumentException("Ручные здания конфликтуют после обновления географии. Импорт отменён; исходный проект сохранён.");p.Buildings.Add(kept);
+        }
         foreach(var f in transformed.Where(f=>f.Polygon&&f.Tags.ContainsKey("building"))) {
             cancellationToken.ThrowIfCancellationRequested();
+            if(preserveEdits&&f.Tags.TryGetValue("__pz_source",out var sourceKey)&&p.Buildings.Any(b=>b.Modified&&b.SourceId==sourceKey)){imported++;continue;}
             var ring=f.Rings[0]; var x=(int)Math.Floor(Math.Clamp(ring.Min(v=>v.X),-100000,100000));var y=(int)Math.Floor(Math.Clamp(ring.Min(v=>v.Y),-100000,100000));
             var w=(int)Math.Clamp(Math.Ceiling(ring.Max(v=>v.X)-x),0,100000);var h=(int)Math.Clamp(Math.Ceiling(ring.Max(v=>v.Y)-y),0,100000);
-            var kind=f.Tags.ContainsKey("shop") || f.Tags.GetValueOrDefault("building")=="retail" ? "shop":f.Tags.GetValueOrDefault("building") is "warehouse" or "industrial" ? "warehouse":"house";
-            var b=new Building{Id=$"import-{x}-{y}-{p.Buildings.Count}",X=x,Y=y,Width=Math.Max(6,w),Height=Math.Max(6,h),Kind=kind,Name=f.Tags.GetValueOrDefault("name",kind=="shop"?"Магазин":kind=="warehouse"?"Склад":"Дом")};
+            var sourceKind=f.Tags.GetValueOrDefault("building","yes");
+            var kind=f.Tags.ContainsKey("shop")?"shop":sourceKind switch{"retail" or "commercial" or "train_station"=>"shop","apartments" or "residential"=>"apartments","school" or "college" or "kindergarten"=>"school","hospital"=>"clinic","hotel"=>"hotel","industrial"=>"industrial","warehouse" or "shed" or "service"=>"warehouse","garages" or "garage"=>"garage",_=>"house"};
+            var b=new Building{Id=$"import-{x}-{y}-{p.Buildings.Count}",X=x,Y=y,Width=Math.Max(6,w),Height=Math.Max(6,h),Kind=kind,Name=f.Tags.GetValueOrDefault("name",BuildingDesigner.Names[kind]),SourceKind=sourceKind,SourceId=f.Tags.GetValueOrDefault("__pz_source")};
             b.Name=b.Name[..Math.Min(100,b.Name.Length)];
+            b.SourceLevels=f.Tags.GetValueOrDefault("building:levels")?[..Math.Min(100,f.Tags["building:levels"].Length)];b.SourceRoof=f.Tags.GetValueOrDefault("roof:shape")?[..Math.Min(100,f.Tags["roof:shape"].Length)];
+            if(w<=64&&h<=64){
+                var levels=kind is "apartments" or "school" or "clinic" or "hotel"?2:1;
+                if(f.Tags.TryGetValue("building:levels",out var levelText)&&int.TryParse(levelText,out var specified)&&specified>0){levels=Math.Clamp(specified,1,16);b.LevelsOrigin="osm-levels";if(specified>16)limitedLevels++;}
+                else if(f.Tags.TryGetValue("height",out var heightText)&&double.TryParse(heightText.Replace(" m",""),System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out var height)&&height>0&&double.IsFinite(height)){levels=Math.Clamp((int)Math.Min(16,Math.Round(height/3)),1,16);b.LevelsOrigin="osm-height";}
+                var seed=unchecked(project.Seed^x*73856093^y*19349663);b.Design=BuildingDesigner.Generate(b,levels,seed);
+                if(f.Tags.GetValueOrDefault("roof:shape") is "flat" or "gabled" or "shed" or "skillion" or "hipped")b.Design.Roof=f.Tags["roof:shape"]=="skillion"?"shed":f.Tags["roof:shape"];
+                else if(b.SourceRoof is not null){b.Design.Roof=b.SourceRoof=="pyramidal"?"hipped":b.SourceRoof=="saltbox"?"gabled":"flat";approximateRoofs++;}
+                ApplyOutline(b,f.Rings);
+            }
             if(w>64||h>64||!MapGenerator.CanPlace(p,b)){
                 skipped++;
                 var reason=w>64||h>64?"Слишком большой контур":b.X<1||b.Y<1||b.X+b.Width>=p.Width||b.Y+b.Height>=p.Height?"За границей карты":b.X/256!=(b.X+b.Width)/256||b.Y/256!=(b.Y+b.Height)/256?"Граница ячейки":p.Buildings.Any(a=>b.X<a.X+a.Width+1&&b.X+b.Width+1>a.X&&b.Y<a.Y+a.Height+1&&b.Y+b.Height+1>a.Y)?"Пересечение зданий":"Вода или дорога";
@@ -69,9 +87,26 @@ public static class GeographicImporter {
         }
         p.Spawns=[MapGenerator.FindSafeSpawn(p)];
         p.ImportSummary=new(){SourceFeatures=features.Count,SourceBuildings=transformed.Count(f=>f.Polygon&&f.Tags.ContainsKey("building")),PlacedBuildings=p.Buildings.Count,SkipReasons=new(skipReasons)};
+        p.ImportSummary.Notes.Add($"Этажность из OSM: {p.Buildings.Count(b=>b.LevelsOrigin=="osm-levels")}; оценка по высоте: {p.Buildings.Count(b=>b.LevelsOrigin=="osm-height")}; предположена: {p.Buildings.Count(b=>b.LevelsOrigin=="inferred")}.");
+        if(limitedLevels>0)p.ImportSummary.Notes.Add($"Этажность ограничена 16 этажами для {limitedLevels} исходных контуров.");if(approximateRoofs>0)p.ImportSummary.Notes.Add($"Необычные формы крыши адаптированы для {approximateRoofs} контуров; исходный тег сохранён в свойствах здания.");
+        if(preserveEdits)p.ImportSummary.Notes.Add($"Сохранено вручную изменённых зданий: {p.Buildings.Count(b=>b.Modified)}. Соседние исходные контуры могут быть пропущены ради сохранения этих изменений.");
         foreach(var b in p.Buildings)for(var y=b.Y/8;y<=(b.Y+b.Height)/8;y++)for(var x=b.X/8;x<=(b.X+b.Width)/8;x++)p.Zombies[y*(p.Width/8)+x]=90;
         ProjectValidator.Validate(p);
         return new(p,imported,skipped,skipped>0?[$"Пропущено зданий: {skipped}. "+string.Join("; ",skipReasons.Select(r=>$"{r.Key}: {r.Value}"))+". Контуры адаптированы к сетке; интерьеры сгенерированы."]:[]){SourceBuildings=transformed.Count(f=>f.Polygon&&f.Tags.ContainsKey("building")),SourceFeatures=features.Count,SkipReasons=skipReasons};
+    }
+    private static void ApplyOutline(Building b,List<List<(double X,double Y)>> rings){
+        var original=b.Design!;var mask=new bool[b.Width*b.Height];
+        for(var y=0;y<b.Height;y++)for(var x=0;x<b.Width;x++)mask[y*b.Width+x]=Inside(b.X+x+.5,b.Y+y+.5,rings[0])&&!rings.Skip(1).Any(r=>Inside(b.X+x+.5,b.Y+y+.5,r));
+        if(mask.Count(v=>v)<16)return;
+        var staircase=-1;for(var y=0;y<b.Height-4&&staircase<0;y++)for(var x=0;x<b.Width;x++)if(Enumerable.Range(0,5).All(i=>mask[(y+i)*b.Width+x])){staircase=y*b.Width+x;break;}
+        if(original.Floors.Count>1&&staircase<0)return;
+        var draft=JsonSerializer.Deserialize<BuildingDesign>(JsonSerializer.Serialize(original))!;b.Design=draft;draft.Shape="custom";
+        for(var z=0;z<draft.Floors.Count;z++){
+            var f=draft.Floors[z];var cells=f.Cells.ToCharArray();for(var i=0;i<cells.Length;i++)if(!mask[i])cells[i]='.';
+            f.Objects.Clear();if(staircase>=0&&draft.Floors.Count>1){for(var i=0;i<5;i++)cells[staircase+i*b.Width]='0';if(z<draft.Floors.Count-1)f.Objects.Add(new(){X=staircase%b.Width,Y=staircase/b.Width,Kind="stairs"});}
+            f.Cells=new(cells);f.Edges=BuildingDesigner.AutoEdges(b,f,z);
+        }
+        try{BuildingDesigner.Validate(b);for(var z=0;z<draft.Floors.Count;z++)BuildingDesigner.Furnish(b,z,new Random(unchecked(draft.Variant+z*1009)));BuildingDesigner.Validate(b);}catch(ArgumentException){b.Design=original;}
     }
     private static JsonDocument Parse(string json){try{return JsonDocument.Parse(json,new(){MaxDepth=48});}catch(JsonException){throw new ArgumentException("Не удалось прочитать JSON геоданных.");}}
     private static List<Feature> ReadFeatures(JsonElement root)
@@ -94,7 +129,8 @@ public static class GeographicImporter {
             foreach(var relation in elements.EnumerateArray().Where(e=>e.TryGetProperty("members",out _)))foreach(var member in relation.GetProperty("members").EnumerateArray())if(member.TryGetProperty("ref",out var reference)&&reference.TryGetInt64(out var id))relationMembers.Add(id);
             foreach(var el in elements.EnumerateArray()) {
                 if(el.TryGetProperty("id",out var elementId)&&elementId.TryGetInt64(out var wayId)&&relationMembers.Contains(wayId)&&el.TryGetProperty("type",out var elementType)&&elementType.GetString()=="way")continue;
-                var tags=Tags(el,"tags");if(el.TryGetProperty("geometry",out var geometry)&&geometry.ValueKind==JsonValueKind.Array) {
+                var tags=Tags(el,"tags");if(el.TryGetProperty("id",out var sourceId)&&sourceId.TryGetInt64(out var sourceNumber))tags["__pz_source"]=$"osm-{(el.TryGetProperty("type",out var sourceType)?sourceType.GetString():"way")}-{sourceNumber}";
+                if(el.TryGetProperty("geometry",out var geometry)&&geometry.ValueKind==JsonValueKind.Array) {
                     var ring=geometry.EnumerateArray().Where(v=>v.TryGetProperty("lon",out _)&&v.TryGetProperty("lat",out _)).Select(v=>Point(v.GetProperty("lon").GetDouble(),v.GetProperty("lat").GetDouble())).ToList();
                     Add(tags,[ring],tags.ContainsKey("building")||tags.ContainsKey("landuse")||tags.GetValueOrDefault("natural") is "water" or "wood" or "sand" or "beach" or "wetland");
                 } else if(el.TryGetProperty("members",out var members)&&members.ValueKind==JsonValueKind.Array) {
@@ -105,16 +141,16 @@ public static class GeographicImporter {
                         (member.TryGetProperty("role",out var role)&&role.GetString()=="inner"?innerSegments:outerSegments).Add(segment);
                     }
                     var outers=Stitch(outerSegments);var inners=Stitch(innerSegments);
-                    foreach(var outer in outers){var rings=new List<List<(double,double)>>{outer};foreach(var inner in inners)if(Inside(inner[0].X,inner[0].Y,outer))rings.Add(inner);Add(tags,rings,true);}
+                    var part=0;foreach(var outer in outers){var rings=new List<List<(double,double)>>{outer};foreach(var inner in inners)if(Inside(inner[0].X,inner[0].Y,outer))rings.Add(inner);var partTags=new Dictionary<string,string>(tags);if(outers.Count>1&&partTags.ContainsKey("__pz_source"))partTags["__pz_source"]+=$"-part-{part}";part++;Add(partTags,rings,true);}
                 }
             }
         }else if(root.TryGetProperty("features",out var features)&&features.ValueKind==JsonValueKind.Array) {
             foreach(var feature in features.EnumerateArray()) {
                 if(!feature.TryGetProperty("geometry",out var geometry)||geometry.ValueKind!=JsonValueKind.Object||!geometry.TryGetProperty("coordinates",out var coords))continue;
-                var tags=Tags(feature,"properties"); var type=geometry.GetProperty("type").GetString();
+                var tags=Tags(feature,"properties");if(feature.TryGetProperty("id",out var sourceId)&&sourceId.ValueKind is JsonValueKind.String or JsonValueKind.Number){var text=sourceId.ToString();tags["__pz_source"]="geo-"+(text.Length>75?Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text))).ToLowerInvariant():text);}var type=geometry.GetProperty("type").GetString();
                 if(type=="LineString")Add(tags,[GeoRing(coords)],false);
                 else if(type=="Polygon")Add(tags,coords.EnumerateArray().Select(GeoRing).ToList(),true);
-                else if(type=="MultiPolygon")foreach(var polygon in coords.EnumerateArray())Add(tags,polygon.EnumerateArray().Select(GeoRing).ToList(),true);
+                else if(type=="MultiPolygon"){var part=0;foreach(var polygon in coords.EnumerateArray()){var partTags=new Dictionary<string,string>(tags);if(partTags.ContainsKey("__pz_source"))partTags["__pz_source"]+=$"-part-{part}";part++;Add(partTags,polygon.EnumerateArray().Select(GeoRing).ToList(),true);}}
                 else if(type=="MultiLineString")foreach(var line in coords.EnumerateArray())Add(tags,[GeoRing(line)],false);
             }
         } else throw new ArgumentException("Поддерживаются GeoJSON FeatureCollection и JSON Overpass.");

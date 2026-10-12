@@ -1,0 +1,44 @@
+// Runtime-only verification harness. Requires the user's installed game; no game classes are bundled.
+import java.nio.file.*;
+import java.lang.reflect.*;
+import java.util.*;
+import zombie.iso.*;
+import zombie.ZomboidFileSystem;
+import zombie.network.GameServer;
+
+public class NativeGameProbe {
+ public static void main(String[] args) throws Exception {
+  GameServer.server=true;
+  ZomboidFileSystem.instance.setCacheDir(args[1]);
+  zombie.core.random.RandStandard.INSTANCE.init();
+  String definitions=Path.of(args[2],"media","newtiledefinitions.tiles").toString();
+  var sprites=zombie.iso.sprite.IsoSpriteManager.instance;
+  IsoWorld.instance.LoadTileDefinitionsPropertyStrings(sprites,definitions,0);
+  Method aliases=IsoWorld.class.getDeclaredMethod("GenerateTilePropertyLookupTables");aliases.setAccessible(true);aliases.invoke(IsoWorld.instance);
+  IsoWorld.instance.LoadTileDefinitions(sprites,definitions,0);
+  Path folder=Path.of(args[0]);int cellCount=0,chunkCount=0,roomCount=0,upperRooms=0,stairTiles=0;
+  try(var files=Files.list(folder)){
+   for(Path file:files.filter(p->p.toString().endsWith(".lotheader")).sorted().toList()){
+    String name=file.getFileName().toString();String[] parts=name.replace(".lotheader","").split("_");int cx=Integer.parseInt(parts[0]),cy=Integer.parseInt(parts[1]);
+    MapFiles map=new MapFiles("SimplePZProbe","",folder.toString(),0);LotHeader header=new LotHeader(cx,cy);header.fixed2x=true;header.fileName=name;header.absoluteFilePath=file.toString();header.mapFiles=map;
+    map.infoHeaders.put(name,header);map.infoFileNames.put(name,file.toString());map.infoFileNames.put("world_"+cx+"_"+cy+".lotpack",folder.resolve("world_"+cx+"_"+cy+".lotpack").toString());
+    IsoMetaGrid grid=IsoWorld.instance.metaGrid;grid.minX=cx;grid.maxX=cx;grid.minY=cy;grid.maxY=cy;
+    for(String dimension:new String[]{"width","height"}){Field field=IsoMetaGrid.class.getDeclaredField(dimension);field.setAccessible(true);field.setInt(grid,1);}
+    Field gridField=IsoMetaGrid.class.getDeclaredField("grid");gridField.setAccessible(true);gridField.set(grid,new IsoMetaCell[1][1]);
+    Class<?> loaderClass=Class.forName("zombie.iso.IsoMetaGrid$MetaGridLoaderThread");Constructor<?> constructor=loaderClass.getDeclaredConstructor(IsoMetaGrid.class,int.class);constructor.setAccessible(true);Object loader=constructor.newInstance(grid,cy);
+    Method load=loaderClass.getDeclaredMethod("loadCell",MapFiles.class,int.class,int.class);load.setAccessible(true);load.invoke(loader,map,cx,cy);
+    Field roomField=loaderClass.getDeclaredField("roomList");roomField.setAccessible(true);List<?> rooms=(List<?>)roomField.get(loader);roomCount+=rooms.size();for(Object room:rooms)if(((RoomDef)room).level>0)upperRooms++;
+    if(header.width!=8||header.height!=8||header.maxLevel<1||header.tilesUsed.isEmpty())throw new AssertionError("Installed game rejected header "+name);
+    for(int x=0;x<32;x++)for(int y=0;y<32;y++){
+     IsoLot lot=IsoLot.get(map,cx,cy,cx*32+x,cy*32+y,null);if(lot.data.isEmpty())throw new AssertionError("Installed game rejected chunk "+x+","+y);
+     for(int squareIndex=0;squareIndex<64*(header.maxLevel-header.minLevel+1);squareIndex++){int offset=lot.offsetInData[squareIndex];if(offset<0)continue;int count=lot.data.get(offset);for(int i=1;i<=count;i++){String tile=(String)header.tilesUsed.get(lot.data.get(offset+i));if(tile.equals("carpentry_02_96")||tile.equals("carpentry_02_97")||tile.equals("carpentry_02_98")||tile.equals("carpentry_02_88")||tile.equals("carpentry_02_89")||tile.equals("carpentry_02_90")){
+      var sprite=sprites.getSprite(tile);if(sprite==null)throw new AssertionError("Game sprite absent: "+tile);var square=new IsoGridSquare(null,null,0,0,0);square.getObjects().add(new IsoObject(null,square,sprite));square.RecalcProperties();if(!square.HasStairs())throw new AssertionError("Game does not recognise stairs: "+tile);stairTiles++;
+     }}}
+     IsoLot.put(lot);chunkCount++;
+    }cellCount++;
+   }
+  }
+  if(upperRooms==0||stairTiles==0)throw new AssertionError("No actual upper rooms/stair sprites loaded");
+  System.out.printf("NATIVE_GAME_PROBE cells=%d chunks=%d rooms=%d upperRooms=%d stairTiles=%d status=passed%n",cellCount,chunkCount,roomCount,upperRooms,stairTiles);
+ }
+}
