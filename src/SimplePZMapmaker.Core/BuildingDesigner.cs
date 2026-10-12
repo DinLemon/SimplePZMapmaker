@@ -57,7 +57,7 @@ public static class BuildingDesigner
   foreach(var code in f.Rooms.Keys.Where(k=>k!="0"&&f.Rooms[k]!="balcony")){
    var passages=f.Edges.Where(e=>e.Kind is "door" or "open").SelectMany(e=>e.Edge=="n"?new[]{e.Y*b.Width+e.X,(e.Y-1)*b.Width+e.X}:new[]{e.Y*b.Width+e.X,e.Y*b.Width+e.X-1}).ToHashSet();
    var kind=f.Rooms[code] switch{"kitchen"=>"counter","bedroom" or "hotelroom"=>"bed","livingroom"=>"seat","bathroom"=>"sink",_=>"storage"};var taken=f.Objects.Where(o=>o.Kind!="stairs").SelectMany(BuildingObjects.Cells).ToHashSet();
-   var candidates=Enumerable.Range(0,f.Cells.Length).Where(i=>f.Cells[i]==code[0]).SelectMany(i=>new[]{"n","w"}.Select(direction=>new BuildingObject{X=i%b.Width,Y=i/b.Width,Kind=kind,Direction=direction})).Where(o=>BuildingObjects.Cells(o).All(point=>Cell(b,f,point.X,point.Y)==code[0]&&!StairSpace(b,z,point.X,point.Y)&&!passages.Contains(point.Y*b.Width+point.X)&&!taken.Contains(point))).ToArray();
+   var candidates=Enumerable.Range(0,f.Cells.Length).Where(i=>f.Cells[i]==code[0]).SelectMany(i=>new[]{"n","w"}.Select(direction=>new BuildingObject{X=i%b.Width,Y=i/b.Width,Kind=kind,Direction=direction,Style=b.Design.Style})).Where(o=>BuildingObjects.Cells(o).All(point=>Cell(b,f,point.X,point.Y)==code[0]&&!StairSpace(b,z,point.X,point.Y)&&!passages.Contains(point.Y*b.Width+point.X)&&!taken.Contains(point))).ToArray();
    if(candidates.Length>6)f.Objects.Add(candidates[rng.Next(candidates.Length)]);
   }
  }
@@ -81,11 +81,15 @@ public static class BuildingDesigner
   if(b.Design is null)return;var d=b.Design;
   [System.Diagnostics.CodeAnalysis.DoesNotReturn] void Fail(string text)=>throw new ArgumentException($"Здание «{b.Name}»: {text}");
   if(d.Material is not("wood" or "brick" or "plaster")||d.Roof is not("flat" or "gabled" or "shed" or "hipped")||d.Shape is not("rect" or "l" or "t" or "courtyard" or "annex" or "custom")||d.Floors is null||d.MinLevel is < -16 or >0||d.Floors.Count is <1 or >32||d.Floors.Count+d.MinLevel is <1 or >16)Fail("повреждён материал, крыша или этажность: 1–16 этажей и 0–16 подвалов.");
+  if(d.Style is null||d.Style.Length>0&&!VisualStyles.All.ContainsKey(d.Style)||d.RoofTileset is not null&&!System.Text.RegularExpressions.Regex.IsMatch(d.RoofTileset,@"^roofs_30_[0-9]{2}$"))Fail("повреждён набор оформления или крыши.");
   if(d.Floors.Any(f=>f is null||f.Cells is null||f.Cells.Length!=b.Width*b.Height||f.Objects is null||f.Objects.Count>512||f.Edges is null||f.Edges.Count>2*(b.Width+1)*(b.Height+1)||f.Edges.Any(e=>e is null)||f.Rooms is null))Fail("слой этажа повреждён.");
   for(var z=0;z<d.Floors.Count;z++){
    var f=d.Floors[z];if(f is null||f.Cells is null||f.Cells.Length!=b.Width*b.Height||f.Rooms is null||f.Rooms.Count is <1 or >35||f.Rooms.Any(r=>r.Key.Length!=1||!"0123456789abcdefghijklmnopqrstuvwxyz".Contains(r.Key[0])||!RoomNames.Contains(r.Value))||f.Cells.Any(c=>c!='.'&&!f.Rooms.ContainsKey(c.ToString()))||!f.Cells.Any(c=>c!='.')||f.Edges is null||f.Edges.Count>2*(b.Width+1)*(b.Height+1)||f.Objects is null||f.Objects.Count>512)Fail($"уровень {z+d.MinLevel} повреждён.");
+   if(f.FloorTile is not null&&!VisualStyles.TileId(f.FloorTile)||f.FloorTiles is null||f.FloorTiles.Count>f.Cells.Length||f.FloorTiles.Any(v=>v.Key<0||v.Key>=f.Cells.Length||f.Cells[v.Key]=='.'||!VisualStyles.TileId(v.Value)))Fail("ресурсы пола стоят вне помещения или повреждены.");
+   foreach(var e in f.Edges)if(e.WallTile is not null&&!VisualStyles.TileId(e.WallTile)||e.OpeningTile is not null&&!VisualStyles.TileId(e.OpeningTile))Fail("повреждён ресурс стены или проёма.");
    var keys=new HashSet<string>();foreach(var e in f.Edges){if(e is null||e.X<0||e.Y<0||e.X>b.Width||e.Y>b.Height||e.Edge is not("n" or "w")||e.Kind is not("wall" or "door" or "window" or "open")||!keys.Add($"{e.X},{e.Y},{e.Edge}")||Cell(b,f,e.X,e.Y)=='.'&&(e.Edge=="n"?Cell(b,f,e.X,e.Y-1):Cell(b,f,e.X-1,e.Y))=='.')Fail($"проверьте стены уровня {z+d.MinLevel}.");}
-   var objectPositions=new HashSet<int>();foreach(var o in f.Objects){if(o is null||o.Kind is not("stairs" or "bed" or "storage" or "counter" or "seat" or "sink")||o.Direction is not("n" or "w")||Cell(b,f,o.X,o.Y)=='.'||!objectPositions.Add(o.Y*b.Width+o.X))Fail($"мебель уровня {z+d.MinLevel} стоит вне помещения или пересекается.");
+   var objectPositions=new HashSet<int>();foreach(var o in f.Objects){if(o is null||o.Kind is not("stairs" or "bed" or "storage" or "counter" or "seat" or "sink" or "asset")||o.Direction is not("n" or "w")||o.Style is null||o.Style.Length>0&&!VisualStyles.All.ContainsKey(o.Style)||Cell(b,f,o.X,o.Y)=='.'||!objectPositions.Add(o.Y*b.Width+o.X))Fail($"мебель уровня {z+d.MinLevel} стоит вне помещения или пересекается.");
+    if(o.Kind=="asset")VisualStyles.ValidateParts(o.Asset,o.Parts);else if(o.Asset is not null||o.Parts is null||o.Parts.Count>0)Fail("ресурс предмета не соответствует типу.");
     if(o.Kind=="stairs"){
      if(z==d.Floors.Count-1)Fail("лестница должна вести на следующий этаж.");
      for(var i=0;i<5;i++){var x=o.X+(o.Direction=="w"?i:0);var y=o.Y+(o.Direction=="n"?i:0);if(Cell(b,f,x,y)=='.'||Cell(b,d.Floors[z+1],x,y)=='.')Fail("лестнице нужны три ступени и площадки на обоих этажах.");}
@@ -111,15 +115,17 @@ public static class BuildingDesigner
   }
  }
  public static int Regenerate(MapProject project,string? id=null){
-  ProjectValidator.Validate(project);project.Version=3;var changed=0;
+  ProjectValidator.Validate(project);project.Version=4;var changed=0;
   foreach(var b in project.Buildings.Where(b=>id is null?!b.Modified:b.Id==id)){
    var old=b.Design;var design=Generate(b,old is null?1:old.Floors.Count+old.MinLevel,unchecked((old?.Variant??project.Seed)+1),old?.Shape is "custom"?"rect":old?.Shape??"rect",-(old?.MinLevel??0));
    if(old is not null){
+    design.Style=old.Style;design.RoofTileset=old.RoofTileset;
     for(var z=0;z<design.Floors.Count;z++){
      var f=design.Floors[z];var cells=f.Cells.ToCharArray();for(var i=0;i<cells.Length;i++)if(old.Floors[z].Cells[i]=='.')cells[i]='.';
      f.Objects.Clear();foreach(var stair in old.Floors[z].Objects.Where(o=>o.Kind=="stairs"))f.Objects.Add(new(){Kind="stairs",X=stair.X,Y=stair.Y,Direction=stair.Direction});
      foreach(var stair in old.Floors.Where((_,level)=>level==z||level==z-1).SelectMany(floor=>floor.Objects).Where(o=>o.Kind=="stairs"))for(var i=0;i<5;i++)cells[(stair.Y+(stair.Direction=="n"?i:0))*b.Width+stair.X+(stair.Direction=="w"?i:0)]='0';
      f.Cells=new(cells);f.Edges=AutoEdges(b,f,z+design.MinLevel);
+     f.FloorTile=old.Floors[z].FloorTile;f.FloorTiles=new(old.Floors[z].FloorTiles);
     }
     design.Shape=old.Shape;if(b.SourceId is not null)design.Roof=old.Roof;
    }

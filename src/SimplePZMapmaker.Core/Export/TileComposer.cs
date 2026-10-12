@@ -8,6 +8,7 @@ internal sealed partial class TileComposer
     private readonly int ox,oy;
     private readonly Dictionary<int,List<string>> ground=[];
     private readonly HashSet<int> roofs=[];
+    private readonly HashSet<int> decorationCells=[];
     internal int[] RoomIds {get;}=Enumerable.Repeat(-1,65536).ToArray();
     internal byte[] Navigation {get;}=new byte[65536];
     internal List<Room> Rooms {get;}=[];
@@ -15,13 +16,15 @@ internal sealed partial class TileComposer
     internal TileComposer(MapProject p,int cellX,int cellY)
     {
         project=p;ox=cellX*256;oy=cellY*256;
+        foreach(var d in p.Decorations)foreach(var part in d.Parts){var x=d.X+part.Dx-ox;var y=d.Y+part.Dy-oy;if(x>=0&&y>=0&&x<256&&y<256)decorationCells.Add(y*256+x);}
         for(var y=0;y<256;y++)for(var x=0;x<256;x++) {
             var terrain=p.Terrain[(oy+y)*p.Width+ox+x];
             Navigation[y*256+x]=terrain==Terrain.Water?(byte)8:(byte)0;
         }
         foreach(var b in p.Buildings.Where(b=>b.X/256==cellX&&b.Y/256==cellY)){if(b.Design is null)Compose(b);else ComposeDesign(b);}
+        foreach(var d in p.Decorations)foreach(var part in d.Parts){var x=d.X+part.Dx-ox;var y=d.Y+part.Dy-oy;if(x>=0&&y>=0&&x<256&&y<256)Add(x,y,part.Tile,part.Flags);}
     }
-    private bool Tree(int x,int y) => ((uint)((ox+x)*73856093)^((uint)(oy+y)*19349663)^(uint)project.Seed)%19==0 && !project.Spawns.Any(s=>Math.Abs(s.X-ox-x)<=2&&Math.Abs(s.Y-oy-y)<=2);
+    private bool Tree(int x,int y) => !decorationCells.Contains(y*256+x)&&((uint)((ox+x)*73856093)^((uint)(oy+y)*19349663)^(uint)project.Seed)%19==0 && !project.Spawns.Any(s=>Math.Abs(s.X-ox-x)<=2&&Math.Abs(s.Y-oy-y)<=2);
     internal List<string> At(int x,int y,int z) {
         var index=y*256+x;
         if(layers.TryGetValue(z*65536+index,out var designed))return designed;
@@ -29,8 +32,8 @@ internal sealed partial class TileComposer
         if(z!=0)return [];
         if(ground.TryGetValue(index,out var overrideTiles))return overrideTiles;
         var t=project.Terrain[(oy+y)*project.Width+ox+x];
-        var floor=t switch{Terrain.Forest=>"blends_natural_01_16",Terrain.Road=>"blends_street_01_0",Terrain.Water=>"blends_natural_02_0",Terrain.Sand=>"blends_natural_01_0",Terrain.Dirt=>"blends_natural_01_64",Terrain.Pavement=>"blends_street_01_48",_=>"blends_natural_01_32"};
-        return t==Terrain.Forest&&Tree(x,y)?[floor,"vegetation_trees_01_8"]:[floor];
+        var hash=EnvironmentStyles.Hash(ox+x,oy+y,project.Seed);var custom=project.SurfaceTiles.GetValueOrDefault((oy+y)*project.Width+ox+x);var floor=custom??EnvironmentStyles.Floor(t,project.SurfaceTheme,hash);
+        return custom is null&&t==Terrain.Forest&&Tree(x,y)?[floor,EnvironmentStyles.Tree(project.SurfaceTheme,hash)]:[floor];
     }
     private void Add(int x,int y,string tile,byte flags=0) {
         var i=y*256+x;if(!ground.ContainsKey(i))ground[i]=At(x,y,0);

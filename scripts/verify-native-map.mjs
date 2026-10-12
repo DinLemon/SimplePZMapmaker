@@ -1,4 +1,4 @@
-import {readFile} from 'node:fs/promises';
+import {readFile,stat} from 'node:fs/promises';
 import {inflateRawSync} from 'node:zlib';
 import assert from 'node:assert/strict';
 
@@ -45,7 +45,7 @@ for(const [name,bytes] of headers){
 assert.equal(buildings,project.buildings.length);
 const worldmap=[...entries].find(([name])=>name.endsWith('/worldmap.xml'));assert.ok(worldmap[1].toString('utf8').includes('cellSize="256"'));
 const attribution=[...entries].find(([name])=>name.endsWith('/ATTRIBUTION.txt'));assert.ok(attribution);for(const item of [...project.attribution,...project.buildings.flatMap(b=>b.attribution||[]),...(project.buildingLibrary||[]).flatMap(b=>b.attribution||[])])assert.ok(attribution[1].toString('utf8').includes(item),'Attribution lost');
-if(process.argv[3]){const definitions=await readFile(process.argv[3],'utf8'),known=new Set([...definitions.matchAll(/\/\/ ([a-zA-Z0-9_]+_\d+)/g)].map(m=>m[1]));for(const name of allTiles)assert.ok(known.has(name),`Unknown installed game tile: ${name}`);
+if(process.argv[3]){const source=process.argv[3],directory=(await stat(source)).isDirectory(),definitions=directory?(await Promise.all(['newtiledefinitions.tiles.txt','tiledefinitions_erosion.tiles.txt','jumbo_trees.tiles.txt','jumbo_trees_big.tiles.txt'].map(file=>readFile(source+'/'+file,'utf8').catch(()=>'')))).join('\n'):await readFile(source,'utf8'),known=new Set([...definitions.matchAll(/\/\/ ([a-zA-Z0-9_]+_\d+)/g)].map(m=>m[1]));for(const name of allTiles)assert.ok(known.has(name),`Unknown installed game tile: ${name}`);
  const catalog=JSON.parse(await readFile(new URL('../src/SimplePZMapmaker.Web/wwwroot/building-objects.json',import.meta.url),'utf8'));for(const [kind,directions] of Object.entries(catalog))for(const [direction,parts] of Object.entries(directions))for(const part of parts){const props=definitions.match(new RegExp('// '+part.tile+'\\r?\\n\\s*tile\\s*\\{([^}]+)\\}'))?.[1];assert.ok(props,'Missing furniture tile '+part.tile);assert.equal(props.match(/Facing = (\w+)/)?.[1],direction.toUpperCase(),kind+' orientation');const grid=props.match(/SpriteGridPos = ([\d,]+)/)?.[1];if(parts.length>1)assert.equal(grid,`${part.dx},${part.dy}`,kind+' grid position');else assert.equal(grid,undefined,kind+' must be a complete single-square object');}
 }
 console.log(JSON.stringify({file,cells:headers.length,chunks,rooms,buildings,tileNames:allTiles.size,status:'valid native B42 structure',gameplay:'not playtested'}));

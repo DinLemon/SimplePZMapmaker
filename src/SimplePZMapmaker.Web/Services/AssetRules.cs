@@ -1,0 +1,14 @@
+using SimplePZMapmaker.Core;
+namespace SimplePZMapmaker.Web.Services;
+public static class AssetRules
+{
+ public static void Building(Building b,GameAssetCatalog assets){BuildingDesigner.Validate(b);if(b.Design is null)return;var d=b.Design;
+  void Floor(string id){var a=assets.Get(id);if(!a.Floor||a.Properties.ContainsKey("water"))throw new ArgumentException("В помещении нужен полный сухой тайл пола.");}
+  if(d.Style.Length>0){var s=VisualStyles.All[d.Style];Floor(s.Floor);Floor(s.WetFloor);foreach(var direction in new[]{"n","w"})foreach(var kind in new[]{"wall","door","window"})CheckEdge(assets,s.Wall+"_"+(s.WallBase+(kind=="door"?10:kind=="window"?8:0)+(direction=="n"?1:0)),null,direction,kind);}
+  if(d.RoofTileset is not null)foreach(var i in Enumerable.Range(0,30).Where(i=>i%8<6))if(assets.Get(d.RoofTileset+"_"+i).Category!="roofs")throw new ArgumentException("Нужен полный набор крыши 30°.");
+  foreach(var f in d.Floors){if(f.FloorTile is not null)Floor(f.FloorTile);foreach(var id in f.FloorTiles.Values)Floor(id);foreach(var e in f.Edges)if(e.WallTile is not null||e.OpeningTile is not null)CheckEdge(assets,e.WallTile,e.OpeningTile,e.Edge,e.Kind);foreach(var o in f.Objects.Where(o=>o.Kind=="asset"))CheckParts(assets,o.Asset!,o.Parts);}
+ }
+ public static void Project(MapProject p,GameAssetCatalog assets){ProjectValidator.Validate(p);foreach(var b in p.Buildings.Concat(p.BuildingLibrary))Building(b,assets);foreach(var d in p.Decorations)CheckParts(assets,d.Asset,d.Parts);foreach(var (i,id) in p.SurfaceTiles){var a=assets.Get(id);if(!a.Floor||a.Properties.ContainsKey("water")!=(p.Terrain[i]==Terrain.Water))throw new ArgumentException("Тип выбранного покрытия не соответствует поверхности: "+id);}}
+ public static void CheckParts(GameAssetCatalog assets,string id,List<BuildingObjects.Part> parts){var actual=assets.PlacementFor(id);var expected=actual.Parts.OrderBy(p=>p.Dy).ThenBy(p=>p.Dx).Select(p=>(p.Dx,p.Dy,p.Tile,p.Flags));if(!parts.OrderBy(p=>p.Dy).ThenBy(p=>p.Dx).Select(p=>(p.Dx,p.Dy,p.Tile,p.Flags)).SequenceEqual(expected))throw new ArgumentException("Группа тайлов или физические свойства не соответствуют ресурсу игры.");}
+ public static void CheckEdge(GameAssetCatalog assets,string? wall,string? opening,string direction,string kind){var suffix=direction=="n"?"N":"W";if(wall is not null){var p=assets.Get(wall).Properties;var needed=kind=="door"?"DoorWall"+suffix:kind=="window"?"Window"+suffix:"Wall"+suffix;if(!p.ContainsKey(needed)&&!(kind=="window"&&p.ContainsKey("WindowWall"+suffix)))throw new ArgumentException("Тайл стены не подходит направлению или типу проёма.");}if(opening is not null&&(kind is not("door" or "window")||!assets.Get(opening).Properties.ContainsKey((kind=="door"?"door":"window")+suffix)))throw new ArgumentException("Дверь или окно не подходят выбранной грани.");}
+}

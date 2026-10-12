@@ -25,6 +25,7 @@ public static class GeographicImporter {
         if(project.Height!=project.Width) {p.Height=project.Height;p.Terrain=new Terrain[p.Width*p.Height];p.Zombies=new int[p.Width*p.Height/64];}
         p.WorldX=project.WorldX;p.WorldY=project.WorldY;p.Bounds=bounds;
         p.Attribution=[..project.Attribution];
+        p.SurfaceTheme=project.SurfaceTheme;
         p.BuildingLibrary=JsonSerializer.Deserialize<List<Building>>(JsonSerializer.Serialize(project.BuildingLibrary))!;
         var source=root.TryGetProperty("elements",out _) ? "Map data © OpenStreetMap contributors — https://www.openstreetmap.org/copyright — ODbL 1.0":"Источник: импортированный GeoJSON. Права на исходные данные определяет их поставщик.";
         if(!p.Attribution.Contains(source))p.Attribution.Add(source);
@@ -54,6 +55,7 @@ public static class GeographicImporter {
             foreach(var ring in f.Rings)for(var i=1;i<ring.Count;i++) DrawLine(p,ring[i-1],ring[i],radius,water?Terrain.Water:Terrain.Road);
             imported++;
         }
+        if(preserveEdits){p.SurfaceTiles=new(project.SurfaceTiles);p.Decorations=JsonSerializer.Deserialize<List<WorldDecoration>>(JsonSerializer.Serialize(project.Decorations))!;foreach(var i in p.SurfaceTiles.Keys)p.Terrain[i]=project.Terrain[i];foreach(var d in p.Decorations)foreach(var part in d.Parts){var i=(d.Y+part.Dy)*p.Width+d.X+part.Dx;p.Terrain[i]=project.Terrain[i];}}
         if(preserveEdits)foreach(var old in project.Buildings.Where(b=>b.Modified)){
             var kept=JsonSerializer.Deserialize<Building>(JsonSerializer.Serialize(old))!;
             foreach(var index in BuildingDesigner.Occupied(kept,false)){var px=kept.X+index%(kept.Width+1);var py=kept.Y+index/(kept.Width+1);p.Terrain[py*p.Width+px]=project.Terrain[py*project.Width+px];}
@@ -76,6 +78,7 @@ public static class GeographicImporter {
                 var basements=0;b.SourceBasements=f.Tags.GetValueOrDefault("building:levels:underground")?[..Math.Min(100,f.Tags["building:levels:underground"].Length)];
                 if(b.SourceBasements is not null&&int.TryParse(b.SourceBasements,out var depth)&&depth>0){basements=Math.Clamp(depth,0,16);if(depth>16)limitedLevels++;}
                 var seed=unchecked(project.Seed^x*73856093^y*19349663);b.Design=BuildingDesigner.Generate(b,levels,seed,"rect",basements);
+                if(p.SurfaceTheme!="legacy")VisualStyles.Apply(b);
                 if(f.Tags.GetValueOrDefault("roof:shape") is "flat" or "gabled" or "shed" or "skillion" or "hipped")b.Design.Roof=f.Tags["roof:shape"]=="skillion"?"shed":f.Tags["roof:shape"];
                 else if(b.SourceRoof is not null){b.Design.Roof=b.SourceRoof=="pyramidal"?"hipped":b.SourceRoof=="saltbox"?"gabled":"flat";approximateRoofs++;}
                 ApplyOutline(b,f.Rings);

@@ -32,3 +32,6 @@ jobs:
       - name: Verify signed basement example
         shell: pwsh
         run: node scripts/verify-native-map.mjs examples/Basements/Basements-B42.zip
+      - name: Verify resource/style example
+        shell: pwsh
+        run: node scripts/verify-native-map.mjs examples/Assets/Resources-B42.zip

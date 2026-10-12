@@ -10,6 +10,7 @@ builder.Services.ConfigureHttpJsonOptions(o=>{o.SerializerOptions.MaxDepth=48;})
 var workspace=Environment.GetEnvironmentVariable("PZMAP_WORKSPACE") ?? Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath,"../.."));
 builder.Services.AddSingleton(new OsmClient(Path.Combine(workspace,"work","geodata-cache")));
 builder.Services.AddSingleton(new RecoveryStore(Path.Combine(workspace,"work","recovery")));
+builder.Services.AddSingleton(new GameAssetCatalog(workspace,Environment.GetEnvironmentVariable("PZMAP_GAME_PATH")??@"./game-installation"));
 var app=builder.Build();
 app.Use(async(context,next)=> {
     var host=context.Request.Host.Host;
@@ -29,7 +30,19 @@ app.Use(async(context,next)=> {
     }
 });
 app.UseDefaultFiles();app.UseStaticFiles();
-app.MapGet("/api/environment",()=>new {version="0.3.1",target="Project Zomboid Build 42",gameFound=Directory.Exists(@"./game-installation\media"),gamePath=@"./game-installation",cellSize=256,chunkSize=8,workspace});
+app.MapGet("/api/assets/status",(GameAssetCatalog assets)=>assets.Status());
+app.MapGet("/api/assets/search",(GameAssetCatalog assets,string? q,string? category,int? offset,int? limit)=>assets.Search(q,category,offset??0,limit??72));
+app.MapGet("/api/assets/item/{id}",(GameAssetCatalog assets,string id)=>{var a=assets.Get(id);return new{a.Id,a.Category,a.Name,a.Group,a.Facing,a.Grid,a.Blocking,a.Floor,a.Page,a.Sprite,a.Properties};});
+app.MapGet("/api/assets/placement/{id}",(GameAssetCatalog assets,string id)=>assets.PlacementFor(id));
+app.MapGet("/api/assets/pair/{id}",(GameAssetCatalog assets,string id,string role)=>assets.Pair(id,role));
+app.MapGet("/api/assets/page/{id}",(GameAssetCatalog assets,string id)=>Results.Bytes(assets.Page(id),"image/png"));
+app.MapPost("/api/assets/describe",(GameAssetCatalog assets,string[] ids)=>assets.Describe(ids));
+app.MapPost("/api/assets/refresh",(GameAssetCatalog assets,AssetSourceRequest source)=>{assets.Refresh(source.GamePath);return assets.Status();});
+app.MapGet("/api/styles",()=>new{buildings=VisualStyles.All,surfaces=EnvironmentStyles.Names});
+app.MapPost("/api/preview/building",(GameAssetCatalog assets,BuildingPreviewRequest request)=>{AssetRules.Building(request.Building,assets);return NativeScene.Building(request.Building,request.Level);});
+app.MapPost("/api/preview/cell",(GameAssetCatalog assets,CellPreviewRequest request)=>{if(request.Project.Spawns.Count==0)request.Project.Spawns.Add(MapGenerator.FindSafeSpawn(request.Project));AssetRules.Project(request.Project,assets);return NativeScene.Cell(request.Project,request.X,request.Y,request.Width,request.Height,request.Level,request.X,request.Y,request.CellX,request.CellY);});
+app.MapPost("/api/styles/apply",(GameAssetCatalog assets,StyleApplyRequest request)=>{ProjectValidator.Validate(request.Project);if(!EnvironmentStyles.Names.ContainsKey(request.SurfaceTheme))throw new ArgumentException("Неизвестное оформление местности.");request.Project.Version=4;request.Project.SurfaceTheme=request.SurfaceTheme;var changed=0;foreach(var b in request.Project.Buildings.Where(b=>!b.Modified&&b.Design is not null)){VisualStyles.Apply(b);changed++;}AssetRules.Project(request.Project,assets);return new{project=request.Project,changed};});
+app.MapGet("/api/environment",(GameAssetCatalog assets)=>new {version="0.4.0",target="Project Zomboid Build 42",gameFound=assets.Ready,gamePath=assets.GamePath,cellSize=256,chunkSize=8,workspace});
 app.MapGet("/api/examples/pilna",async(CancellationToken token)=>{
     var file=Path.Combine(workspace,"examples","Pilna","pilna.pzmap.json");
     if(!File.Exists(file))file=Path.Combine(AppContext.BaseDirectory,"examples","Pilna","pilna.pzmap.json");
@@ -38,20 +51,24 @@ app.MapGet("/api/examples/pilna",async(CancellationToken token)=>{
     var p=JsonSerializer.Deserialize<MapProject>(await File.ReadAllTextAsync(file,token),NativeMapExporter.JsonOptions)??throw new ArgumentException("Пример карты повреждён.");
     ProjectValidator.Validate(p);return Results.Ok(p);
 });
-app.MapPost("/api/generate",(GenerationOptions options)=>MapGenerator.Generate(options));
+app.MapPost("/api/generate",(GameAssetCatalog assets,GenerationOptions options)=>{if(!assets.Ready)options.SurfaceTheme="legacy";return MapGenerator.Generate(options);});
 app.MapPost("/api/import/geojson",(GeoImportRequest request,CancellationToken token)=>GeographicImporter.Import(request.Json,request.Project,request.Bounds,token,request.PreserveEdits));
 app.MapPost("/api/import/osm",async(OsmImportRequest request,OsmClient client,CancellationToken token)=>{ProjectValidator.Validate(request.Project);return GeographicImporter.Import(await client.Fetch(request.Bounds,token),request.Project,request.Bounds,token,request.PreserveEdits);});
-app.MapPost("/api/building/design",(BuildingDesignRequest request)=>{var b=request.Building;if(b is null)throw new ArgumentException("Не задано здание.");b.Design=BuildingDesigner.Generate(b,request.Levels,request.Seed,request.Shape,request.Basements);return b;});
-app.MapPost("/api/building/validate",(Building b)=>{BuildingDesigner.Validate(b);return Results.Ok(new{valid=true});});
+app.MapPost("/api/building/design",(GameAssetCatalog assets,BuildingDesignRequest request)=>{var b=request.Building;if(b is null)throw new ArgumentException("Не задано здание.");b.Design=BuildingDesigner.Generate(b,request.Levels,request.Seed,request.Shape,request.Basements);VisualStyles.Apply(b,request.Style=="auto"&&!assets.Ready?"":request.Style);AssetRules.Building(b,assets);return b;});
+app.MapPost("/api/building/validate",(GameAssetCatalog assets,Building b)=>{AssetRules.Building(b,assets);return Results.Ok(new{valid=true});});
 app.MapPost("/api/buildings/regenerate",(BuildingRegenerateRequest request)=>{var changed=BuildingDesigner.Regenerate(request.Project,request.Id);return Results.Ok(new{project=request.Project,changed,skipped=request.Project.Buildings.Count-changed});});
 app.MapPost("/api/search",async(SearchRequest request,OsmClient client,CancellationToken token)=>await client.Search(request.Query,token));
-app.MapPost("/api/export",(MapProject project)=>Results.File(NativeMapExporter.Export(project),"application/zip","SimplePZMap.zip"));
-app.MapPost("/api/validate",(MapProject project)=>{ProjectValidator.Validate(project);return Results.Ok(new{valid=true});});
+app.MapPost("/api/export",(GameAssetCatalog assets,MapProject project)=>{AssetRules.Project(project,assets);return Results.File(NativeMapExporter.Export(project),"application/zip","SimplePZMap.zip");});
+app.MapPost("/api/validate",(GameAssetCatalog assets,MapProject project)=>{AssetRules.Project(project,assets);return Results.Ok(new{valid=true});});
 app.MapGet("/api/recovery/{id}",async(string id,RecoveryStore store,CancellationToken token)=>{var project=await store.LoadAsync(id,token);return project is null?Results.NotFound():Results.Ok(project);});
 app.MapPost("/api/recovery/{id}",async(string id,MapProject project,RecoveryStore store,CancellationToken token)=>{await store.SaveAsync(id,project,token);return Results.Ok(new{saved=true});});
 app.Run();
 public sealed record GeoImportRequest(MapProject Project,string Json,GeoBounds? Bounds,bool PreserveEdits=false);
 public sealed record OsmImportRequest(MapProject Project,GeoBounds Bounds,bool PreserveEdits=false);
 public sealed record SearchRequest(string Query);
-public sealed record BuildingDesignRequest(Building Building,int Levels=1,int Seed=42,string Shape="rect",int Basements=0);
+public sealed record BuildingDesignRequest(Building Building,int Levels=1,int Seed=42,string Shape="rect",int Basements=0,string Style="auto");
 public sealed record BuildingRegenerateRequest(MapProject Project,string? Id=null);
+public sealed record AssetSourceRequest(string GamePath);
+public sealed record BuildingPreviewRequest(Building Building,int? Level=null);
+public sealed record CellPreviewRequest(MapProject Project,int X,int Y,int Width=48,int Height=48,int? Level=0,int CellX=0,int CellY=0);
+public sealed record StyleApplyRequest(MapProject Project,string SurfaceTheme="temperate");

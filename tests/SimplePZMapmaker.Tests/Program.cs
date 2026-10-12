@@ -27,7 +27,7 @@ var tests = new (string Name, Action Run)[] {
  })
 };
 var failures=0;
-var all=tests.Concat(GeoTests.Cases()).Concat(ExportTests.Cases()).Concat(RegressionTests.Cases()).Concat(UpstreamTests.Cases()).Concat(PilnaTests.Cases()).Concat(RecoveryTests.Cases()).Concat(BuildingTests.Cases()).ToArray();
+var all=tests.Concat(GeoTests.Cases()).Concat(ExportTests.Cases()).Concat(RegressionTests.Cases()).Concat(UpstreamTests.Cases()).Concat(PilnaTests.Cases()).Concat(RecoveryTests.Cases()).Concat(BuildingTests.Cases()).Concat(AssetTests.Cases()).ToArray();
 foreach(var (name,run) in all) { try {run(); Console.WriteLine($"PASS {name}");} catch(Exception e) {failures++;Console.WriteLine($"FAIL {name}: {e.Message}");} }
 Console.WriteLine($"{all.Length-failures}/{all.Length} passed"); return failures==0 ? 0:1;
 static void Check(bool ok,string message){if(!ok)throw new Exception(message);}

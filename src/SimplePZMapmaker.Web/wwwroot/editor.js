@@ -1,6 +1,6 @@
-import {kinds,occupied,occupiedIndices,containsPoint,validateDesign,combineAttribution,minLevel} from './building.js';
-export function blank(size=256){return {version:3,name:'Новая карта',width:size,height:size,seed:42,worldX:100,worldY:100,terrain:Array(size*size).fill(0),zombies:Array(size*size/64).fill(0),buildings:[],buildingLibrary:[],spawns:[{x:size/2,y:size/2}],attribution:[],bounds:null};}
-export function geographicBase(project,size,keep){if(keep)return project;const result=blank(size);result.buildingLibrary=structuredClone(project.buildingLibrary||[]);result.attribution=combineAttribution(project.attribution,...result.buildingLibrary.map(b=>b.attribution||[]));return result;}
+import {kinds,occupied,occupiedIndices,containsPoint,validateDesign,combineAttribution,minLevel,usesAssets,validateParts,tileId} from './building.js';
+export function blank(size=256){return {version:4,name:'Новая карта',width:size,height:size,seed:42,worldX:100,worldY:100,terrain:Array(size*size).fill(0),zombies:Array(size*size/64).fill(0),buildings:[],buildingLibrary:[],decorations:[],surfaceTiles:{},surfaceTheme:'legacy',spawns:[{x:size/2,y:size/2}],attribution:[],bounds:null};}
+export function geographicBase(project,size,keep){if(keep)return project;const result=blank(size);result.surfaceTheme=project.surfaceTheme??'legacy';result.buildingLibrary=structuredClone(project.buildingLibrary||[]);result.attribution=combineAttribution(project.attribution,...result.buildingLibrary.map(b=>b.attribution||[]));return result;}
 export function boundsFromSearchResult(item){
  if(!Array.isArray(item?.boundingbox)||item.boundingbox.length!==4)return null;
  const [south,north,west,east]=item.boundingbox.map(Number);
@@ -11,8 +11,8 @@ export function paint(p,x,y,terrain,radius=1,history){
  for(let yy=Math.max(0,y-radius+1);yy<=Math.min(p.height-1,y+radius-1);yy++)for(let xx=Math.max(0,x-radius+1);xx<=Math.min(p.width-1,x+radius-1);xx++){
   if((xx-x)**2+(yy-y)**2>radius**2)continue;
   const i=yy*p.width+xx;
-  if(terrain===3&&(history?.pending?history.blocksWater(i):p.buildings.some(b=>containsPoint(b,xx-b.x,yy-b.y))||p.spawns.some(s=>s.x===xx&&s.y===yy)))continue;
-  if(p.terrain[i]===terrain)continue;history?.touch('terrain',i,p.terrain[i]);p.terrain[i]=terrain;
+  if(terrain===3&&(history?.pending?history.blocksWater(i):p.buildings.some(b=>containsPoint(b,xx-b.x,yy-b.y))||p.spawns.some(s=>s.x===xx&&s.y===yy)||(p.decorations||[]).some(d=>d.parts.some(part=>d.x+part.dx===xx&&d.y+part.dy===yy))))continue;
+  if(p.surfaceTiles)delete p.surfaceTiles[i];if(p.terrain[i]===terrain)continue;history?.touch('terrain',i,p.terrain[i]);p.terrain[i]=terrain;
  }
 }
 export function line(p,x0,y0,x1,y1,terrain,radius=1,history){
@@ -22,13 +22,14 @@ export function canPlace(p,b){
  if(!b||!Object.hasOwn(kinds,b.kind)||![b.x,b.y,b.width,b.height].every(Number.isInteger)||b.width<6||b.height<6||b.width>64||b.height>64||b.x<1||b.y<1||b.x+b.width>=p.width||b.y+b.height>=p.height||Math.floor(b.x/256)!==Math.floor((b.x+b.width)/256)||Math.floor(b.y/256)!==Math.floor((b.y+b.height)/256))return false;
  const points=occupiedIndices(b),global=new Set([...points].map(i=>(b.y+Math.floor(i/(b.width+1)))*p.width+b.x+i%(b.width+1)));
  if(p.buildings.some(a=>a!==b&&b.x<a.x+a.width+1&&b.x+b.width+1>a.x&&b.y<a.y+a.height+1&&b.y+b.height+1>a.y&&[...occupiedIndices(a)].some(i=>global.has((a.y+Math.floor(i/(a.width+1)))*p.width+a.x+i%(a.width+1)))))return false;
+ if((p.decorations||[]).some(d=>d.parts.some(part=>global.has((d.y+part.dy)*p.width+d.x+part.dx))))return false;
  if(p.spawns.some(s=>global.has(s.y*p.width+s.x)))return false;
  for(let y=0;y<b.height;y++)for(let x=0;x<b.width;x++)if(occupied(b,x,y)&&p.terrain[(b.y+y)*p.width+b.x+x]===3)return false;
  return true;
 }
 export function validateProject(p){
  const fail=m=>{throw Error(m);};
- if(!p||![1,2,3].includes(p.version)||!Number.isInteger(p.width)||!Number.isInteger(p.height)||p.width<256||p.height<256||p.width>2048||p.height>2048||p.width%256||p.height%256)fail('Неподдерживаемый размер или версия проекта.');
+ if(!p||![1,2,3,4].includes(p.version)||!Number.isInteger(p.width)||!Number.isInteger(p.height)||p.width<256||p.height<256||p.width>2048||p.height>2048||p.width%256||p.height%256)fail('Неподдерживаемый размер или версия проекта.');
  if(typeof p.name!=='string'||!p.name.trim()||p.name.length>80||/[\x00-\x1f\x7f]/.test(p.name))fail('Проверьте название карты.');
  if(!Number.isInteger(p.seed)||p.seed< -2147483648||p.seed>2147483647)fail('Seed должен быть целым числом от −2147483648 до 2147483647.');
  if(p.bounds!==null&&p.bounds!==undefined){const b=p.bounds;if(![b.south,b.north,b.west,b.east].every(Number.isFinite)||b.south< -85||b.north>85||b.west< -180||b.east>180||b.south>=b.north||b.west>=b.east||b.north-b.south>.08||b.east-b.west>.12)fail('Географические границы проекта повреждены или слишком велики.');}
@@ -41,15 +42,18 @@ export function validateProject(p){
  const library=p.buildingLibrary??[];if(!Array.isArray(library)||library.length>64)fail('Библиотека зданий повреждена.');for(const b of library)validateDesign(b);
  if(p.version===1&&(library.length||p.buildings.some(b=>b?.design)))fail('Этажи и шаблоны требуют формат проекта версии 2.');
  if(p.version<3&&[...p.buildings,...library].some(b=>minLevel(b)!==0))fail('Подвалы требуют формат проекта версии 3.');
+ const theme=p.surfaceTheme??'legacy',surface=p.surfaceTiles??{},decor=p.decorations??[];if(!['legacy','temperate','rural','urban','dry'].includes(theme)||typeof surface!=='object'||!surface||Array.isArray(surface)||Object.keys(surface).length>100000||Object.entries(surface).some(([i,id])=>!/^\d+$/.test(i)||+i>=p.terrain.length||!tileId(id))||!Array.isArray(decor)||decor.length>10000)fail('Поверхности или декор повреждены.');
+ if(p.version<4&&(theme!=='legacy'||Object.keys(surface).length||decor.length||[...p.buildings,...library].some(usesAssets)))fail('Оформление и ресурсы требуют формат проекта версии 4.');
+ const decorationIds=new Set(),decorationCells=new Set();for(const d of decor){if(!d||typeof d.id!=='string'||!d.id||d.id.length>100||decorationIds.has(d.id)||![d.x,d.y].every(Number.isInteger))fail('Декор повреждён.');decorationIds.add(d.id);validateParts(d.asset,d.parts);for(const part of d.parts){const x=d.x+part.dx,y=d.y+part.dy,index=y*p.width+x;if(x<0||y<0||x>=p.width||y>=p.height||p.terrain[index]===3||p.buildings.some(b=>containsPoint(b,x-b.x,y-b.y))||p.spawns.some(s=>s.x===x&&s.y===y)||decorationCells.has(index))fail('Декор пересекается с водой или объектами.');decorationCells.add(index);}}
  if(p.importSummary?.notes!==undefined&&(!Array.isArray(p.importSummary.notes)||p.importSummary.notes.length>20||p.importSummary.notes.some(s=>typeof s!=='string'||s.length>1000)))fail('Примечания импорта повреждены.');
  if([...p.buildings,...library].reduce((sum,b)=>sum+(b?.design?.floors?.reduce((n,f)=>n+(f?.cells?.length||0),0)||0),0)>20_000_000)fail('Слишком много клеток в этажах.');
  const ids=new Set();for(const b of p.buildings){validateDesign(b);if(!b||typeof b.id!=='string'||!b.id||ids.has(b.id)||typeof b.name!=='string'||b.name.length>100||b.sourceId?.length>100||b.sourceKind?.length>100||!['inferred','osm-levels','osm-height','manual'].includes(b.levelsOrigin??'inferred')||!canPlace(p,b))fail('Здание повреждено, пересекается с другим или стоит на воде.');ids.add(b.id);}
  for(const s of p.spawns)if(!s||!Number.isInteger(s.x)||!Number.isInteger(s.y)||s.x<0||s.y<0||s.x>=p.width||s.y>=p.height||p.terrain[s.y*p.width+s.x]===3||p.buildings.some(b=>containsPoint(b,s.x-b.x,s.y-b.y)))fail('Точка появления должна стоять на земле снаружи здания.');
  return p;
 }
-const meta=p=>structuredClone({version:p.version,buildings:p.buildings,buildingLibrary:p.buildingLibrary??[],spawns:p.spawns,attribution:p.attribution,name:p.name,worldX:p.worldX,worldY:p.worldY});
+const meta=p=>structuredClone({version:p.version,buildings:p.buildings,buildingLibrary:p.buildingLibrary??[],decorations:p.decorations??[],surfaceTiles:p.surfaceTiles??{},surfaceTheme:p.surfaceTheme??'legacy',spawns:p.spawns,attribution:p.attribution,name:p.name,worldX:p.worldX,worldY:p.worldY});
 function objectsDiff(before,after){const a=new Map(before.map(b=>[b.id,b])),b=new Map(after.map(b=>[b.id,b]));return [...new Set([...a.keys(),...b.keys()])].filter(id=>JSON.stringify(a.get(id))!==JSON.stringify(b.get(id))).map(id=>({id,before:a.get(id)??null,after:b.get(id)??null}));}
-function slimMeta(p){return {version:p.version,name:p.name,worldX:p.worldX,worldY:p.worldY,spawns:p.spawns,attribution:p.attribution,buildingOrder:p.buildings.map(b=>b.id),libraryOrder:p.buildingLibrary.map(b=>b.id)};}
+function slimMeta(p){return {version:p.version,name:p.name,worldX:p.worldX,worldY:p.worldY,spawns:p.spawns,attribution:p.attribution,surfaceTheme:p.surfaceTheme,buildingOrder:p.buildings.map(b=>b.id),libraryOrder:p.buildingLibrary.map(b=>b.id),decorationOrder:p.decorations.map(b=>b.id)};}
 export class History{
  constructor(){this.past=[];this.future=[];this.pending=null;}
  begin(p){if(!this.pending)this.pending={before:meta(p),changes:new Map(),project:p};}
@@ -59,17 +63,17 @@ export class History{
  }
  blocksWater(index){
   if(!this.pending)return false;const p=this.pending.project;
-  if(!this.pending.waterMask){const mask=new Uint8Array(p.terrain.length);for(const b of p.buildings)for(const i of occupiedIndices(b))mask[(b.y+Math.floor(i/(b.width+1)))*p.width+b.x+i%(b.width+1)]=1;for(const s of p.spawns)mask[s.y*p.width+s.x]=1;this.pending.waterMask=mask;}
+  if(!this.pending.waterMask){const mask=new Uint8Array(p.terrain.length);for(const b of p.buildings)for(const i of occupiedIndices(b))mask[(b.y+Math.floor(i/(b.width+1)))*p.width+b.x+i%(b.width+1)]=1;for(const d of p.decorations||[])for(const part of d.parts)mask[(d.y+part.dy)*p.width+d.x+part.dx]=1;for(const s of p.spawns)mask[s.y*p.width+s.x]=1;this.pending.waterMask=mask;}
   return this.pending.waterMask[index]===1;
  }
  get retainedBytes(){return [...this.past,...this.future].reduce((sum,item)=>sum+item.bytes,0);}
- commit(p){if(!this.pending)return;const pending=this.pending;this.pending=null;const after=meta(p);const item={before:slimMeta(pending.before),after:slimMeta(after),buildings:objectsDiff(pending.before.buildings,after.buildings),library:objectsDiff(pending.before.buildingLibrary,after.buildingLibrary),changes:[]};
+ commit(p){if(!this.pending)return;const pending=this.pending;this.pending=null;const after=meta(p);const item={before:slimMeta(pending.before),after:slimMeta(after),buildings:objectsDiff(pending.before.buildings,after.buildings),library:objectsDiff(pending.before.buildingLibrary,after.buildingLibrary),decorations:objectsDiff(pending.before.decorations,after.decorations),surface:[...new Set([...Object.keys(pending.before.surfaceTiles),...Object.keys(after.surfaceTiles)])].filter(i=>pending.before.surfaceTiles[i]!==after.surfaceTiles[i]).map(i=>({i,before:pending.before.surfaceTiles[i]??null,after:after.surfaceTiles[i]??null})),changes:[]};
   for(const c of pending.changes.values()){const value=Uint8Array.from(p[c.layer].slice(c.start,c.start+c.old.length));if(value.some((v,i)=>v!==c.old[i]))item.changes.push({...c,value});}
-  if(!item.changes.length&&!item.buildings.length&&!item.library.length&&JSON.stringify(item.before)===JSON.stringify(item.after))return;
-  item.bytes=item.changes.reduce((sum,c)=>sum+c.old.byteLength+c.value.byteLength,0)+(JSON.stringify(item.before).length+JSON.stringify(item.after).length+JSON.stringify(item.buildings).length+JSON.stringify(item.library).length)*2;
+  if(!item.changes.length&&!item.buildings.length&&!item.library.length&&!item.decorations.length&&!item.surface.length&&JSON.stringify(item.before)===JSON.stringify(item.after))return;
+  item.bytes=item.changes.reduce((sum,c)=>sum+c.old.byteLength+c.value.byteLength,0)+(JSON.stringify(item.before).length+JSON.stringify(item.after).length+JSON.stringify(item.buildings).length+JSON.stringify(item.library).length+JSON.stringify(item.decorations).length+JSON.stringify(item.surface).length)*2;
   this.past.push(item);this.future=[];while(this.past.length>30||this.retainedBytes>64*1024*1024)this.past.shift();
  }
- apply(p,item,reverse){for(const c of item.changes){const bytes=reverse?c.old:c.value;for(let i=0;i<bytes.length;i++)p[c.layer][c.start+i]=bytes[i];}const m=structuredClone(reverse?item.before:item.after);for(const [key,diffs,order] of [['buildings',item.buildings,m.buildingOrder],['buildingLibrary',item.library,m.libraryOrder]]){const values=new Map((p[key]??[]).map(b=>[b.id,b]));for(const change of diffs){const value=reverse?change.before:change.after;if(value===null)values.delete(change.id);else values.set(change.id,structuredClone(value));}p[key]=order.map(id=>values.get(id));}delete m.buildingOrder;delete m.libraryOrder;Object.assign(p,m);}
+ apply(p,item,reverse){for(const c of item.changes){const bytes=reverse?c.old:c.value;for(let i=0;i<bytes.length;i++)p[c.layer][c.start+i]=bytes[i];}const m=structuredClone(reverse?item.before:item.after);for(const [key,diffs,order] of [['buildings',item.buildings,m.buildingOrder],['buildingLibrary',item.library,m.libraryOrder],['decorations',item.decorations,m.decorationOrder]]){const values=new Map((p[key]??[]).map(b=>[b.id,b]));for(const change of diffs){const value=reverse?change.before:change.after;if(value===null)values.delete(change.id);else values.set(change.id,structuredClone(value));}p[key]=order.map(id=>values.get(id));}p.surfaceTiles??={};for(const c of item.surface){const value=reverse?c.before:c.after;if(value===null)delete p.surfaceTiles[c.i];else p.surfaceTiles[c.i]=value;}delete m.buildingOrder;delete m.libraryOrder;delete m.decorationOrder;Object.assign(p,m);}
  undo(p){this.commit(p);const item=this.past.pop();if(!item)return false;this.apply(p,item,true);this.future.push(item);return true;}
  redo(p){this.commit(p);const item=this.future.pop();if(!item)return false;this.apply(p,item,false);this.past.push(item);return true;}
 }

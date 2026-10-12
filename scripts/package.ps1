@@ -10,7 +10,7 @@ foreach($name in @('Start.ps1','WorkspaceEnv.ps1')){Copy-Item -LiteralPath (Join
 Copy-Item -LiteralPath (Join-Path $taskRoot 'examples') -Destination $stage -Recurse
 New-Item -ItemType Directory -Path (Join-Path $stage 'docs') -Force | Out-Null
 foreach($name in @('STATUS.md','PILNA-STATUS.md','PROVENANCE.md','PROGRESS.md','BUILDINGS-REVIEW.md')){Copy-Item -LiteralPath (Join-Path $taskRoot ('docs\'+$name)) -Destination (Join-Path $stage 'docs')}
-$archive=Join-Path $taskRoot 'artifacts\SimplePZMapmaker-0.3.1-win-x64.zip'
+$archive=Join-Path $taskRoot 'artifacts\SimplePZMapmaker-0.4.0-win-x64.zip'
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $archive -CompressionLevel Optimal -Force
 Write-Host "Package: $archive"
 Write-Host 'Requires .NET 10 ASP.NET Core Runtime; extract and run Start.cmd.'
