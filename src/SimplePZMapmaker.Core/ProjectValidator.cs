@@ -4,7 +4,7 @@ public static class ProjectValidator
     public static void Validate(MapProject p)
     {
         ArgumentNullException.ThrowIfNull(p);
-        if(p.Version is not(1 or 2 or 3 or 4)) Fail("Версия проекта не поддерживается.");
+        if(p.Version is not(1 or 2 or 3 or 4 or 5)) Fail("Версия проекта не поддерживается.");
         if(p.Width is <256 or >2048 || p.Height is <256 or >2048 || p.Width%256!=0 || p.Height%256!=0) Fail("Размер карты: от 256 до 2048, кратный 256.");
         if(string.IsNullOrWhiteSpace(p.Name) || p.Name.Length>80 || p.Name.Any(char.IsControl)) Fail("Название: от 1 до 80 символов без переносов строк.");
         if(p.WorldX is <0 or >1000 || p.WorldY is <0 or >1000) Fail("Координаты мира: от 0 до 1000 ячеек.");
@@ -12,6 +12,8 @@ public static class ProjectValidator
         if(p.Zombies is null || p.Zombies.Length!=p.Width*p.Height/64 || p.Zombies.Any(z=>z is <0 or >255)) Fail("Слой зомби повреждён.");
         if(p.Buildings is null || p.Buildings.Count>4000 || p.Spawns is null || p.Spawns.Count is <1 or >100 || p.Attribution is null || p.Attribution.Count>30 || p.Attribution.Any(a=>a is null || a.Length>1000)) Fail("Объекты проекта повреждены.");
         var occupied=new HashSet<int>(); var ids=new HashSet<string>();
+        if(p.SurfaceRegions is null||p.SurfaceRegions.Count>128||p.SurfaceRegions.Any(r=>r is null||r.Theme is null||!EnvironmentStyles.Names.ContainsKey(r.Theme)||r.X<0||r.Y<0||r.Width<1||r.Height<1||(long)r.X+r.Width>p.Width||(long)r.Y+r.Height>p.Height))Fail("Участок оформления выходит за карту или повреждён (предел128 участков).");
+        if(p.Version<5&&p.SurfaceRegions.Count>0)Fail("Оформление отдельных участков требует формат проекта версии5.");
         if(p.SurfaceTheme is null||!EnvironmentStyles.Names.ContainsKey(p.SurfaceTheme)||p.SurfaceTiles is null||p.SurfaceTiles.Count>100000||p.SurfaceTiles.Any(v=>v.Key<0||v.Key>=p.Terrain.Length||!VisualStyles.TileId(v.Value))||p.Decorations is null||p.Decorations.Count>10000)Fail("Игровые поверхности или декор повреждены.");
         if(p.BuildingLibrary is null||p.BuildingLibrary.Count>64)Fail("Библиотека зданий повреждена или содержит больше 64 шаблонов.");
         if(p.Version==1&&(p.BuildingLibrary.Count>0||p.Buildings.Any(b=>b?.Design is not null)))Fail("Этажи и шаблоны зданий требуют формат проекта версии 2.");

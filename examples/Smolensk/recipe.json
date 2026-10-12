@@ -1,0 +1,25 @@
+{
+  "name": "Смоленск — центр 1,5 км",
+  "size": 1024,
+  "seed": 42,
+  "worldX": 100,
+  "worldY": 100,
+  "bounds": {
+    "south": 54.77223276618757,
+    "west": 32.03549928978718,
+    "north": 54.78570743381243,
+    "east": 32.05886311021281
+  },
+  "extentMetres": 1500,
+  "centre": {
+    "latitude": 54.7789701,
+    "longitude": 32.0471812
+  },
+  "source": "https://download.openstreetmap.fr/extracts/russia/central_federal_district/smolensk_oblast-latest.osm.pbf",
+  "sourceFile": "osm-source.json",
+  "sourceTimestamp": "2026-10-11T00:29:05.0000000+00:00",
+  "importerVersion": "0.4.1",
+  "sourceBuildings": 772,
+  "placedBuildings": 352,
+  "skippedBuildings": 420
+}

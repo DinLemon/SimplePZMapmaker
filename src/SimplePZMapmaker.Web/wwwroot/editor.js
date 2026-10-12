@@ -1,5 +1,5 @@
 import {kinds,occupied,occupiedIndices,containsPoint,validateDesign,combineAttribution,minLevel,usesAssets,validateParts,tileId} from './building.js';
-export function blank(size=256){return {version:4,name:'Новая карта',width:size,height:size,seed:42,worldX:100,worldY:100,terrain:Array(size*size).fill(0),zombies:Array(size*size/64).fill(0),buildings:[],buildingLibrary:[],decorations:[],surfaceTiles:{},surfaceTheme:'legacy',spawns:[{x:size/2,y:size/2}],attribution:[],bounds:null};}
+export function blank(size=256){return {version:4,name:'Новая карта',width:size,height:size,seed:42,worldX:100,worldY:100,terrain:Array(size*size).fill(0),zombies:Array(size*size/64).fill(0),buildings:[],buildingLibrary:[],decorations:[],surfaceTiles:{},surfaceTheme:'legacy',surfaceRegions:[],spawns:[{x:size/2,y:size/2}],attribution:[],bounds:null};}
 export function geographicBase(project,size,keep){if(keep)return project;const result=blank(size);result.surfaceTheme=project.surfaceTheme??'legacy';result.buildingLibrary=structuredClone(project.buildingLibrary||[]);result.attribution=combineAttribution(project.attribution,...result.buildingLibrary.map(b=>b.attribution||[]));return result;}
 export function boundsFromSearchResult(item){
  if(!Array.isArray(item?.boundingbox)||item.boundingbox.length!==4)return null;
@@ -29,7 +29,7 @@ export function canPlace(p,b){
 }
 export function validateProject(p){
  const fail=m=>{throw Error(m);};
- if(!p||![1,2,3,4].includes(p.version)||!Number.isInteger(p.width)||!Number.isInteger(p.height)||p.width<256||p.height<256||p.width>2048||p.height>2048||p.width%256||p.height%256)fail('Неподдерживаемый размер или версия проекта.');
+ if(!p||![1,2,3,4,5].includes(p.version)||!Number.isInteger(p.width)||!Number.isInteger(p.height)||p.width<256||p.height<256||p.width>2048||p.height>2048||p.width%256||p.height%256)fail('Неподдерживаемый размер или версия проекта.');
  if(typeof p.name!=='string'||!p.name.trim()||p.name.length>80||/[\x00-\x1f\x7f]/.test(p.name))fail('Проверьте название карты.');
  if(!Number.isInteger(p.seed)||p.seed< -2147483648||p.seed>2147483647)fail('Seed должен быть целым числом от −2147483648 до 2147483647.');
  if(p.bounds!==null&&p.bounds!==undefined){const b=p.bounds;if(![b.south,b.north,b.west,b.east].every(Number.isFinite)||b.south< -85||b.north>85||b.west< -180||b.east>180||b.south>=b.north||b.west>=b.east||b.north-b.south>.08||b.east-b.west>.12)fail('Географические границы проекта повреждены или слишком велики.');}
@@ -42,6 +42,7 @@ export function validateProject(p){
  const library=p.buildingLibrary??[];if(!Array.isArray(library)||library.length>64)fail('Библиотека зданий повреждена.');for(const b of library)validateDesign(b);
  if(p.version===1&&(library.length||p.buildings.some(b=>b?.design)))fail('Этажи и шаблоны требуют формат проекта версии 2.');
  if(p.version<3&&[...p.buildings,...library].some(b=>minLevel(b)!==0))fail('Подвалы требуют формат проекта версии 3.');
+ const regions=p.surfaceRegions??[];if(!Array.isArray(regions)||regions.length>128||regions.some(r=>!r||![r.x,r.y,r.width,r.height].every(Number.isInteger)||r.x<0||r.y<0||r.width<1||r.height<1||r.x+r.width>p.width||r.y+r.height>p.height||!['legacy','temperate','rural','urban','dry'].includes(r.theme))||p.version<5&&regions.length)fail('Участки оформления повреждены или требуют формат5.');
  const theme=p.surfaceTheme??'legacy',surface=p.surfaceTiles??{},decor=p.decorations??[];if(!['legacy','temperate','rural','urban','dry'].includes(theme)||typeof surface!=='object'||!surface||Array.isArray(surface)||Object.keys(surface).length>100000||Object.entries(surface).some(([i,id])=>!/^\d+$/.test(i)||+i>=p.terrain.length||!tileId(id))||!Array.isArray(decor)||decor.length>10000)fail('Поверхности или декор повреждены.');
  if(p.version<4&&(theme!=='legacy'||Object.keys(surface).length||decor.length||[...p.buildings,...library].some(usesAssets)))fail('Оформление и ресурсы требуют формат проекта версии 4.');
  const decorationIds=new Set(),decorationCells=new Set();for(const d of decor){if(!d||typeof d.id!=='string'||!d.id||d.id.length>100||decorationIds.has(d.id)||![d.x,d.y].every(Number.isInteger))fail('Декор повреждён.');decorationIds.add(d.id);validateParts(d.asset,d.parts);for(const part of d.parts){const x=d.x+part.dx,y=d.y+part.dy,index=y*p.width+x;if(x<0||y<0||x>=p.width||y>=p.height||p.terrain[index]===3||p.buildings.some(b=>containsPoint(b,x-b.x,y-b.y))||p.spawns.some(s=>s.x===x&&s.y===y)||decorationCells.has(index))fail('Декор пересекается с водой или объектами.');decorationCells.add(index);}}
@@ -51,9 +52,9 @@ export function validateProject(p){
  for(const s of p.spawns)if(!s||!Number.isInteger(s.x)||!Number.isInteger(s.y)||s.x<0||s.y<0||s.x>=p.width||s.y>=p.height||p.terrain[s.y*p.width+s.x]===3||p.buildings.some(b=>containsPoint(b,s.x-b.x,s.y-b.y)))fail('Точка появления должна стоять на земле снаружи здания.');
  return p;
 }
-const meta=p=>structuredClone({version:p.version,buildings:p.buildings,buildingLibrary:p.buildingLibrary??[],decorations:p.decorations??[],surfaceTiles:p.surfaceTiles??{},surfaceTheme:p.surfaceTheme??'legacy',spawns:p.spawns,attribution:p.attribution,name:p.name,worldX:p.worldX,worldY:p.worldY});
+const meta=p=>structuredClone({version:p.version,buildings:p.buildings,buildingLibrary:p.buildingLibrary??[],decorations:p.decorations??[],surfaceTiles:p.surfaceTiles??{},surfaceTheme:p.surfaceTheme??'legacy',surfaceRegions:p.surfaceRegions??[],spawns:p.spawns,attribution:p.attribution,name:p.name,worldX:p.worldX,worldY:p.worldY});
 function objectsDiff(before,after){const a=new Map(before.map(b=>[b.id,b])),b=new Map(after.map(b=>[b.id,b]));return [...new Set([...a.keys(),...b.keys()])].filter(id=>JSON.stringify(a.get(id))!==JSON.stringify(b.get(id))).map(id=>({id,before:a.get(id)??null,after:b.get(id)??null}));}
-function slimMeta(p){return {version:p.version,name:p.name,worldX:p.worldX,worldY:p.worldY,spawns:p.spawns,attribution:p.attribution,surfaceTheme:p.surfaceTheme,buildingOrder:p.buildings.map(b=>b.id),libraryOrder:p.buildingLibrary.map(b=>b.id),decorationOrder:p.decorations.map(b=>b.id)};}
+function slimMeta(p){return {version:p.version,name:p.name,worldX:p.worldX,worldY:p.worldY,spawns:p.spawns,attribution:p.attribution,surfaceTheme:p.surfaceTheme,surfaceRegions:p.surfaceRegions??[],buildingOrder:p.buildings.map(b=>b.id),libraryOrder:p.buildingLibrary.map(b=>b.id),decorationOrder:p.decorations.map(b=>b.id)};}
 export class History{
  constructor(){this.past=[];this.future=[];this.pending=null;}
  begin(p){if(!this.pending)this.pending={before:meta(p),changes:new Map(),project:p};}

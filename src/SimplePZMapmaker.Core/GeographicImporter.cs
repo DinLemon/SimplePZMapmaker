@@ -55,7 +55,7 @@ public static class GeographicImporter {
             foreach(var ring in f.Rings)for(var i=1;i<ring.Count;i++) DrawLine(p,ring[i-1],ring[i],radius,water?Terrain.Water:Terrain.Road);
             imported++;
         }
-        if(preserveEdits){p.SurfaceTiles=new(project.SurfaceTiles);p.Decorations=JsonSerializer.Deserialize<List<WorldDecoration>>(JsonSerializer.Serialize(project.Decorations))!;foreach(var i in p.SurfaceTiles.Keys)p.Terrain[i]=project.Terrain[i];foreach(var d in p.Decorations)foreach(var part in d.Parts){var i=(d.Y+part.Dy)*p.Width+d.X+part.Dx;p.Terrain[i]=project.Terrain[i];}}
+        if(preserveEdits){p.SurfaceRegions=JsonSerializer.Deserialize<List<SurfaceRegion>>(JsonSerializer.Serialize(project.SurfaceRegions))!;if(p.SurfaceRegions.Count>0)p.Version=5;p.SurfaceTiles=new(project.SurfaceTiles);p.Decorations=JsonSerializer.Deserialize<List<WorldDecoration>>(JsonSerializer.Serialize(project.Decorations))!;foreach(var i in p.SurfaceTiles.Keys)p.Terrain[i]=project.Terrain[i];foreach(var d in p.Decorations)foreach(var part in d.Parts){var i=(d.Y+part.Dy)*p.Width+d.X+part.Dx;p.Terrain[i]=project.Terrain[i];}}
         if(preserveEdits)foreach(var old in project.Buildings.Where(b=>b.Modified)){
             var kept=JsonSerializer.Deserialize<Building>(JsonSerializer.Serialize(old))!;
             foreach(var index in BuildingDesigner.Occupied(kept,false)){var px=kept.X+index%(kept.Width+1);var py=kept.Y+index/(kept.Width+1);p.Terrain[py*p.Width+px]=project.Terrain[py*project.Width+px];}

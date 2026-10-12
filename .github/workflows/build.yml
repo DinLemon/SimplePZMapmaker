@@ -35,3 +35,6 @@ jobs:
       - name: Verify resource/style example
         shell: pwsh
         run: node scripts/verify-native-map.mjs examples/Assets/Resources-B42.zip
+      - name: Verify Smolensk regional example
+        shell: pwsh
+        run: node scripts/verify-native-map.mjs examples/Smolensk/Smolensk-B42.zip

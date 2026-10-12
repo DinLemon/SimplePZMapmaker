@@ -1,0 +1,4 @@
+Map data © OpenStreetMap contributors — https://www.openstreetmap.org/copyright — ODbL 1.0
+Read-only regional extract: OSM France — https://download.openstreetmap.fr/
+Snapshot: 2026-10-11T00:29:05.0000000+00:00
+Source and derived geography are distributed under ODbL 1.0. Game artwork is not included.

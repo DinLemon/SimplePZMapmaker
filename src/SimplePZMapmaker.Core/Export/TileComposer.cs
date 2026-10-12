@@ -9,6 +9,7 @@ internal sealed partial class TileComposer
     private readonly Dictionary<int,List<string>> ground=[];
     private readonly HashSet<int> roofs=[];
     private readonly HashSet<int> decorationCells=[];
+    private readonly string[]? regionThemes;
     internal int[] RoomIds {get;}=Enumerable.Repeat(-1,65536).ToArray();
     internal byte[] Navigation {get;}=new byte[65536];
     internal List<Room> Rooms {get;}=[];
@@ -16,6 +17,7 @@ internal sealed partial class TileComposer
     internal TileComposer(MapProject p,int cellX,int cellY)
     {
         project=p;ox=cellX*256;oy=cellY*256;
+        if(p.SurfaceRegions.Count>0){regionThemes=new string[65536];Array.Fill(regionThemes,p.SurfaceTheme);foreach(var r in p.SurfaceRegions){var left=Math.Max(0,r.X-ox);var right=Math.Min(256,r.X+r.Width-ox);if(right<=left)continue;for(var y=Math.Max(0,r.Y-oy);y<Math.Min(256,r.Y+r.Height-oy);y++)Array.Fill(regionThemes,r.Theme,y*256+left,right-left);}}
         foreach(var d in p.Decorations)foreach(var part in d.Parts){var x=d.X+part.Dx-ox;var y=d.Y+part.Dy-oy;if(x>=0&&y>=0&&x<256&&y<256)decorationCells.Add(y*256+x);}
         for(var y=0;y<256;y++)for(var x=0;x<256;x++) {
             var terrain=p.Terrain[(oy+y)*p.Width+ox+x];
@@ -32,8 +34,8 @@ internal sealed partial class TileComposer
         if(z!=0)return [];
         if(ground.TryGetValue(index,out var overrideTiles))return overrideTiles;
         var t=project.Terrain[(oy+y)*project.Width+ox+x];
-        var hash=EnvironmentStyles.Hash(ox+x,oy+y,project.Seed);var custom=project.SurfaceTiles.GetValueOrDefault((oy+y)*project.Width+ox+x);var floor=custom??EnvironmentStyles.Floor(t,project.SurfaceTheme,hash);
-        return custom is null&&t==Terrain.Forest&&Tree(x,y)?[floor,EnvironmentStyles.Tree(project.SurfaceTheme,hash)]:[floor];
+        var hash=EnvironmentStyles.Hash(ox+x,oy+y,project.Seed);var theme=regionThemes?[index]??project.SurfaceTheme;var custom=project.SurfaceTiles.GetValueOrDefault((oy+y)*project.Width+ox+x);var floor=custom??EnvironmentStyles.Floor(t,theme,hash);
+        return custom is null&&t==Terrain.Forest&&Tree(x,y)?[floor,EnvironmentStyles.Tree(theme,hash)]:[floor];
     }
     private void Add(int x,int y,string tile,byte flags=0) {
         var i=y*256+x;if(!ground.ContainsKey(i))ground[i]=At(x,y,0);

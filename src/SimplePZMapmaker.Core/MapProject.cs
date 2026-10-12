@@ -15,6 +15,7 @@ public sealed class MapProject
     public List<Building> Buildings { get; set; }=[];
     public List<Building> BuildingLibrary {get;set;}=[];
     public string SurfaceTheme {get;set;}="legacy";
+    public List<SurfaceRegion> SurfaceRegions {get;set;}=[];
     public Dictionary<int,string> SurfaceTiles {get;set;}=[];
     public List<WorldDecoration> Decorations {get;set;}=[];
     public List<SpawnPoint> Spawns { get; set; }=[];
@@ -89,6 +90,11 @@ public sealed class WorldDecoration {
     public int X {get;set;} public int Y {get;set;}
     public string Asset {get;set;}="";
     public List<BuildingObjects.Part> Parts {get;set;}=[];
+}
+public sealed class SurfaceRegion {
+    public int X {get;set;} public int Y {get;set;}
+    public int Width {get;set;} public int Height {get;set;}
+    public string Theme {get;set;}="temperate";
 }
 public sealed class SpawnPoint { public int X { get; set; } public int Y { get; set; } }
 public sealed class GeoBounds { public double South { get; set; } public double West { get; set; } public double North { get; set; } public double East { get; set; } }

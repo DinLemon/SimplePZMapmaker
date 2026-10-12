@@ -115,7 +115,7 @@ public static class BuildingDesigner
   }
  }
  public static int Regenerate(MapProject project,string? id=null){
-  ProjectValidator.Validate(project);project.Version=4;var changed=0;
+  ProjectValidator.Validate(project);project.Version=Math.Max(4,project.Version);var changed=0;
   foreach(var b in project.Buildings.Where(b=>id is null?!b.Modified:b.Id==id)){
    var old=b.Design;var design=Generate(b,old is null?1:old.Floors.Count+old.MinLevel,unchecked((old?.Variant??project.Seed)+1),old?.Shape is "custom"?"rect":old?.Shape??"rect",-(old?.MinLevel??0));
    if(old is not null){
