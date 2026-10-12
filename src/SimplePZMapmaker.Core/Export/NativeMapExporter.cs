@@ -35,7 +35,7 @@ public static class NativeMapExporter {
             for(var cellY=0;cellY<p.Height/256;cellY++)for(var cellX=0;cellX<p.Width/256;cellX++) {
                 var composer=new TileComposer(p,cellX,cellY);
                 var names=new HashSet<string>(StringComparer.Ordinal);
-                for(var z=0;z<=composer.MaxLevel;z++)for(var y=0;y<256;y++)for(var x=0;x<256;x++) foreach(var name in composer.At(x,y,z))names.Add(name);
+                for(var z=composer.MinLevel;z<=composer.MaxLevel;z++)for(var y=0;y<256;y++)for(var x=0;x<256;x++) foreach(var name in composer.At(x,y,z))names.Add(name);
                 var tiles=names.Order(StringComparer.Ordinal).ToArray();var ids=tiles.Select((name,id)=>(name,id)).ToDictionary(t=>t.name,t=>t.id);
                 Bytes(root+$"{p.WorldX+cellX}_{p.WorldY+cellY}.lotheader",Header(p,composer,tiles,cellX,cellY));
                 Bytes(root+$"world_{p.WorldX+cellX}_{p.WorldY+cellY}.lotpack",Pack(composer,ids));
@@ -48,7 +48,7 @@ public static class NativeMapExporter {
     private static void Line(BinaryWriter w,string text){w.Write(Encoding.ASCII.GetBytes(text));w.Write((byte)10);}
     private static byte[] Header(MapProject p,TileComposer c,string[] tiles,int cx,int cy) {
         using var s=new MemoryStream();using var w=new BinaryWriter(s);w.Write("LOTH"u8);w.Write(1);w.Write(tiles.Length);foreach(var tile in tiles)Line(w,tile);
-        w.Write(8);w.Write(8);w.Write(0);w.Write(c.MaxLevel);w.Write(c.Rooms.Count);
+        w.Write(8);w.Write(8);w.Write(c.MinLevel);w.Write(c.MaxLevel);w.Write(c.Rooms.Count);
         foreach(var r in c.Rooms){Line(w,r.Name);w.Write(r.Level);var rects=r.Rectangles??[new(r.X,r.Y,r.Width,r.Height)];w.Write(rects.Count);foreach(var rectangle in rects){w.Write(rectangle.X);w.Write(rectangle.Y);w.Write(rectangle.Width);w.Write(rectangle.Height);}w.Write(0);}
         w.Write(c.Buildings.Count);foreach(var b in c.Buildings){w.Write(b.Count);foreach(var id in b)w.Write(id);}
         for(var x=0;x<32;x++)for(var y=0;y<32;y++)w.Write((byte)p.Zombies[(cy*32+y)*(p.Width/8)+cx*32+x]);
@@ -58,7 +58,7 @@ public static class NativeMapExporter {
         using var s=new MemoryStream();using var w=new BinaryWriter(s);w.Write("LOTP"u8);w.Write(1);w.Write(1024);var offsets=new long[1024];for(var i=0;i<1024;i++)w.Write(0L);
         for(var cx=0;cx<32;cx++)for(var cy=0;cy<32;cy++) {
             offsets[cx*32+cy]=s.Position;var skip=0;
-            for(var z=0;z<=c.MaxLevel;z++)for(var x=cx*8;x<cx*8+8;x++)for(var y=cy*8;y<cy*8+8;y++) {
+            for(var z=c.MinLevel;z<=c.MaxLevel;z++)for(var x=cx*8;x<cx*8+8;x++)for(var y=cy*8;y<cy*8+8;y++) {
                 var tiles=c.At(x,y,z);if(tiles.Count==0){skip++;continue;}if(skip>0){w.Write(-1);w.Write(skip);skip=0;}
                 w.Write(tiles.Count+1);w.Write(c.RoomAt(x,y,z));foreach(var tile in tiles)w.Write(ids[tile]);
             }
@@ -85,7 +85,7 @@ public static class NativeMapExporter {
             foreach(var b in p.Buildings.Where(b=>b.X/256==cx&&b.Y/256==cy)){
                 if(b.Design is null){Feature("building","yes",b.X%256,b.Y%256,b.Width,b.Height);continue;}
                 var rectangles=new List<(int X,int Y,int Width,int Height)>();
-                for(var y=0;y<b.Height;y++)for(var x=0;x<b.Width;){if(!BuildingDesigner.Occupies(b,x,y)){x++;continue;}var start=x;while(x<b.Width&&BuildingDesigner.Occupies(b,x,y))x++;var i=rectangles.FindLastIndex(r=>r.X==start&&r.Width==x-start&&r.Y+r.Height==y);if(i<0)rectangles.Add((start,y,x-start,1));else{var r=rectangles[i];rectangles[i]=(r.X,r.Y,r.Width,r.Height+1);}}
+                for(var y=0;y<b.Height;y++)for(var x=0;x<b.Width;){if(!BuildingDesigner.OccupiesAbove(b,x,y)){x++;continue;}var start=x;while(x<b.Width&&BuildingDesigner.OccupiesAbove(b,x,y))x++;var i=rectangles.FindLastIndex(r=>r.X==start&&r.Width==x-start&&r.Y+r.Height==y);if(i<0)rectangles.Add((start,y,x-start,1));else{var r=rectangles[i];rectangles[i]=(r.X,r.Y,r.Width,r.Height+1);}}
                 foreach(var r in rectangles)Feature("building","yes",b.X%256+r.X,b.Y%256+r.Y,r.Width,r.Height);
             }
             // Merge equal terrain runs to keep the in-game map bounded.

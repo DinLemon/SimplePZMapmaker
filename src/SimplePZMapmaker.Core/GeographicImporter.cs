@@ -73,7 +73,9 @@ public static class GeographicImporter {
                 var levels=kind is "apartments" or "school" or "clinic" or "hotel"?2:1;
                 if(f.Tags.TryGetValue("building:levels",out var levelText)&&int.TryParse(levelText,out var specified)&&specified>0){levels=Math.Clamp(specified,1,16);b.LevelsOrigin="osm-levels";if(specified>16)limitedLevels++;}
                 else if(f.Tags.TryGetValue("height",out var heightText)&&double.TryParse(heightText.Replace(" m",""),System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out var height)&&height>0&&double.IsFinite(height)){levels=Math.Clamp((int)Math.Min(16,Math.Round(height/3)),1,16);b.LevelsOrigin="osm-height";}
-                var seed=unchecked(project.Seed^x*73856093^y*19349663);b.Design=BuildingDesigner.Generate(b,levels,seed);
+                var basements=0;b.SourceBasements=f.Tags.GetValueOrDefault("building:levels:underground")?[..Math.Min(100,f.Tags["building:levels:underground"].Length)];
+                if(b.SourceBasements is not null&&int.TryParse(b.SourceBasements,out var depth)&&depth>0){basements=Math.Clamp(depth,0,16);if(depth>16)limitedLevels++;}
+                var seed=unchecked(project.Seed^x*73856093^y*19349663);b.Design=BuildingDesigner.Generate(b,levels,seed,"rect",basements);
                 if(f.Tags.GetValueOrDefault("roof:shape") is "flat" or "gabled" or "shed" or "skillion" or "hipped")b.Design.Roof=f.Tags["roof:shape"]=="skillion"?"shed":f.Tags["roof:shape"];
                 else if(b.SourceRoof is not null){b.Design.Roof=b.SourceRoof=="pyramidal"?"hipped":b.SourceRoof=="saltbox"?"gabled":"flat";approximateRoofs++;}
                 ApplyOutline(b,f.Rings);
@@ -88,7 +90,7 @@ public static class GeographicImporter {
         p.Spawns=[MapGenerator.FindSafeSpawn(p)];
         p.ImportSummary=new(){SourceFeatures=features.Count,SourceBuildings=transformed.Count(f=>f.Polygon&&f.Tags.ContainsKey("building")),PlacedBuildings=p.Buildings.Count,SkipReasons=new(skipReasons)};
         p.ImportSummary.Notes.Add($"Этажность из OSM: {p.Buildings.Count(b=>b.LevelsOrigin=="osm-levels")}; оценка по высоте: {p.Buildings.Count(b=>b.LevelsOrigin=="osm-height")}; предположена: {p.Buildings.Count(b=>b.LevelsOrigin=="inferred")}.");
-        if(limitedLevels>0)p.ImportSummary.Notes.Add($"Этажность ограничена 16 этажами для {limitedLevels} исходных контуров.");if(approximateRoofs>0)p.ImportSummary.Notes.Add($"Необычные формы крыши адаптированы для {approximateRoofs} контуров; исходный тег сохранён в свойствах здания.");
+        if(limitedLevels>0)p.ImportSummary.Notes.Add($"Наземная/подземная этажность ограничена 16 уровнями для {limitedLevels} исходных контуров.");if(approximateRoofs>0)p.ImportSummary.Notes.Add($"Необычные формы крыши адаптированы для {approximateRoofs} контуров; исходный тег сохранён в свойствах здания.");
         if(preserveEdits)p.ImportSummary.Notes.Add($"Сохранено вручную изменённых зданий: {p.Buildings.Count(b=>b.Modified)}. Соседние исходные контуры могут быть пропущены ради сохранения этих изменений.");
         foreach(var b in p.Buildings)for(var y=b.Y/8;y<=(b.Y+b.Height)/8;y++)for(var x=b.X/8;x<=(b.X+b.Width)/8;x++)p.Zombies[y*(p.Width/8)+x]=90;
         ProjectValidator.Validate(p);
@@ -104,7 +106,7 @@ public static class GeographicImporter {
         for(var z=0;z<draft.Floors.Count;z++){
             var f=draft.Floors[z];var cells=f.Cells.ToCharArray();for(var i=0;i<cells.Length;i++)if(!mask[i])cells[i]='.';
             f.Objects.Clear();if(staircase>=0&&draft.Floors.Count>1){for(var i=0;i<5;i++)cells[staircase+i*b.Width]='0';if(z<draft.Floors.Count-1)f.Objects.Add(new(){X=staircase%b.Width,Y=staircase/b.Width,Kind="stairs"});}
-            f.Cells=new(cells);f.Edges=BuildingDesigner.AutoEdges(b,f,z);
+            f.Cells=new(cells);f.Edges=BuildingDesigner.AutoEdges(b,f,z+draft.MinLevel);
         }
         try{BuildingDesigner.Validate(b);for(var z=0;z<draft.Floors.Count;z++)BuildingDesigner.Furnish(b,z,new Random(unchecked(draft.Variant+z*1009)));BuildingDesigner.Validate(b);}catch(ArgumentException){b.Design=original;}
     }

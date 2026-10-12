@@ -26,7 +26,7 @@ assert.equal(headers.length,project.width*project.height/65536);
 const allTiles=new Set();let chunks=0,rooms=0,buildings=0;
 for(const [name,bytes] of headers){
  const r=new Reader(bytes);assert.equal(r.magic(),'LOTH');assert.equal(r.int(),1);const tileCount=r.int();assert.ok(tileCount>0&&tileCount<1000);for(let i=0;i<tileCount;i++)allTiles.add(r.line());
- assert.equal(r.int(),8);assert.equal(r.int(),8);const min=r.int(),max=r.int();assert.equal(min,0);assert.ok(max>=1&&max<=31);const roomCount=r.int();rooms+=roomCount;
+ assert.equal(r.int(),8);assert.equal(r.int(),8);const min=r.int(),max=r.int();assert.ok(min>=-16&&min<=0);assert.ok(max>=1&&max<=31);const roomCount=r.int();rooms+=roomCount;
  for(let i=0;i<roomCount;i++){r.line();const z=r.int();assert.ok(z>=min&&z<max);const rects=r.int();assert.ok(rects>0&&rects<=4096);for(let j=0;j<rects;j++){const x=r.int(),y=r.int(),w=r.int(),h=r.int();assert.ok(x>=0&&y>=0&&w>0&&h>0&&x+w<=256&&y+h<=256);}const objects=r.int();assert.ok(objects>=0&&objects<1000);for(let j=0;j<objects*3;j++)r.int();}
  const buildingCount=r.int();buildings+=buildingCount;for(let i=0;i<buildingCount;i++){const count=r.int();assert.ok(count>0&&count<=roomCount);for(let j=0;j<count;j++){const id=r.int();assert.ok(id>=0&&id<roomCount);}}
  assert.equal(bytes.length-r.offset,1024,'Zombie grid is not32x32');

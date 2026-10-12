@@ -16,7 +16,7 @@ public class NativeGameProbe {
   IsoWorld.instance.LoadTileDefinitionsPropertyStrings(sprites,definitions,0);
   Method aliases=IsoWorld.class.getDeclaredMethod("GenerateTilePropertyLookupTables");aliases.setAccessible(true);aliases.invoke(IsoWorld.instance);
   IsoWorld.instance.LoadTileDefinitions(sprites,definitions,0);
-  Path folder=Path.of(args[0]);int cellCount=0,chunkCount=0,roomCount=0,upperRooms=0,stairTiles=0;
+  Path folder=Path.of(args[0]);int cellCount=0,chunkCount=0,roomCount=0,upperRooms=0,basementRooms=0,stairTiles=0,basementStairs=0,minLoadedLevel=0;
   try(var files=Files.list(folder)){
    for(Path file:files.filter(p->p.toString().endsWith(".lotheader")).sorted().toList()){
     String name=file.getFileName().toString();String[] parts=name.replace(".lotheader","").split("_");int cx=Integer.parseInt(parts[0]),cy=Integer.parseInt(parts[1]);
@@ -27,18 +27,19 @@ public class NativeGameProbe {
     Field gridField=IsoMetaGrid.class.getDeclaredField("grid");gridField.setAccessible(true);gridField.set(grid,new IsoMetaCell[1][1]);
     Class<?> loaderClass=Class.forName("zombie.iso.IsoMetaGrid$MetaGridLoaderThread");Constructor<?> constructor=loaderClass.getDeclaredConstructor(IsoMetaGrid.class,int.class);constructor.setAccessible(true);Object loader=constructor.newInstance(grid,cy);
     Method load=loaderClass.getDeclaredMethod("loadCell",MapFiles.class,int.class,int.class);load.setAccessible(true);load.invoke(loader,map,cx,cy);
-    Field roomField=loaderClass.getDeclaredField("roomList");roomField.setAccessible(true);List<?> rooms=(List<?>)roomField.get(loader);roomCount+=rooms.size();for(Object room:rooms)if(((RoomDef)room).level>0)upperRooms++;
+    Field roomField=loaderClass.getDeclaredField("roomList");roomField.setAccessible(true);List<?> rooms=(List<?>)roomField.get(loader);roomCount+=rooms.size();for(Object room:rooms){int level=((RoomDef)room).level;if(level>0)upperRooms++;if(level<0)basementRooms++;minLoadedLevel=Math.min(minLoadedLevel,level);}
     if(header.width!=8||header.height!=8||header.maxLevel<1||header.tilesUsed.isEmpty())throw new AssertionError("Installed game rejected header "+name);
     for(int x=0;x<32;x++)for(int y=0;y<32;y++){
      IsoLot lot=IsoLot.get(map,cx,cy,cx*32+x,cy*32+y,null);if(lot.data.isEmpty())throw new AssertionError("Installed game rejected chunk "+x+","+y);
      for(int squareIndex=0;squareIndex<64*(header.maxLevel-header.minLevel+1);squareIndex++){int offset=lot.offsetInData[squareIndex];if(offset<0)continue;int count=lot.data.get(offset);for(int i=1;i<=count;i++){String tile=(String)header.tilesUsed.get(lot.data.get(offset+i));if(tile.equals("carpentry_02_96")||tile.equals("carpentry_02_97")||tile.equals("carpentry_02_98")||tile.equals("carpentry_02_88")||tile.equals("carpentry_02_89")||tile.equals("carpentry_02_90")){
-      var sprite=sprites.getSprite(tile);if(sprite==null)throw new AssertionError("Game sprite absent: "+tile);var square=new IsoGridSquare(null,null,0,0,0);square.getObjects().add(new IsoObject(null,square,sprite));square.RecalcProperties();if(!square.HasStairs())throw new AssertionError("Game does not recognise stairs: "+tile);stairTiles++;
+      int level=header.minLevel+squareIndex/64;var sprite=sprites.getSprite(tile);if(sprite==null)throw new AssertionError("Game sprite absent: "+tile);var square=new IsoGridSquare(null,null,0,0,level);square.getObjects().add(new IsoObject(null,square,sprite));square.RecalcProperties();if(!square.HasStairs())throw new AssertionError("Game does not recognise stairs: "+tile);stairTiles++;if(level<0)basementStairs++;
      }}}
      IsoLot.put(lot);chunkCount++;
     }cellCount++;
    }
   }
-  if(upperRooms==0||stairTiles==0)throw new AssertionError("No actual upper rooms/stair sprites loaded");
-  System.out.printf("NATIVE_GAME_PROBE cells=%d chunks=%d rooms=%d upperRooms=%d stairTiles=%d status=passed%n",cellCount,chunkCount,roomCount,upperRooms,stairTiles);
+  boolean requireBasements=args.length>3&&args[3].equals("--basements");
+  if(stairTiles==0||(!requireBasements&&upperRooms==0)||(requireBasements&&(minLoadedLevel!=-16||basementRooms==0||basementStairs==0)))throw new AssertionError("Expected signed rooms/stair sprites not loaded");
+  System.out.printf("NATIVE_GAME_PROBE cells=%d chunks=%d rooms=%d upperRooms=%d basementRooms=%d minLevel=%d stairTiles=%d basementStairs=%d status=passed%n",cellCount,chunkCount,roomCount,upperRooms,basementRooms,minLoadedLevel,stairTiles,basementStairs);
  }
 }

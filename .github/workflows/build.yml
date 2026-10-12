@@ -29,3 +29,6 @@ jobs:
       - name: Package application
         shell: pwsh
         run: ./scripts/package.ps1
+      - name: Verify signed basement example
+        shell: pwsh
+        run: node scripts/verify-native-map.mjs examples/Basements/Basements-B42.zip

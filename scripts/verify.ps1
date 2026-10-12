@@ -19,5 +19,7 @@ try{
   if($LASTEXITCODE -ne 0){throw 'Building workshop checks failed.'}
   node scripts/verify-building-review.mjs
   if($LASTEXITCODE -ne 0){throw 'Building review regressions failed.'}
+  node scripts/verify-basements.mjs
+  if($LASTEXITCODE -ne 0){throw 'Basement checks failed.'}
  }
 }finally{Pop-Location}

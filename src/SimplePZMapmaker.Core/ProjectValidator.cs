@@ -4,7 +4,7 @@ public static class ProjectValidator
     public static void Validate(MapProject p)
     {
         ArgumentNullException.ThrowIfNull(p);
-        if(p.Version is not(1 or 2)) Fail("Версия проекта не поддерживается.");
+        if(p.Version is not(1 or 2 or 3)) Fail("Версия проекта не поддерживается.");
         if(p.Width is <256 or >2048 || p.Height is <256 or >2048 || p.Width%256!=0 || p.Height%256!=0) Fail("Размер карты: от 256 до 2048, кратный 256.");
         if(string.IsNullOrWhiteSpace(p.Name) || p.Name.Length>80 || p.Name.Any(char.IsControl)) Fail("Название: от 1 до 80 символов без переносов строк.");
         if(p.WorldX is <0 or >1000 || p.WorldY is <0 or >1000) Fail("Координаты мира: от 0 до 1000 ячеек.");
@@ -14,11 +14,12 @@ public static class ProjectValidator
         var occupied=new HashSet<int>(); var ids=new HashSet<string>();
         if(p.BuildingLibrary is null||p.BuildingLibrary.Count>64)Fail("Библиотека зданий повреждена или содержит больше 64 шаблонов.");
         if(p.Version==1&&(p.BuildingLibrary.Count>0||p.Buildings.Any(b=>b?.Design is not null)))Fail("Этажи и шаблоны зданий требуют формат проекта версии 2.");
+        if(p.Version<3&&p.Buildings.Concat(p.BuildingLibrary).Any(b=>b?.Design?.MinLevel!=0&&b?.Design is not null))Fail("Подвалы требуют формат проекта версии 3.");
         foreach(var template in p.BuildingLibrary){if(template is null||template.Name is null||template.Name.Length>100||template.Id is null||template.Id.Length>100)Fail("Шаблон здания повреждён.");BuildingDesigner.Validate(template);}
         if(p.Buildings.Concat(p.BuildingLibrary).Where(b=>b?.Design?.Floors is not null).Sum(b=>(long)b.Design!.Floors.Sum(f=>f?.Cells?.Length??0))>20_000_000)Fail("Слишком много клеток в этажах зданий: предел 20 миллионов.");
         foreach(var b in p.Buildings)
         {
-            if(b is null || !BuildingDesigner.Kinds.Contains(b.Kind) || string.IsNullOrEmpty(b.Id) || !ids.Add(b.Id) || b.Name is null || b.Name.Length>100||b.SourceId?.Length>100||b.SourceKind?.Length>100||b.SourceLevels?.Length>100||b.SourceRoof?.Length>100||b.LevelsOrigin is not("inferred" or "osm-levels" or "osm-height" or "manual")) Fail("Неизвестное или повреждённое здание.");
+            if(b is null || !BuildingDesigner.Kinds.Contains(b.Kind) || string.IsNullOrEmpty(b.Id) || !ids.Add(b.Id) || b.Name is null || b.Name.Length>100||b.SourceId?.Length>100||b.SourceKind?.Length>100||b.SourceLevels?.Length>100||b.SourceBasements?.Length>100||b.SourceRoof?.Length>100||b.LevelsOrigin is not("inferred" or "osm-levels" or "osm-height" or "manual")) Fail("Неизвестное или повреждённое здание.");
             if(b.Width is <6 or >64 || b.Height is <6 or >64 || b.X<1 || b.Y<1 || b.X>p.Width-b.Width-1 || b.Y>p.Height-b.Height-1 || b.X/256!=(b.X+b.Width)/256 || b.Y/256!=(b.Y+b.Height)/256) Fail("Здание выходит за границу карты или пересекает границу ячейки 256×256. Переместите его.");
             BuildingDesigner.Validate(b);
             foreach(var index in BuildingDesigner.Occupied(b)){var x=b.X+index%(b.Width+1);var y=b.Y+index/(b.Width+1);if(!occupied.Add(y*p.Width+x))Fail("Стены или помещения зданий пересекаются.");}

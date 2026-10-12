@@ -1,5 +1,5 @@
-import {kinds,occupied,occupiedIndices,containsPoint,validateDesign,combineAttribution} from './building.js';
-export function blank(size=256){return {version:2,name:'Новая карта',width:size,height:size,seed:42,worldX:100,worldY:100,terrain:Array(size*size).fill(0),zombies:Array(size*size/64).fill(0),buildings:[],buildingLibrary:[],spawns:[{x:size/2,y:size/2}],attribution:[],bounds:null};}
+import {kinds,occupied,occupiedIndices,containsPoint,validateDesign,combineAttribution,minLevel} from './building.js';
+export function blank(size=256){return {version:3,name:'Новая карта',width:size,height:size,seed:42,worldX:100,worldY:100,terrain:Array(size*size).fill(0),zombies:Array(size*size/64).fill(0),buildings:[],buildingLibrary:[],spawns:[{x:size/2,y:size/2}],attribution:[],bounds:null};}
 export function geographicBase(project,size,keep){if(keep)return project;const result=blank(size);result.buildingLibrary=structuredClone(project.buildingLibrary||[]);result.attribution=combineAttribution(project.attribution,...result.buildingLibrary.map(b=>b.attribution||[]));return result;}
 export function boundsFromSearchResult(item){
  if(!Array.isArray(item?.boundingbox)||item.boundingbox.length!==4)return null;
@@ -28,7 +28,7 @@ export function canPlace(p,b){
 }
 export function validateProject(p){
  const fail=m=>{throw Error(m);};
- if(!p||![1,2].includes(p.version)||!Number.isInteger(p.width)||!Number.isInteger(p.height)||p.width<256||p.height<256||p.width>2048||p.height>2048||p.width%256||p.height%256)fail('Неподдерживаемый размер или версия проекта.');
+ if(!p||![1,2,3].includes(p.version)||!Number.isInteger(p.width)||!Number.isInteger(p.height)||p.width<256||p.height<256||p.width>2048||p.height>2048||p.width%256||p.height%256)fail('Неподдерживаемый размер или версия проекта.');
  if(typeof p.name!=='string'||!p.name.trim()||p.name.length>80||/[\x00-\x1f\x7f]/.test(p.name))fail('Проверьте название карты.');
  if(!Number.isInteger(p.seed)||p.seed< -2147483648||p.seed>2147483647)fail('Seed должен быть целым числом от −2147483648 до 2147483647.');
  if(p.bounds!==null&&p.bounds!==undefined){const b=p.bounds;if(![b.south,b.north,b.west,b.east].every(Number.isFinite)||b.south< -85||b.north>85||b.west< -180||b.east>180||b.south>=b.north||b.west>=b.east||b.north-b.south>.08||b.east-b.west>.12)fail('Географические границы проекта повреждены или слишком велики.');}
@@ -40,6 +40,7 @@ export function validateProject(p){
  if(!Array.isArray(p.buildings)||p.buildings.length>4000||!Array.isArray(p.spawns)||p.spawns.length<1||p.spawns.length>100||!Array.isArray(p.attribution)||p.attribution.length>30||p.attribution.some(a=>typeof a!=='string'||a.length>1000))fail('Объекты проекта повреждены.');
  const library=p.buildingLibrary??[];if(!Array.isArray(library)||library.length>64)fail('Библиотека зданий повреждена.');for(const b of library)validateDesign(b);
  if(p.version===1&&(library.length||p.buildings.some(b=>b?.design)))fail('Этажи и шаблоны требуют формат проекта версии 2.');
+ if(p.version<3&&[...p.buildings,...library].some(b=>minLevel(b)!==0))fail('Подвалы требуют формат проекта версии 3.');
  if(p.importSummary?.notes!==undefined&&(!Array.isArray(p.importSummary.notes)||p.importSummary.notes.length>20||p.importSummary.notes.some(s=>typeof s!=='string'||s.length>1000)))fail('Примечания импорта повреждены.');
  if([...p.buildings,...library].reduce((sum,b)=>sum+(b?.design?.floors?.reduce((n,f)=>n+(f?.cells?.length||0),0)||0),0)>20_000_000)fail('Слишком много клеток в этажах.');
  const ids=new Set();for(const b of p.buildings){validateDesign(b);if(!b||typeof b.id!=='string'||!b.id||ids.has(b.id)||typeof b.name!=='string'||b.name.length>100||b.sourceId?.length>100||b.sourceKind?.length>100||!['inferred','osm-levels','osm-height','manual'].includes(b.levelsOrigin??'inferred')||!canPlace(p,b))fail('Здание повреждено, пересекается с другим или стоит на воде.');ids.add(b.id);}

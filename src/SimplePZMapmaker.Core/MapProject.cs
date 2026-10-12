@@ -3,7 +3,7 @@ namespace SimplePZMapmaker.Core;
 public enum Terrain : byte { Grass, Forest, Road, Water, Sand, Dirt, Pavement }
 public sealed class MapProject
 {
-    public int Version { get; set; }=2;
+    public int Version { get; set; }=3;
     public string Name { get; set; }="Новая карта";
     public int Width { get; set; }=256;
     public int Height { get; set; }=256;
@@ -41,12 +41,14 @@ public sealed class Building
     public string? SourceId {get;set;}
     public string? SourceKind {get;set;}
     public string? SourceLevels {get;set;}
+    public string? SourceBasements {get;set;}
     public string? SourceRoof {get;set;}
     public List<string> Attribution {get;set;}=[];
     public string LevelsOrigin {get;set;}="inferred";
     public bool Modified {get;set;}
 }
 public sealed class BuildingDesign {
+    public int MinLevel {get;set;}
     public string Material {get;set;}="wood";
     public string Roof {get;set;}="flat";
     public string Shape {get;set;}="rect";

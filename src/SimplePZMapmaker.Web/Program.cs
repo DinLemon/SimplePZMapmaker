@@ -29,7 +29,7 @@ app.Use(async(context,next)=> {
     }
 });
 app.UseDefaultFiles();app.UseStaticFiles();
-app.MapGet("/api/environment",()=>new {version="0.3.0",target="Project Zomboid Build 42",gameFound=Directory.Exists(@"./game-installation\media"),gamePath=@"./game-installation",cellSize=256,chunkSize=8,workspace});
+app.MapGet("/api/environment",()=>new {version="0.3.1",target="Project Zomboid Build 42",gameFound=Directory.Exists(@"./game-installation\media"),gamePath=@"./game-installation",cellSize=256,chunkSize=8,workspace});
 app.MapGet("/api/examples/pilna",async(CancellationToken token)=>{
     var file=Path.Combine(workspace,"examples","Pilna","pilna.pzmap.json");
     if(!File.Exists(file))file=Path.Combine(AppContext.BaseDirectory,"examples","Pilna","pilna.pzmap.json");
@@ -41,7 +41,7 @@ app.MapGet("/api/examples/pilna",async(CancellationToken token)=>{
 app.MapPost("/api/generate",(GenerationOptions options)=>MapGenerator.Generate(options));
 app.MapPost("/api/import/geojson",(GeoImportRequest request,CancellationToken token)=>GeographicImporter.Import(request.Json,request.Project,request.Bounds,token,request.PreserveEdits));
 app.MapPost("/api/import/osm",async(OsmImportRequest request,OsmClient client,CancellationToken token)=>{ProjectValidator.Validate(request.Project);return GeographicImporter.Import(await client.Fetch(request.Bounds,token),request.Project,request.Bounds,token,request.PreserveEdits);});
-app.MapPost("/api/building/design",(BuildingDesignRequest request)=>{var b=request.Building;if(b is null)throw new ArgumentException("Не задано здание.");b.Design=BuildingDesigner.Generate(b,request.Levels,request.Seed,request.Shape);return b;});
+app.MapPost("/api/building/design",(BuildingDesignRequest request)=>{var b=request.Building;if(b is null)throw new ArgumentException("Не задано здание.");b.Design=BuildingDesigner.Generate(b,request.Levels,request.Seed,request.Shape,request.Basements);return b;});
 app.MapPost("/api/building/validate",(Building b)=>{BuildingDesigner.Validate(b);return Results.Ok(new{valid=true});});
 app.MapPost("/api/buildings/regenerate",(BuildingRegenerateRequest request)=>{var changed=BuildingDesigner.Regenerate(request.Project,request.Id);return Results.Ok(new{project=request.Project,changed,skipped=request.Project.Buildings.Count-changed});});
 app.MapPost("/api/search",async(SearchRequest request,OsmClient client,CancellationToken token)=>await client.Search(request.Query,token));
@@ -53,5 +53,5 @@ app.Run();
 public sealed record GeoImportRequest(MapProject Project,string Json,GeoBounds? Bounds,bool PreserveEdits=false);
 public sealed record OsmImportRequest(MapProject Project,GeoBounds Bounds,bool PreserveEdits=false);
 public sealed record SearchRequest(string Query);
-public sealed record BuildingDesignRequest(Building Building,int Levels=1,int Seed=42,string Shape="rect");
+public sealed record BuildingDesignRequest(Building Building,int Levels=1,int Seed=42,string Shape="rect",int Basements=0);
 public sealed record BuildingRegenerateRequest(MapProject Project,string? Id=null);

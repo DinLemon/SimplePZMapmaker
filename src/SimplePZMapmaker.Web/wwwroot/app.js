@@ -1,5 +1,5 @@
 import {blank,paint,line,canPlace,History,validateProject,boundsFromSearchResult,geographicBase} from './editor.js';
-import {kinds,containsPoint,cell,shapeCells,validateDesign,combineAttribution} from './building.js';
+import {kinds,containsPoint,cell,shapeCells,validateDesign,combineAttribution,minLevel,aboveLevels,visibleFloors,containsVisiblePoint} from './building.js';
 import {BuildingWorkshop} from './workshop.js';
 
 const $=id=>document.getElementById(id);
@@ -20,7 +20,7 @@ const raster=document.createElement('canvas'),rctx=raster.getContext('2d');
 let viewport={width:800,height:600};
 const workshop=new BuildingWorkshop({api,download,apply:b=>{
  const old=project.buildings.find(a=>a.id===b.id);if(!old)throw Error('Исходное здание больше не существует.');
- b.modified=true;if((b.design?.floors.length||1)!==(old.design?.floors.length||1))b.levelsOrigin='manual';validateDesign(b);if(!canPlace({...project,buildings:project.buildings.filter(a=>a!==old)},b))throw Error('Новый контур пересекается с водой, другим зданием, точкой появления или границей ячейки.');
+ b.modified=true;if(aboveLevels(b)!==aboveLevels(old))b.levelsOrigin='manual';validateDesign(b);if(!canPlace({...project,buildings:project.buildings.filter(a=>a!==old)},b))throw Error('Новый контур пересекается с водой, другим зданием, точкой появления или границей ячейки.');
  history.begin(project);Object.assign(old,b);history.commit(project);selectedId=b.id;changed();
 },template:b=>{
  project.buildingLibrary??=[];if(project.buildingLibrary.length>=64)throw Error('В библиотеке может быть до 64 шаблонов.');b.attribution=combineAttribution(b.attribution||[],project.attribution);history.begin(project);b.id=crypto.randomUUID();b.sourceId=null;b.sourceKind=null;b.modified=false;project.buildingLibrary.push(b);history.commit(project);changed();
@@ -63,7 +63,7 @@ function update(){
  if(project.metresPerTile){$('scale-stat').textContent=project.metresPerTile.toLocaleString('ru-RU',{maximumFractionDigits:2})+' м / клетка';const report=project.importSummary;$('import-summary').textContent=report?`При импорте размещено ${report.placedBuildings} из ${report.sourceBuildings} зданий. `+Object.entries(report.skipReasons).map(([k,v])=>`${k}: ${v}`).join('; ')+' '+(report.notes||[]).join(' '):'Географическая основа карты';}
  $('zoom-value').textContent=Math.round(zoom*100)+'%';
  const b=project.buildings.find(b=>b.id===selectedId);$('selection-panel').hidden=!b;
- if(b){$('building-name').value=b.name;$('building-x').value=b.x;$('building-y').value=b.y;$('building-width').value=b.width;$('building-height').value=b.height;$('building-details').textContent=`${kinds[b.kind]} · ${b.design?.floors.length||1} этаж(а) · ${b.levelsOrigin==='osm-levels'?'этажность OSM':b.levelsOrigin==='osm-height'?'оценка по высоте OSM':b.levelsOrigin==='manual'?'задано вручную':'этажность предположена'}${b.modified?' · ручные правки':''}`;}
+ if(b){$('building-name').value=b.name;$('building-x').value=b.x;$('building-y').value=b.y;$('building-width').value=b.width;$('building-height').value=b.height;$('building-details').textContent=`${kinds[b.kind]} · ${aboveLevels(b)} этаж(а) · ${-minLevel(b)} подвал(а) · ${b.levelsOrigin==='osm-levels'?'этажность OSM':b.levelsOrigin==='osm-height'?'оценка по высоте OSM':b.levelsOrigin==='manual'?'задано вручную':'этажность предположена'}${b.modified?' · ручные правки':''}`;}
  updateLibrary();
  const names={brush:`Кисть · ${terrainNames[terrain]}`,rectangle:`Область · ${terrainNames[terrain]}`,road:'Дорога · проведите линию',building:`Здание · ${catalog[buildingKind].name}`,spawn:'Точка появления',select:'Выбор объектов',pan:'Перемещение карты',zombies:`Зомби · ${$('zombie-density').value}/255`};
  $('map-tool-label').textContent=isometric?'Изометрический обзор · рисование в виде сверху':names[tool];
@@ -71,7 +71,7 @@ function update(){
  $('tool-help').textContent=help[tool];requestDraw();
 }
 function changed(){dirty=true;autosave();update();}
-function adopt(p){validateProject(p);p.version=2;project=p;history=new History();selectedId=null;selectedSpawn=-1;gesture=null;dirty=true;fit();changed();}
+function adopt(p){validateProject(p);p.version=3;project=p;history=new History();selectedId=null;selectedSpawn=-1;gesture=null;dirty=true;fit();changed();}
 function setTool(value){if(gesture)finish();tool=value;document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool));if(value==='zombies')$('show-zombies').checked=true;update();}
 function fit(){
  const w=viewport.width,h=viewport.height;
@@ -107,7 +107,7 @@ function draw(){
  if($('show-buildings').checked){
   const buildings=isometric?[...project.buildings].sort((a,b)=>(a.x+a.y)-(b.x+b.y)):project.buildings;
   for(const b of buildings){const fill=b.kind==='house'?'#d5c8a4':b.kind==='shop'?'#ba9465':'#a3aaa0';
-   if(b.design){drawDesignedBuilding(b);continue;}
+   if(b.design){drawDesignedBuilding(b);continue;}if($('map-level').value!=='all'&&+$('map-level').value!==0)continue;
    if(isometric){const points=[[b.x,b.y],[b.x+b.width,b.y],[b.x+b.width,b.y+b.height],[b.x,b.y+b.height]].map(([x,y])=>screen(x,y)),lift=Math.max(3,zoom*7);const roof=points.map(p=>({x:p.x,y:p.y-lift}));polygon([roof[1],roof[2],points[2],points[1]],'#8b8169');polygon([roof[2],roof[3],points[3],points[2]],'#a49776');polygon(roof,fill,b.id===selectedId?'#f5ce84':'#4b4e3d');}
    else{const point=screen(b.x,b.y);ctx.fillStyle=fill;ctx.fillRect(point.x,point.y,b.width*zoom,b.height*zoom);ctx.strokeStyle=b.id===selectedId?'#fff0be':'#555644';ctx.lineWidth=b.id===selectedId?2:1;ctx.strokeRect(point.x,point.y,b.width*zoom,b.height*zoom);
     if(zoom>2&&b.kind==='house'){ctx.strokeStyle='#706f5a';ctx.beginPath();ctx.moveTo(point.x+b.width/2*zoom,point.y);ctx.lineTo(point.x+b.width/2*zoom,point.y+b.height*zoom);ctx.moveTo(point.x+b.width/2*zoom,point.y+b.height/2*zoom);ctx.lineTo(point.x+b.width*zoom,point.y+b.height/2*zoom);ctx.stroke();}
@@ -115,7 +115,7 @@ function draw(){
    }
   }
  }
- if($('show-spawns').checked)for(let i=0;i<project.spawns.length;i++){const s=project.spawns[i],p=screen(s.x+.5,s.y+.5);ctx.beginPath();ctx.arc(p.x,p.y,selectedSpawn===i?8:6,0,Math.PI*2);ctx.fillStyle='#2b3528';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='#edb16b';ctx.stroke();ctx.beginPath();ctx.moveTo(p.x-3,p.y);ctx.lineTo(p.x+3,p.y);ctx.moveTo(p.x,p.y-3);ctx.lineTo(p.x,p.y+3);ctx.lineWidth=1;ctx.stroke();}
+ if($('show-spawns').checked&&['all','0'].includes($('map-level').value))for(let i=0;i<project.spawns.length;i++){const s=project.spawns[i],p=screen(s.x+.5,s.y+.5);ctx.beginPath();ctx.arc(p.x,p.y,selectedSpawn===i?8:6,0,Math.PI*2);ctx.fillStyle='#2b3528';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='#edb16b';ctx.stroke();ctx.beginPath();ctx.moveTo(p.x-3,p.y);ctx.lineTo(p.x+3,p.y);ctx.moveTo(p.x,p.y-3);ctx.lineTo(p.x,p.y+3);ctx.lineWidth=1;ctx.stroke();}
  if(cursor&&within(cursor)&&!isometric&&!busy){
   const p=screen(cursor.x,cursor.y);ctx.lineWidth=1;
   if(tool==='building'){const b=ghost(cursor);const q=screen(b.x,b.y);const valid=canPlace(project,b);ctx.fillStyle=valid?'#ead8a755':'#bd654c66';ctx.strokeStyle=valid?'#e8c690':'#ef9d7b';ctx.fillRect(q.x,q.y,b.width*zoom,b.height*zoom);ctx.strokeRect(q.x,q.y,b.width*zoom,b.height*zoom);}
@@ -126,8 +126,8 @@ function draw(){
  mctx.strokeStyle='#f4d293';mctx.lineWidth=1;if(!isometric){const a=inverse(0,0),b=inverse(viewport.width,viewport.height);mctx.strokeRect(a.x/project.width*150,a.y/project.height*150,(b.x-a.x)/project.width*150,(b.y-a.y)/project.height*150);}
 }
 function drawDesignedBuilding(b){
- const level=+$('map-level').value;const floors=isometric?b.design.floors.filter((_,z)=>level<0||z<=level):[b.design.floors[level<0?0:level]].filter(Boolean);
- floors.forEach((f,index)=>{const z=isometric?index:Math.max(0,level),lift=isometric?(z+1)*Math.max(2,zoom*5):0,fill={wood:'#c7b58e',brick:'#b69179',plaster:'#bdc3ae'}[b.design.material];
+ const floors=visibleFloors(b,$('map-level').value,isometric);
+ floors.forEach(({f,z})=>{const lift=isometric?(z+1)*Math.max(2,zoom*5):0,fill={wood:'#c7b58e',brick:'#b69179',plaster:'#bdc3ae'}[b.design.material];
   for(let y=0;y<b.height;y++)for(let x=0;x<b.width;){if(cell(b,f,x,y)==='.'){x++;continue;}const start=x;while(x<b.width&&cell(b,f,x,y)!=='.')x++;const w=x-start;
    if(isometric){const pts=[[b.x+start,b.y+y],[b.x+x,b.y+y],[b.x+x,b.y+y+1],[b.x+start,b.y+y+1]].map(([xx,yy])=>screen(xx,yy)),roof=pts.map(p=>({x:p.x,y:p.y-lift}));
     if(cell(b,f,x,y)==='.')polygon([roof[1],roof[2],pts[2],pts[1]],'#756c59');if(Array.from({length:w},(_,i)=>cell(b,f,start+i,y+1)).some(c=>c==='.'))polygon([roof[2],roof[3],pts[3],pts[2]],'#8c7e64');polygon(roof,fill,b.id===selectedId?'#f7dca1':null);
@@ -151,9 +151,9 @@ canvas.addEventListener('pointerdown',e=>{
  if(e.button===1||e.button===2||space||tool==='pan'){gesture={pan:true,last:{x:e.clientX,y:e.clientY}};canvas.setPointerCapture(e.pointerId);return;}
  if(isometric){toast('Для рисования переключитесь на вид сверху.');return;}if(!within(p))return;
  history.begin(project);
- if(tool==='building'){const draft=ghost(p);history.commit(project);task('Создаём здание…',async signal=>{const isTemplate=$('building-preset').value.startsWith('template:');const b=isTemplate?draft:await api('/api/building/design',{building:draft,levels:+$('placement-levels').value,seed:(project.seed+project.buildings.length)|0,shape:$('placement-shape').value},signal);validateDesign(b);if(!canPlace(project,b))throw Error('Здесь нельзя поставить здание: вода, пересечение или граница ячейки.');history.begin(project);b.id=crypto.randomUUID();b.modified=true;b.sourceId=null;b.levelsOrigin='manual';project.buildings.push(b);selectedId=b.id;selectedSpawn=-1;history.commit(project);changed();});return;}
+ if(tool==='building'){const draft=ghost(p);history.commit(project);task('Создаём здание…',async signal=>{const isTemplate=$('building-preset').value.startsWith('template:');const b=isTemplate?draft:await api('/api/building/design',{building:draft,levels:+$('placement-levels').value,basements:+$('placement-basements').value,seed:(project.seed+project.buildings.length)|0,shape:$('placement-shape').value},signal);validateDesign(b);if(!canPlace(project,b))throw Error('Здесь нельзя поставить здание: вода, пересечение или граница ячейки.');history.begin(project);b.id=crypto.randomUUID();b.modified=true;b.sourceId=null;b.levelsOrigin='manual';project.buildings.push(b);selectedId=b.id;selectedSpawn=-1;history.commit(project);changed();});return;}
  if(tool==='spawn'){if(project.terrain[p.y*project.width+p.x]===3||project.buildings.some(b=>containsPoint(b,p.x-b.x,p.y-b.y))){toast('Поставьте точку на суше снаружи здания.',true);}else if(project.spawns.length>=100){toast('Максимум 100 точек появления.',true);}else if(!project.spawns.some(s=>s.x===p.x&&s.y===p.y)){project.spawns.push(p);}history.commit(project);changed();return;}
- if(tool==='select'){selectedId=project.buildings.find(b=>containsPoint(b,p.x-b.x,p.y-b.y))?.id||null;selectedSpawn=selectedId?-1:project.spawns.findIndex(s=>Math.abs(s.x-p.x)<4&&Math.abs(s.y-p.y)<4);history.commit(project);update();return;}
+ if(tool==='select'){selectedId=project.buildings.find(b=>containsVisiblePoint(b,p.x-b.x,p.y-b.y,$('map-level').value))?.id||null;selectedSpawn=selectedId||!['all','0'].includes($('map-level').value)?-1:project.spawns.findIndex(s=>Math.abs(s.x-p.x)<4&&Math.abs(s.y-p.y)<4);history.commit(project);update();return;}
  gesture={start:p,last:p};canvas.setPointerCapture(e.pointerId);if(tool==='brush'||tool==='zombies')paintAt(p);
 });
 canvas.addEventListener('pointermove',e=>{
@@ -179,7 +179,7 @@ document.querySelectorAll('[data-terrain]').forEach(b=>b.onclick=()=>{terrain=+b
 document.querySelectorAll('[data-building]').forEach(b=>b.onclick=()=>{buildingKind=b.dataset.building;$('building-preset').value=buildingKind;document.querySelectorAll('[data-building]').forEach(a=>a.classList.toggle('active',a===b));setTool('building');});
 $('building-preset').onchange=()=>{if(kinds[$('building-preset').value])buildingKind=$('building-preset').value;setTool('building');};
 $('import-building-template').onclick=()=>$('building-template-file').click();
-$('building-template-file').onchange=e=>{const file=e.target.files[0];if(!file)return;task('Читаем шаблон здания…',async signal=>{if(file.size>4_000_000)throw Error('Шаблон превышает 4 МБ.');const value=JSON.parse(await file.text());if(value.format!=='SimplePZBuilding'||value.version!==1)throw Error('Это не шаблон SimplePZMapmaker.');const b=value.building;b.attribution=combineAttribution(value.attribution??[],b.attribution??[]);validateDesign(b);await api('/api/building/validate',b,signal);project.buildingLibrary??=[];if(project.buildingLibrary.length>=64)throw Error('Библиотека заполнена.');const source=combineAttribution(project.attribution,b.attribution);if(source.length>30)throw Error('Слишком много источников географии.');history.begin(project);b.id=crypto.randomUUID();b.sourceId=null;b.sourceKind=null;b.modified=false;project.attribution=source;project.buildingLibrary.push(b);history.commit(project);changed();toast('Шаблон добавлен в библиотеку.');}).finally(()=>e.target.value='');};
+$('building-template-file').onchange=e=>{const file=e.target.files[0];if(!file)return;task('Читаем шаблон здания…',async signal=>{if(file.size>4_000_000)throw Error('Шаблон превышает 4 МБ.');const value=JSON.parse(await file.text());if(value.format!=='SimplePZBuilding'||![1,2].includes(value.version))throw Error('Это не шаблон SimplePZMapmaker.');const b=value.building;if(value.version===1&&minLevel(b)!==0)throw Error('Подвалы требуют формат шаблона версии 2.');b.attribution=combineAttribution(value.attribution??[],b.attribution??[]);validateDesign(b);await api('/api/building/validate',b,signal);project.buildingLibrary??=[];if(project.buildingLibrary.length>=64)throw Error('Библиотека заполнена.');const source=combineAttribution(project.attribution,b.attribution);if(source.length>30)throw Error('Слишком много источников географии.');history.begin(project);b.id=crypto.randomUUID();b.sourceId=null;b.sourceKind=null;b.modified=false;project.attribution=source;project.buildingLibrary.push(b);history.commit(project);changed();toast('Шаблон добавлен в библиотеку.');}).finally(()=>e.target.value='');};
 $('edit-building').onclick=()=>{const b=project.buildings.find(b=>b.id===selectedId);if(!b)return;if(b.design)workshop.open(b);else task('Подготавливаем план здания…',async signal=>workshop.open(await api('/api/building/design',{building:structuredClone(b),levels:1,seed:project.seed,shape:'rect'},signal)));};
 $('regenerate-building').onclick=()=>regenerate(selectedId);$('regenerate-buildings').onclick=()=>regenerate(null);
 function regenerate(id){if(id===null&&!project.buildings.length)return;task('Создаём новые варианты зданий…',async signal=>{const result=await api('/api/buildings/regenerate',{project,id},signal);validateProject(result.project);history.begin(project);project.buildings=result.project.buildings;history.commit(project);changed();toast(`Обновлено: ${result.changed}; сохранено без изменений: ${result.skipped}.`);});}
