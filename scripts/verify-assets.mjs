@@ -40,4 +40,3 @@ try{
  await page.setViewportSize({width:1280,height:720});await page.locator('#open-building-editor').click();if(!await page.locator('#building-dialog').isVisible())await page.locator('#building-list button').first().click();await page.screenshot({path:fileURLToPath(new URL('assets-workshop-compact.png',output)),fullPage:true});assert.ok(await page.locator('#be-apply').isVisible());await page.locator('#be-cancel').click();
  assert.deepEqual(errors,[]);console.log('PASS local PNG catalog/pagination, all six profile tile metadata/facing/images, complete furniture/forged rejection, custom stair holes, direct/standalone workshop, floor/roof picks, template placement, world decor/surface/history/project roundtrip, real building/map previews and native export');
 }finally{await browser.close();}
-
