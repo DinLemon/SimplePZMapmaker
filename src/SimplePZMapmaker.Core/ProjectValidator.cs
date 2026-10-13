@@ -4,13 +4,18 @@ public static class ProjectValidator
     public static void Validate(MapProject p)
     {
         ArgumentNullException.ThrowIfNull(p);
-        if(p.Version is not(1 or 2 or 3 or 4 or 5)) Fail("Версия проекта не поддерживается.");
+        if(p.Version is not(1 or 2 or 3 or 4 or 5 or 6)) Fail("Версия проекта не поддерживается.");
+        ResourceDependencies.Validate(p.RequiredMods,p.AssetSources);
+        if(p.StaticModels is null||p.StaticModels.Count>10000)Fail("Слой статичных моделей повреждён.");
+        if(p.Version<6&&(p.RequiredMods.Count>0||p.AssetSources.Count>0||p.StaticModels.Count>0||p.Buildings.Concat(p.BuildingLibrary).Any(b=>b?.RequiredMods.Count>0||b?.AssetSources.Count>0||b?.Design?.Floors.Any(f=>f.StaticModels.Count>0)==true)))Fail("Моды и статичные модели требуют формат проекта версии6.");
         if(p.Width is <256 or >2048 || p.Height is <256 or >2048 || p.Width%256!=0 || p.Height%256!=0) Fail("Размер карты: от 256 до 2048, кратный 256.");
         if(string.IsNullOrWhiteSpace(p.Name) || p.Name.Length>80 || p.Name.Any(char.IsControl)) Fail("Название: от 1 до 80 символов без переносов строк.");
         if(p.WorldX is <0 or >1000 || p.WorldY is <0 or >1000) Fail("Координаты мира: от 0 до 1000 ячеек.");
         if(p.Terrain is null || p.Terrain.Length!=p.Width*p.Height || p.Terrain.Any(t=>!Enum.IsDefined(t))) Fail("Слой земли повреждён.");
+        TerrainEditMask.Decode(p);if(p.Version<6&&p.TerrainEdits.Length>0)Fail("Ручная маска земли требует формат проекта версии6.");
         if(p.Zombies is null || p.Zombies.Length!=p.Width*p.Height/64 || p.Zombies.Any(z=>z is <0 or >255)) Fail("Слой зомби повреждён.");
-        if(p.Buildings is null || p.Buildings.Count>4000 || p.Spawns is null || p.Spawns.Count is <1 or >100 || p.Attribution is null || p.Attribution.Count>30 || p.Attribution.Any(a=>a is null || a.Length>1000)) Fail("Объекты проекта повреждены.");
+        if(p.WorldSection&&p.Version<6)Fail("Участок мира требует формат проекта версии6.");
+        if(p.Buildings is null || p.Buildings.Count>4000 || p.Spawns is null || p.Spawns.Count<(p.WorldSection?0:1)||p.Spawns.Count>100 || p.Attribution is null || p.Attribution.Count>30 || p.Attribution.Any(a=>a is null || a.Length>1000)) Fail("Объекты проекта повреждены.");
         var occupied=new HashSet<int>(); var ids=new HashSet<string>();
         if(p.SurfaceRegions is null||p.SurfaceRegions.Count>128||p.SurfaceRegions.Any(r=>r is null||r.Theme is null||!EnvironmentStyles.Names.ContainsKey(r.Theme)||r.X<0||r.Y<0||r.Width<1||r.Height<1||(long)r.X+r.Width>p.Width||(long)r.Y+r.Height>p.Height))Fail("Участок оформления выходит за карту или повреждён (предел128 участков).");
         if(p.Version<5&&p.SurfaceRegions.Count>0)Fail("Оформление отдельных участков требует формат проекта версии5.");
@@ -24,7 +29,7 @@ public static class ProjectValidator
         foreach(var b in p.Buildings)
         {
             if(b is null || !BuildingDesigner.Kinds.Contains(b.Kind) || string.IsNullOrEmpty(b.Id) || !ids.Add(b.Id) || b.Name is null || b.Name.Length>100||b.SourceId?.Length>100||b.SourceKind?.Length>100||b.SourceLevels?.Length>100||b.SourceBasements?.Length>100||b.SourceRoof?.Length>100||b.LevelsOrigin is not("inferred" or "osm-levels" or "osm-height" or "manual")) Fail("Неизвестное или повреждённое здание.");
-            if(b.Width is <6 or >64 || b.Height is <6 or >64 || b.X<1 || b.Y<1 || b.X>p.Width-b.Width-1 || b.Y>p.Height-b.Height-1 || b.X/256!=(b.X+b.Width)/256 || b.Y/256!=(b.Y+b.Height)/256) Fail("Здание выходит за границу карты или пересекает границу ячейки 256×256. Переместите его.");
+            if(b.Width is <6 or >64 || b.Height is <6 or >64 || b.X<1 || b.Y<1 || b.X>p.Width-b.Width-1 || b.Y>p.Height-b.Height-1) Fail("Здание выходит за границу участка карты. Переместите его или расширьте участок.");
             BuildingDesigner.Validate(b);
             foreach(var index in BuildingDesigner.Occupied(b)){var x=b.X+index%(b.Width+1);var y=b.Y+index/(b.Width+1);if(!occupied.Add(y*p.Width+x))Fail("Стены или помещения зданий пересекаются.");}
             for(var y=0;y<b.Height;y++)for(var x=0;x<b.Width;x++)if(BuildingDesigner.Occupies(b,x,y)&&p.Terrain[(b.Y+y)*p.Width+b.X+x]==Terrain.Water)Fail("Здание стоит на воде.");
@@ -36,6 +41,7 @@ public static class ProjectValidator
             if(occupied.Contains(s.Y*p.Width+s.X)) Fail("Поставьте точку появления снаружи здания.");
         }
         var decorationIds=new HashSet<string>();var decorationCells=new HashSet<int>();foreach(var d in p.Decorations){if(d is null||string.IsNullOrEmpty(d.Id)||d.Id.Length>100||!decorationIds.Add(d.Id))Fail("Декор местности повреждён.");VisualStyles.ValidateParts(d.Asset,d.Parts);foreach(var part in d.Parts){var x=d.X+part.Dx;var y=d.Y+part.Dy;if(x<0||y<0||x>=p.Width||y>=p.Height||p.Terrain[y*p.Width+x]==Terrain.Water||occupied.Contains(y*p.Width+x)||p.Spawns.Any(s=>s.X==x&&s.Y==y)||!decorationCells.Add(y*p.Width+x))Fail("Декор выходит за карту, пересекается с объектом, водой или точкой появления.");}}
+        var modelIds=new HashSet<string>();foreach(var model in p.StaticModels){StaticModelPlacement.Validate(model,p.Width,p.Height,0,0);if(!modelIds.Add(model.Id)||p.Terrain[model.Y*p.Width+model.X]==Terrain.Water||occupied.Contains(model.Y*p.Width+model.X)||p.Spawns.Any(s=>s.X==model.X&&s.Y==model.Y))Fail("Модель окружения пересекается с водой, зданием или точкой появления.");}
         if(p.Bounds is not null) ValidateBounds(p.Bounds);
         if(p.MetresPerTile is double metres && (!double.IsFinite(metres)||metres<=0||metres>100000))Fail("Масштаб геоданных повреждён.");
         if(p.ImportSummary is { } summary && (summary.SourceFeatures is <0 or >30000||summary.SourceBuildings is <0 or >30000||summary.PlacedBuildings is <0 or >4000||summary.SkipReasons is null||summary.SkipReasons.Count>20||summary.SkipReasons.Any(s=>s.Key.Length>100||s.Value is <0 or >30000)))Fail("Отчёт импорта повреждён.");

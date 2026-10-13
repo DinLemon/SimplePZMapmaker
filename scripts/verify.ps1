@@ -4,7 +4,7 @@ Push-Location $taskRoot
 try{
  dotnet run --project tests/SimplePZMapmaker.Tests
  if($LASTEXITCODE -ne 0){throw 'Core regression suite failed.'}
- node --test tests/editor.test.mjs tests/building-editor.test.mjs tests/resources.test.mjs tests/appearance.test.mjs tests/entrance-access.test.mjs tests/visual-workshop.test.mjs
+ node --test tests/*.test.mjs
  if($LASTEXITCODE -ne 0){throw 'Editor regression suite failed.'}
  dotnet build src/SimplePZMapmaker.Web -c Release --nologo
  if($LASTEXITCODE -ne 0){throw 'Application build failed.'}
@@ -27,5 +27,11 @@ try{
   if($LASTEXITCODE -ne 0){throw 'Regional appearance/import UI checks failed.'}
   node scripts/verify-visual-workshop.mjs
   if($LASTEXITCODE -ne 0){throw 'Visual building workshop/preset checks failed.'}
+  foreach($script in @('verify-world-api.mjs','verify-world-workshop.mjs','verify-environment-workshop.mjs','verify-static-models.mjs','verify-static-model-placement.mjs','verify-model-scale.mjs','verify-agent-session.mjs')){
+   node (Join-Path $PSScriptRoot $script)
+   if($LASTEXITCODE -ne 0){throw ('World/mod/model/agent browser check failed: '+$script)}
+  }
+  dotnet run --project tools/McpSmoke
+  if($LASTEXITCODE -ne 0){throw 'MCP official-client compatibility check failed.'}
  }
 }finally{Pop-Location}

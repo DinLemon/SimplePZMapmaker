@@ -1,0 +1,10 @@
+import {StaticModelViewer} from './static-models.js';
+export const modelSpriteKey=model=>[model.sourceId??'game',(model.requiredMods??[]).join(','),model.modelId,model.rotation,model.scale].join('|');
+// Images are rendered locally from the real geometry; no game assets are distributed.
+export class StaticModelSprites {
+ constructor(){this.images=new Map();this.pending=new Map();this.failures=new Map();this.queue=Promise.resolve();this.epoch=0;if(typeof document!=='undefined')document.addEventListener('assets-catalog-changed',()=>{this.epoch++;this.images.clear();this.pending.clear();this.failures.clear();});}
+ load(model){const key=modelSpriteKey(model),epoch=this.epoch;if(this.images.has(key))return Promise.resolve(this.images.get(key));if(this.pending.has(key))return this.pending.get(key);if(this.failures.has(key))return Promise.resolve(null);if(this.images.size+this.pending.size>256)return Promise.resolve(null);
+  const task=this.queue.then(async()=>{const canvas=document.createElement('canvas');canvas.style.width='128px';canvas.style.height='128px';let viewer;try{viewer=new StaticModelViewer(canvas);await viewer.load(model.modelId);viewer.group.rotation.y=-(model.rotation||0)*Math.PI/180;viewer.scene.background=null;viewer.renderer.setClearColor(0,0);viewer.draw();const image=new Image();image.src=canvas.toDataURL();await image.decode();if(epoch!==this.epoch)return null;this.images.set(key,image);return image;}catch(error){if(epoch===this.epoch)this.failures.set(key,error.message);return null;}finally{viewer?.dispose();if(this.pending.get(key)===task)this.pending.delete(key);}});this.queue=task.then(()=>{},()=>{});this.pending.set(key,task);return task;
+ }
+ draw(ctx,model,x,y,size=64){size*=model.scale??1;const image=this.images.get(modelSpriteKey(model));if(image){ctx.drawImage(image,x-size/2,y-size*.9,size,size);}else{ctx.fillStyle='#b4bfcc';ctx.strokeStyle='#182331';ctx.lineWidth=1;ctx.beginPath();ctx.arc(x,y,Math.max(.3,size*.1),0,Math.PI*2);ctx.fill();ctx.stroke();}}
+}

@@ -11,7 +11,7 @@ const file=name=>fileURLToPath(new URL(name,output));
 async function api(path,body,status=200){const response=await fetch(root+path,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});assert.equal(response.status,status,await response.clone().text());return response;}
 async function json(path,body){return (await api(path,body)).json();}
 async function archive(name,p){await writeFile(file(name),Buffer.from(await (await api('/api/export',p)).arrayBuffer()));}
-const presets=await json('/api/building/presets');assert.equal(presets.length,6,'Six built-in housing presets');assert.equal(new Set(presets.map(p=>p.id)).size,6);
+const catalogPresets=await json('/api/building/presets');assert.ok(catalogPresets.length>=12,'Expanded authored building catalog');assert.equal(new Set(catalogPresets.map(p=>p.id)).size,catalogPresets.length);const presets=catalogPresets.slice(0,6);
 const catalog=await json('/api/assets/status');assert.ok(catalog.ready&&catalog.count>29000,'Real installed game catalog');
 const buildings=[];
 for(const preset of presets){

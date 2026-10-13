@@ -1,9 +1,10 @@
+const pzmapTestBase=process.env.PZMAP_TEST_URL||'http://127.0.0.1:48765';
 import {chromium} from '../work/qa/node_modules/playwright/index.mjs';
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {visualStyles,objectParts,normalizeBuilding} from '../src/SimplePZMapmaker.Web/wwwroot/building.js';
-const root='http://127.0.0.1:48765',output=new URL('../work/qa-results/',import.meta.url);await mkdir(output,{recursive:true});
+const root=pzmapTestBase,output=new URL('../work/qa-results/',import.meta.url);await mkdir(output,{recursive:true});
 async function api(path,body,status=200){const r=await fetch(root+path,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});assert.equal(r.status,status,await r.clone().text());return r;}
 const state=await api('/api/assets/status').then(r=>r.json());assert.ok(state.ready&&state.count>29000);const cat=await api('/api/assets/search?category=furniture&limit=60').then(r=>r.json());assert.equal(cat.items.length,60);const next=await api('/api/assets/search?category=furniture&limit=60&offset=60').then(r=>r.json());assert.notEqual(cat.items[0].id,next.items[0].id);
 const image=await api('/api/assets/page/'+cat.items.find(a=>a.page).page).then(r=>r.arrayBuffer());assert.equal(Buffer.from(image).subarray(1,4).toString(),'PNG');

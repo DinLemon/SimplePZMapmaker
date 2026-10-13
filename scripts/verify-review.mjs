@@ -1,12 +1,13 @@
+const pzmapTestBase=process.env.PZMAP_TEST_URL||'http://127.0.0.1:48765';
 import {chromium} from '../work/qa/node_modules/playwright/index.mjs';
 import assert from 'node:assert/strict';
 import {fileURLToPath} from 'node:url';
 const browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1440,height:960}});
 let release=()=>{};
 try{
- await page.goto('http://127.0.0.1:48765');await page.waitForFunction(()=>document.querySelector('#game-status')?.textContent.includes('найден'));
- const project=await page.request.post('http://127.0.0.1:48765/api/generate',{data:{kind:'blank',size:256}}).then(r=>r.json());
- for(const [path,body] of [['/api/import/geojson',{project,json:null}],['/api/import/osm',{project,bounds:null}]])assert.equal((await page.request.post('http://127.0.0.1:48765'+path,{data:body})).status(),400,'Malformed nested null should return400');
+ await page.goto(pzmapTestBase);await page.waitForFunction(()=>document.querySelector('#game-status')?.textContent.includes('найден'));
+ const project=await page.request.post((pzmapTestBase+'/api/generate'),{data:{kind:'blank',size:256}}).then(r=>r.json());
+ for(const [path,body] of [['/api/import/geojson',{project,json:null}],['/api/import/osm',{project,bounds:null}]])assert.equal((await page.request.post(pzmapTestBase+path,{data:body})).status(),400,'Malformed nested null should return400');
  let started;const start=new Promise(r=>started=r),gate=new Promise(r=>release=r);
  await page.route('**/api/import/geojson',async route=>{started();await gate;try{await route.continue();}catch{}});
  await page.locator('#open-import').click();await page.locator('#geodata-file').setInputFiles(fileURLToPath(new URL('../work/qa-results/geodata.geojson',import.meta.url)));await start;

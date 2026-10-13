@@ -5,8 +5,9 @@ using System.Net;
 using SimplePZMapmaker.Core;
 namespace SimplePZMapmaker.Web.Services;
 
-public sealed record OsmDownload(string Data,string Source,List<string> Warnings);
-public sealed class OsmClient(string cacheDirectory,HttpMessageHandler? handler=null,TimeSpan? requestInterval=null,TimeSpan? attemptTimeout=null) : IDisposable
+public sealed record OsmSource(string Host,string? DataTimestamp,DateTimeOffset RetrievedAtUtc,bool FromCache);
+public sealed record OsmDownload(string Data,string Source,List<string> Warnings){public DateTimeOffset RetrievedAtUtc {get;init;}=DateTimeOffset.UtcNow;public string? DataTimestamp {get;init;}public bool FromCache {get;init;}public int Requests {get;init;}=1;public List<OsmSource> Sources {get;init;}=[];}
+public sealed partial class OsmClient(string cacheDirectory,HttpMessageHandler? handler=null,TimeSpan? requestInterval=null,TimeSpan? attemptTimeout=null) : IDisposable
 {
  private readonly HttpClient client=new(handler??new HttpClientHandler{AllowAutoRedirect=false}){Timeout=Timeout.InfiniteTimeSpan};
  private readonly SemaphoreSlim gate=new(1,1);
@@ -36,9 +37,12 @@ public sealed class OsmClient(string cacheDirectory,HttpMessageHandler? handler=
  }
  public async Task<string> Fetch(GeoBounds b,CancellationToken token)=>(await FetchDetailed(b,token)).Data;
  public Task<OsmDownload> FetchDetailed(GeoBounds b,CancellationToken token){
+  ProjectValidator.ValidateBounds(b);return b.North-b.South>.01||b.East-b.West>.02?FetchTiledDetailed(b,token):FetchSingleDetailed(b,token);
+ }
+ private Task<OsmDownload> FetchSingleDetailed(GeoBounds b,CancellationToken token,IProgress<OsmProgress>? progress=null){
   ProjectValidator.ValidateBounds(b);var box=FormattableString.Invariant($"{b.South:F6},{b.West:F6},{b.North:F6},{b.East:F6}");
-  var query=$"[out:json][timeout:25];(way[highway]({box});way[building]({box});way[natural]({box});way[landuse]({box});way[waterway]({box});relation[natural=water]({box}););out geom;";
-  return Request("osm-"+box,providers,url=>new(HttpMethod.Post,url){Content=new FormUrlEncodedContent(new Dictionary<string,string>{{"data",query}})},true,token);
+  var query=$"[out:json][timeout:25];(way[highway]({box});way[building]({box});way[natural]({box});way[landuse]({box});way[waterway]({box});relation[natural]({box});relation[landuse]({box});relation[building]({box}););out geom;";
+  return Request("osm-v6-"+box,providers,url=>new(HttpMethod.Post,url){Content=new FormUrlEncodedContent(new Dictionary<string,string>{{"data",query}})},true,token,progress);
  }
  public async Task<JsonElement> Search(string query,CancellationToken token){
   if(string.IsNullOrWhiteSpace(query)||query.Length>180)throw new ArgumentException("Введите название города или адрес, до180 символов.");
@@ -50,21 +54,21 @@ public sealed class OsmClient(string cacheDirectory,HttpMessageHandler? handler=
   if(response.Content.Headers.ContentLength>16_000_000)throw new ArgumentException("Слишком много геоданных. Уменьшите выбранный участок.");
   await using var stream=await response.Content.ReadAsStreamAsync(token);using var buffer=new MemoryStream();var chunk=new byte[8192];while(true){var n=await stream.ReadAsync(chunk,token);if(n==0)break;if(buffer.Length+n>16_000_000)throw new ArgumentException("Слишком много геоданных. Уменьшите выбранный участок.");buffer.Write(chunk,0,n);}var data=Encoding.UTF8.GetString(buffer.ToArray());ValidateJson(data,overpass);return data;
  }
- private async Task<OsmDownload> Request(string key,string[] urls,Func<string,HttpRequestMessage> requestFactory,bool overpass,CancellationToken cancellationToken){
+ private async Task<OsmDownload> Request(string key,string[] urls,Func<string,HttpRequestMessage> requestFactory,bool overpass,CancellationToken cancellationToken,IProgress<OsmProgress>? progress=null){
   using var deadline=CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);deadline.CancelAfter(TimeSpan.FromSeconds(overpass?110:40));var token=deadline.Token;
   Directory.CreateDirectory(cacheDirectory);var file=Path.Combine(cacheDirectory,Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(key)))+".json");
   await gate.WaitAsync(token);
   try{
-   if(File.Exists(file)&&DateTime.UtcNow-File.GetLastWriteTimeUtc(file)<TimeSpan.FromDays(7)){var cached=await File.ReadAllTextAsync(file,token);try{ValidateJson(cached,overpass);return new(cached,"local-cache",overpass?["Использованы ранее загруженные данные OSM из локального кэша."]:[]);}catch(Exception e) when(e is JsonException or HttpRequestException){/* Incomplete cache must not masquerade as a complete map. */}}
+   if(File.Exists(file)&&new FileInfo(file).Length<=16_000_000&&DateTime.UtcNow-File.GetLastWriteTimeUtc(file)<TimeSpan.FromDays(7)){var cached=await File.ReadAllTextAsync(file,token);try{ValidateJson(cached,overpass);var origin=CacheMetadata(file,cached);var date=Timestamp(cached);return new(cached,origin.Host,overpass?["Использованы ранее загруженные данные OSM из локального кэша."]:[]){FromCache=true,Requests=0,RetrievedAtUtc=origin.Retrieved,DataTimestamp=date,Sources=[new(origin.Host,date,origin.Retrieved,true)]};}catch(Exception e) when(e is JsonException or HttpRequestException){/* Incomplete cache must not masquerade as a complete map. */}}
    for(var i=0;i<urls.Length;i++){
     var wait=(requestInterval??TimeSpan.FromSeconds(2))-(DateTimeOffset.UtcNow-lastRequest);if(wait>TimeSpan.Zero)await Task.Delay(wait,token);
     using var attempt=CancellationTokenSource.CreateLinkedTokenSource(token);attempt.CancelAfter(attemptTimeout??TimeSpan.FromSeconds(35));
     try{
-     using var request=requestFactory(urls[i]);request.Headers.UserAgent.ParseAdd("SimplePZMapmaker/0.4.1 (local-map-editor)");lastRequest=DateTimeOffset.UtcNow;
+     progress?.Report(new("download",i,urls.Length,new Uri(urls[i]).Host,null,i>0?"Повтор на резервном сервере.":null));using var request=requestFactory(urls[i]);request.Headers.UserAgent.ParseAdd("SimplePZMapmaker/0.6.0 (local-map-editor)");lastRequest=DateTimeOffset.UtcNow;
      using var response=await client.SendAsync(request,HttpCompletionOption.ResponseHeadersRead,attempt.Token);
      if(!response.IsSuccessStatusCode){var transient=response.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests||(int)response.StatusCode>=500;var error=new HttpRequestException($"Картографический сервис вернул {(int)response.StatusCode}.",null,response.StatusCode);if(!transient||i==urls.Length-1)throw error;continue;}
      var data=await Read(response,overpass,attempt.Token);var temporary=file+"."+Guid.NewGuid().ToString("N")+".tmp";try{await File.WriteAllTextAsync(temporary,data,token);File.Move(temporary,file,true);}finally{if(File.Exists(temporary))File.Delete(temporary);}
-     var source=new Uri(urls[i]).Host;return new(data,source,i>0?[$"Основной сервер OSM не ответил; данные загружены с резервного сервера {source}."]:[]);
+     var source=new Uri(urls[i]).Host;var retrieved=DateTimeOffset.UtcNow;var meta=file+".source.json";var tempMeta=meta+"."+Guid.NewGuid().ToString("N")+".tmp";try{await File.WriteAllTextAsync(tempMeta,JsonSerializer.Serialize(new CacheSource(source,DataHash(data),retrieved)),token);File.Move(tempMeta,meta,true);}finally{if(File.Exists(tempMeta))File.Delete(tempMeta);}return new(data,source,i>0?[$"Основной сервер OSM не ответил; данные загружены с резервного сервера {source}."]:[]){Requests=i+1,RetrievedAtUtc=retrieved,DataTimestamp=Timestamp(data),Sources=[new(source,Timestamp(data),retrieved,false)]};
     }catch(OperationCanceledException) when(!token.IsCancellationRequested){if(i==urls.Length-1)break;}
     catch(HttpRequestException e) when(e.StatusCode is null or HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests||(int)e.StatusCode>=500){if(i==urls.Length-1)break;}
     catch(JsonException){if(i==urls.Length-1)break;}

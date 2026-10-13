@@ -4,6 +4,7 @@ public enum Terrain : byte { Grass, Forest, Road, Water, Sand, Dirt, Pavement }
 public sealed class MapProject
 {
     public int Version { get; set; }=4;
+    public bool WorldSection {get;set;}
     public string Name { get; set; }="Новая карта";
     public int Width { get; set; }=256;
     public int Height { get; set; }=256;
@@ -11,6 +12,7 @@ public sealed class MapProject
     public int WorldX { get; set; }=100;
     public int WorldY { get; set; }=100;
     public Terrain[] Terrain { get; set; }=[];
+    public string TerrainEdits {get;set;}="";
     public int[] Zombies { get; set; }=[];
     public List<Building> Buildings { get; set; }=[];
     public List<Building> BuildingLibrary {get;set;}=[];
@@ -18,6 +20,9 @@ public sealed class MapProject
     public List<SurfaceRegion> SurfaceRegions {get;set;}=[];
     public Dictionary<int,string> SurfaceTiles {get;set;}=[];
     public List<WorldDecoration> Decorations {get;set;}=[];
+    public List<StaticModelPlacement> StaticModels {get;set;}=[];
+    public List<string> RequiredMods {get;set;}=[];
+    public Dictionary<string,string> AssetSources {get;set;}=[];
     public List<SpawnPoint> Spawns { get; set; }=[];
     public List<string> Attribution { get; set; }=[];
     public GeoBounds? Bounds { get; set; }
@@ -48,6 +53,8 @@ public sealed class Building
     public string? SourceBasements {get;set;}
     public string? SourceRoof {get;set;}
     public List<string> Attribution {get;set;}=[];
+    public List<string> RequiredMods {get;set;}=[];
+    public Dictionary<string,string> AssetSources {get;set;}=[];
     public string LevelsOrigin {get;set;}="inferred";
     public bool Modified {get;set;}
 }
@@ -68,6 +75,7 @@ public sealed class BuildingFloor {
     public List<BuildingObject> Objects {get;set;}=[];
     public string? FloorTile {get;set;}
     public Dictionary<int,string> FloorTiles {get;set;}=[];
+    public List<StaticModelPlacement> StaticModels {get;set;}=[];
 }
 public sealed class BuildingEdge {
     public int X {get;set;} public int Y {get;set;}

@@ -1,3 +1,4 @@
+const pzmapTestBase=process.env.PZMAP_TEST_URL||'http://127.0.0.1:48765';
 import {chromium} from '../work/qa/node_modules/playwright/index.mjs';
 import assert from 'node:assert/strict';
 import {readFile,mkdir} from 'node:fs/promises';
@@ -8,7 +9,7 @@ async function save(name){const event=page.waitForEvent('download');await page.l
 async function clickBuildingCell(x,y){await page.locator('#be-view-plan').click();const box=await page.locator('#building-canvas').boundingBox(),size=await page.locator('#be-width').inputValue().then(Number),height=await page.locator('#be-height').inputValue().then(Number),scale=Math.max(3,Math.min((box.width-36)/size,(box.height-36)/height));await page.mouse.click(box.x+(box.width-size*scale)/2+(x+.5)*scale,box.y+(box.height-height*scale)/2+(y+.5)*scale);}
 async function dragBuildingCells(x,y,xx,yy){await page.locator('#be-view-plan').click();const box=await page.locator('#building-canvas').boundingBox(),w=+await page.locator('#be-width').inputValue(),h=+await page.locator('#be-height').inputValue(),s=Math.max(3,Math.min((box.width-36)/w,(box.height-36)/h)),ox=box.x+(box.width-w*s)/2,oy=box.y+(box.height-h*s)/2;await page.mouse.move(ox+(x+.5)*s,oy+(y+.5)*s);await page.mouse.down();await page.mouse.move(ox+(xx+.5)*s,oy+(yy+.5)*s,{steps:6});await page.mouse.up();}
 try{
- await page.goto('http://127.0.0.1:48765');await page.waitForFunction(()=>document.querySelector('#game-status').textContent.includes('найден'));
+ await page.goto(pzmapTestBase);await page.waitForFunction(()=>document.querySelector('#game-status').textContent.includes('найден'));
  await page.locator('#new-map').click();await page.locator('#new-kind').selectOption('blank');await page.locator('#new-form [type=submit]').click();await page.waitForFunction(()=>document.querySelector('#building-count').textContent==='0');
  await page.locator('#building-preset').selectOption('apartments');await page.locator('#placement-levels').fill('3');await page.locator('#placement-shape').selectOption('courtyard');
  const box=await page.locator('#map-canvas').boundingBox(),s=Math.min((box.width-72)/256,(box.height-90)/256);await page.mouse.click(box.x+(box.width-256*s)/2+80*s,box.y+(box.height-256*s)/2+80*s);await page.waitForFunction(()=>document.querySelector('#building-count').textContent==='1');

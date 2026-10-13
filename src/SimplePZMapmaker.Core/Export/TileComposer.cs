@@ -9,6 +9,7 @@ internal sealed partial class TileComposer
     private readonly Dictionary<int,List<string>> ground=[];
     private readonly HashSet<int> roofs=[];
     private readonly HashSet<int> decorationCells=[];
+    private readonly HashSet<string> authoredTiles=new(StringComparer.Ordinal);
     private readonly string[]? regionThemes;
     internal int[] RoomIds {get;}=Enumerable.Repeat(-1,65536).ToArray();
     internal byte[] Navigation {get;}=new byte[65536];
@@ -23,7 +24,7 @@ internal sealed partial class TileComposer
             var terrain=p.Terrain[(oy+y)*p.Width+ox+x];
             Navigation[y*256+x]=terrain==Terrain.Water?(byte)8:(byte)0;
         }
-        foreach(var b in p.Buildings.Where(b=>b.X/256==cellX&&b.Y/256==cellY)){if(b.Design is null)Compose(b);else ComposeDesign(b);}
+        foreach(var b in p.Buildings.Where(b=>b.X<ox+256&&b.Y<oy+256&&b.X+b.Width>=ox&&b.Y+b.Height>=oy)){if(b.Design is null)Compose(b);else ComposeDesign(b);}
         foreach(var d in p.Decorations)foreach(var part in d.Parts){var x=d.X+part.Dx-ox;var y=d.Y+part.Dy-oy;if(x>=0&&y>=0&&x<256&&y<256)Add(x,y,part.Tile,part.Flags);}
     }
     private bool Tree(int x,int y) => !decorationCells.Contains(y*256+x)&&((uint)((ox+x)*73856093)^((uint)(oy+y)*19349663)^(uint)project.Seed)%19==0 && !project.Spawns.Any(s=>Math.Abs(s.X-ox-x)<=2&&Math.Abs(s.Y-oy-y)<=2);
@@ -38,18 +39,21 @@ internal sealed partial class TileComposer
         return custom is null&&t==Terrain.Forest&&Tree(x,y)?[floor,EnvironmentStyles.Tree(theme,hash)]:[floor];
     }
     private void Add(int x,int y,string tile,byte flags=0) {
+        if(!InCell(x,y))return;
+        authoredTiles.Add(tile);
         var i=y*256+x;if(!ground.ContainsKey(i))ground[i]=At(x,y,0);
         ground[i].Add(tile);Navigation[i]|=flags;
     }
     private void AddRoom(string name,int x,int y,int w,int h,List<int> building) {
+        var endX=Math.Min(256,x+w);var endY=Math.Min(256,y+h);x=Math.Max(0,x);y=Math.Max(0,y);w=endX-x;h=endY-y;if(w<=0||h<=0)return;
         var id=Rooms.Count;building.Add(id);Rooms.Add(new(name,x,y,w,h,Buildings.Count));
         for(var yy=y;yy<y+h;yy++)for(var xx=x;xx<x+w;xx++){RoomIds[yy*256+xx]=id;Navigation[yy*256+xx]|=16;}
     }
     private void Compose(Building b)
     {
         var x=b.X-ox;var y=b.Y-oy;var w=b.Width;var h=b.Height;var mid=x+w/2;var half=y+h/2;var building=new List<int>();
-        for(var yy=y;yy<y+h;yy++)for(var xx=x;xx<x+w;xx++) {
-            ground[yy*256+xx]=["floors_interior_tilesandwood_01_40"];Navigation[yy*256+xx]=0;roofs.Add(yy*256+xx);
+        for(var yy=Math.Max(0,y);yy<Math.Min(256,y+h);yy++)for(var xx=Math.Max(0,x);xx<Math.Min(256,x+w);xx++) {
+            ground[yy*256+xx]=["floors_interior_tilesandwood_01_40"];authoredTiles.Add("floors_interior_tilesandwood_01_40");Navigation[yy*256+xx]=0;roofs.Add(yy*256+xx);
         }
         if(b.Kind=="house") {
             AddRoom("livingroom",x,y,mid-x,h,building);
@@ -80,6 +84,14 @@ internal sealed partial class TileComposer
             if(yy==y+3)Add(x,yy,"fixtures_windows_01_0");
             Add(x+w,yy,"walls_exterior_house_01_0",4);
         }
-        Buildings.Add(building);
+        if(building.Count>0)Buildings.Add(building);
+    }
+    private static bool InCell(int x,int y)=>x>=0&&y>=0&&x<256&&y<256;
+    internal HashSet<string> ResourceTiles(bool onlyAuthored=false){
+        var ids=ground.Values.Concat(layers.Values).SelectMany(v=>v).ToHashSet(StringComparer.Ordinal);
+        if(roofs.Count>0)ids.Add("floors_interior_tilesandwood_01_40");
+        if(onlyAuthored){ids.IntersectWith(authoredTiles);return ids;}
+        for(var y=0;y<256;y++)for(var x=0;x<256;x++){var local=y*256+x;if(ground.ContainsKey(local))continue;var global=(oy+y)*project.Width+ox+x;var terrain=project.Terrain[global];var hash=EnvironmentStyles.Hash(ox+x,oy+y,project.Seed);var theme=regionThemes?[local]??project.SurfaceTheme;var custom=project.SurfaceTiles.GetValueOrDefault(global);ids.Add(custom??EnvironmentStyles.Floor(terrain,theme,hash));if(custom is null&&terrain==Terrain.Forest&&Tree(x,y))ids.Add(EnvironmentStyles.Tree(theme,hash));}
+        return ids;
     }
 }

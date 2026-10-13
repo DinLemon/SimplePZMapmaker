@@ -36,7 +36,7 @@ public static class MapGenerator
         for(var yy=Math.Max(0,y-radius);yy<=Math.Min(p.Height-1,y+radius);yy++) for(var xx=Math.Max(0,x-radius);xx<=Math.Min(p.Width-1,x+radius);xx++) p.Terrain[yy*p.Width+xx]=Terrain.Road;
     }
     public static bool CanPlace(MapProject p,Building b,bool avoidRoads=true) {
-        if(b.X<1||b.Y<1||b.X+b.Width>=p.Width||b.Y+b.Height>=p.Height||b.X/256!=(b.X+b.Width)/256||b.Y/256!=(b.Y+b.Height)/256) return false;
+        if(b.X<1||b.Y<1||b.X+b.Width>=p.Width||b.Y+b.Height>=p.Height) return false;
         var occupied=BuildingDesigner.Occupied(b).Select(i=>(b.Y+i/(b.Width+1))*p.Width+b.X+i%(b.Width+1)).ToHashSet();
         if(p.Buildings.Where(a=>a!=b&&b.X<a.X+a.Width+1&&b.X+b.Width+1>a.X&&b.Y<a.Y+a.Height+1&&b.Y+b.Height+1>a.Y).Any(a=>BuildingDesigner.Occupied(a).Any(i=>occupied.Contains((a.Y+i/(a.Width+1))*p.Width+a.X+i%(a.Width+1)))))return false;
         if(p.Decorations.Any(d=>d.Parts.Any(part=>occupied.Contains((d.Y+part.Dy)*p.Width+d.X+part.Dx))))return false;

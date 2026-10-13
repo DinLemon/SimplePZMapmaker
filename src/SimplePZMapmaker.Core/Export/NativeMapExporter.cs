@@ -7,21 +7,25 @@ namespace SimplePZMapmaker.Core.Export;
 public static class NativeMapExporter {
     public static readonly JsonSerializerOptions JsonOptions=new(JsonSerializerDefaults.Web){WriteIndented=false};
     public static string ModId(MapProject p)=>"SimplePZMap_"+Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{p.Name}|{p.Seed}")))[..12].ToLowerInvariant();
-    public static byte[] Export(MapProject p)
+    public static byte[] Export(MapProject p,bool worldSection=false,CancellationToken token=default)
     {
         ProjectValidator.Validate(p);
+        if(!worldSection&&p.Spawns.Count==0)throw new ArgumentException("Участок без точки появления экспортируется в составе мира с сушей.");
         using var output=new MemoryStream();using(var zip=new ZipArchive(output,ZipArchiveMode.Create,true)) {
             var slug=ModId(p);var root=$"{slug}/42/media/maps/{slug}/";
             void Text(string path,string text){var e=zip.CreateEntry(path,CompressionLevel.Fastest);using var w=new StreamWriter(e.Open(),new UTF8Encoding(false));w.Write(text);}
             void Bytes(string path,byte[] bytes){var e=zip.CreateEntry(path,CompressionLevel.Fastest);using var s=e.Open();s.Write(bytes);}
             zip.CreateEntry($"{slug}/common/");
-            Text($"{slug}/42/mod.info",$"name={p.Name}\nid={slug}\ndescription=Карта создана в SimplePZMapmaker. Build 42; новый мир.\nversionMin=42.0\n");
+            var dependencies=ResourceDependencies.ForProject(p);var require=dependencies.Length>0?"require="+string.Join(',',dependencies)+"\n":"";
+            Text($"{slug}/42/mod.info",$"name={p.Name}\nid={slug}\ndescription=Карта создана в SimplePZMapmaker. Build 42; новый мир.\nversionMin=42.0\n{require}");
+            StaticModelExporter.Write(zip,slug,StaticModelExporter.Gather(p));
             Text(root+"map.info",$"title={p.Name}\nfixed2x=true\ndescription=Карта {p.Width}×{p.Height}, SimplePZMapmaker\nzoomX={p.WorldX*256+p.Width/2}\nzoomY={p.WorldY*256+p.Height/2}\nzoomS=8\n");
             var spawns=string.Join(",\n",p.Spawns.Select(s=>$"        {{ posX = {p.WorldX*256+s.X}, posY = {p.WorldY*256+s.Y}, posZ = 0 }}"));
             Text(root+"spawnpoints.lua",$"function SpawnPoints()\n    local points = {{\n{spawns}\n    }}\n    return {{ unemployed = points }}\nend\n");
             Text(root+"spawnregions.lua",$"function SpawnRegions()\n return {{ {{ name = \"{slug}\", file = \"media/maps/{slug}/spawnpoints.lua\" }} }}\nend\n");
             var zones=new StringBuilder("objects = {\n");
             for(var cy=0;cy<p.Height/8;cy++)for(var cx=0;cx<p.Width/8;cx++) {
+                if(cx==0)token.ThrowIfCancellationRequested();
                 var t=p.Terrain[cy*8*p.Width+cx*8];var type=t switch{Terrain.Forest=>"Forest",Terrain.Water=>"Water",Terrain.Grass=>"Vegitation",_=>"TownZone"};
                 if(t==Terrain.Water)continue;
                 zones.Append(Culture($" {{ name = \"\", type = \"{type}\", x = {p.WorldX*256+cx*8}, y = {p.WorldY*256+cy*8}, z = 0, width = 8, height = 8 }},\n"));
@@ -33,6 +37,7 @@ public static class NativeMapExporter {
             Text($"{slug}/INSTALL.txt",$"Распакуйте {slug} в папку Zomboid/mods. Включите мод, создайте НОВУЮ игру и выберите карту {p.Name}. Не добавляйте в важный существующий мир. Генератор не устанавливает мод автоматически. Другие карты, занимающие те же координаты, могут конфликтовать. Для своего сервера укажите Map={slug} и Mods={slug}. Экспорт B42; совместимость в игре проверяйте на отдельном новом сохранении. Идентификатор зависит от названия и seed; их изменение создаёт другой мод.\n");
             Text(root+"worldmap.xml",WorldMap(p));
             for(var cellY=0;cellY<p.Height/256;cellY++)for(var cellX=0;cellX<p.Width/256;cellX++) {
+                token.ThrowIfCancellationRequested();
                 var composer=new TileComposer(p,cellX,cellY);
                 var names=new HashSet<string>(StringComparer.Ordinal);
                 for(var z=composer.MinLevel;z<=composer.MaxLevel;z++)for(var y=0;y<256;y++)for(var x=0;x<256;x++) foreach(var name in composer.At(x,y,z))names.Add(name);
@@ -80,13 +85,14 @@ public static class NativeMapExporter {
         for(var cy=0;cy<p.Height/256;cy++)for(var cx=0;cx<p.Width/256;cx++) {
             var cell=new XElement("cell",new XAttribute("x",p.WorldX+cx),new XAttribute("y",p.WorldY+cy));
             void Feature(string key,string value,int x,int y,int w,int h) {
+                var endX=Math.Min(256,x+w);var endY=Math.Min(256,y+h);x=Math.Max(0,x);y=Math.Max(0,y);w=endX-x;h=endY-y;if(w<=0||h<=0)return;
                 cell.Add(new XElement("feature",new XElement("geometry",new XAttribute("type","Polygon"),new XElement("coordinates",new XElement("point",new XAttribute("x",x),new XAttribute("y",y)),new XElement("point",new XAttribute("x",x+w),new XAttribute("y",y)),new XElement("point",new XAttribute("x",x+w),new XAttribute("y",y+h)),new XElement("point",new XAttribute("x",x),new XAttribute("y",y+h)))),new XElement("properties",new XElement("property",new XAttribute("name",key),new XAttribute("value",value)))));
             }
-            foreach(var b in p.Buildings.Where(b=>b.X/256==cx&&b.Y/256==cy)){
-                if(b.Design is null){Feature("building","yes",b.X%256,b.Y%256,b.Width,b.Height);continue;}
+            foreach(var b in p.Buildings.Where(b=>b.X<cx*256+256&&b.Y<cy*256+256&&b.X+b.Width>cx*256&&b.Y+b.Height>cy*256)){
+                if(b.Design is null){Feature("building","yes",b.X-cx*256,b.Y-cy*256,b.Width,b.Height);continue;}
                 var rectangles=new List<(int X,int Y,int Width,int Height)>();
                 for(var y=0;y<b.Height;y++)for(var x=0;x<b.Width;){if(!BuildingDesigner.OccupiesAbove(b,x,y)){x++;continue;}var start=x;while(x<b.Width&&BuildingDesigner.OccupiesAbove(b,x,y))x++;var i=rectangles.FindLastIndex(r=>r.X==start&&r.Width==x-start&&r.Y+r.Height==y);if(i<0)rectangles.Add((start,y,x-start,1));else{var r=rectangles[i];rectangles[i]=(r.X,r.Y,r.Width,r.Height+1);}}
-                foreach(var r in rectangles)Feature("building","yes",b.X%256+r.X,b.Y%256+r.Y,r.Width,r.Height);
+                foreach(var r in rectangles)Feature("building","yes",b.X-cx*256+r.X,b.Y-cy*256+r.Y,r.Width,r.Height);
             }
             // Merge equal terrain runs to keep the in-game map bounded.
             for(var y=0;y<256;y+=8)for(var x=0;x<256;) {

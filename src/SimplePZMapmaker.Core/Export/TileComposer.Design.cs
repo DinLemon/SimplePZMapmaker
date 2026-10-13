@@ -6,8 +6,8 @@ internal sealed partial class TileComposer
  internal int MaxLevel {get;private set;}=1;
  internal int MinLevel {get;private set;}
  internal int RoomAt(int x,int y,int z)=>z==0?RoomIds[y*256+x]:upperRoomIds.GetValueOrDefault(z*65536+y*256+x,-1);
- private void Set(int x,int y,int z,List<string> tiles){if(z==0)ground[y*256+x]=tiles;else layers[z*65536+y*256+x]=tiles;}
- private void AddAt(int x,int y,int z,string tile,byte flags=0){var list=At(x,y,z);if(z==0&&!ground.ContainsKey(y*256+x)||z!=0&&!layers.ContainsKey(z*65536+y*256+x))Set(x,y,z,list);list.Add(tile);if(z==0)Navigation[y*256+x]|=flags;}
+ private void Set(int x,int y,int z,List<string> tiles){if(!InCell(x,y))return;foreach(var tile in tiles)authoredTiles.Add(tile);if(z==0)ground[y*256+x]=tiles;else layers[z*65536+y*256+x]=tiles;}
+ private void AddAt(int x,int y,int z,string tile,byte flags=0){if(!InCell(x,y))return;var list=At(x,y,z);if(z==0&&!ground.ContainsKey(y*256+x))ground[y*256+x]=list;else if(z!=0&&!layers.ContainsKey(z*65536+y*256+x))layers[z*65536+y*256+x]=list;authoredTiles.Add(tile);list.Add(tile);if(z==0)Navigation[y*256+x]|=flags;}
  private void ComposeDesign(Building b){
   var design=b.Design!;var x0=b.X-ox;var y0=b.Y-oy;var building=new List<int>();MinLevel=Math.Min(MinLevel,design.MinLevel);MaxLevel=Math.Max(MaxLevel,design.Floors.Count+design.MinLevel);
   var wallBase=design.Material switch{"brick"=>16,"plaster"=>32,_=>0};
@@ -15,7 +15,7 @@ internal sealed partial class TileComposer
   for(var index=0;index<design.Floors.Count;index++){
    var z=index+design.MinLevel;var floor=design.Floors[index];
    for(var y=0;y<b.Height;y++)for(var x=0;x<b.Width;x++)if(BuildingDesigner.Cell(b,floor,x,y)!='.'){
-    var roomType=floor.Rooms[BuildingDesigner.Cell(b,floor,x,y).ToString()];var outside=roomType=="balcony";var baseFloor=floor.FloorTile??(style is null?design.Material=="wood"?"floors_interior_tilesandwood_01_40":"floors_interior_tilesandwood_01_0":roomType is "bathroom" or "kitchen"?style.WetFloor:style.Floor);var tiles=new List<string>{floor.FloorTiles.GetValueOrDefault(y*b.Width+x,baseFloor)};Set(x0+x,y0+y,z,tiles);if(z==0)Navigation[(y0+y)*256+x0+x]=outside?(byte)0:(byte)16;
+    if(!InCell(x0+x,y0+y))continue;var roomType=floor.Rooms[BuildingDesigner.Cell(b,floor,x,y).ToString()];var outside=roomType=="balcony";var baseFloor=floor.FloorTile??(style is null?design.Material=="wood"?"floors_interior_tilesandwood_01_40":"floors_interior_tilesandwood_01_0":roomType is "bathroom" or "kitchen"?style.WetFloor:style.Floor);var tiles=new List<string>{floor.FloorTiles.GetValueOrDefault(y*b.Width+x,baseFloor)};Set(x0+x,y0+y,z,tiles);if(z==0)Navigation[(y0+y)*256+x0+x]=outside?(byte)0:(byte)16;
    }
    foreach(var room in floor.Rooms.Where(r=>floor.Cells.Contains(r.Key[0]))){
     var rectangles=new List<RoomRect>();
@@ -23,8 +23,9 @@ internal sealed partial class TileComposer
      var previous=rectangles.LastOrDefault(r=>r.X==x0+start&&r.Width==x-start&&r.Y+r.Height==y0+y);
      if(previous is not null){var i=rectangles.IndexOf(previous);rectangles[i]=previous with{Height=previous.Height+1};}else rectangles.Add(new(x0+start,y0+y,x-start,1));
     }
+    rectangles=rectangles.Select(r=>new RoomRect(Math.Max(0,r.X),Math.Max(0,r.Y),Math.Min(256,r.X+r.Width)-Math.Max(0,r.X),Math.Min(256,r.Y+r.Height)-Math.Max(0,r.Y))).Where(r=>r.Width>0&&r.Height>0).ToList();if(rectangles.Count==0)continue;
     var id=Rooms.Count;building.Add(id);var roomName=room.Value switch{"hotelroom"=>"motelroom","balcony"=>"emptyoutside","garage"=>"garagestorage",_=>room.Value};Rooms.Add(new(roomName,0,0,0,0,Buildings.Count,z,rectangles));
-    for(var i=0;i<floor.Cells.Length;i++)if(floor.Cells[i]==room.Key[0]){var key=(y0+i/b.Width)*256+x0+i%b.Width;if(z==0)RoomIds[key]=id;else upperRoomIds[z*65536+key]=id;}
+    for(var i=0;i<floor.Cells.Length;i++)if(floor.Cells[i]==room.Key[0]&&InCell(x0+i%b.Width,y0+i/b.Width)){var key=(y0+i/b.Width)*256+x0+i%b.Width;if(z==0)RoomIds[key]=id;else upperRoomIds[z*65536+key]=id;}
    }
    foreach(var e in floor.Edges){
     if(e.Kind=="open")continue;var north=e.Edge=="n";var tile=(style?.WallBase??wallBase)+(e.Kind=="door"?10:e.Kind=="window"?8:0)+(north?1:0);
@@ -43,7 +44,7 @@ internal sealed partial class TileComposer
   // Clear floor tiles directly above the three step sprites, preserving upper walls/objects.
   for(var index=0;index<design.Floors.Count-1;index++)foreach(var o in design.Floors[index].Objects.Where(o=>o.Kind=="stairs"))for(var i=1;i<=3;i++){
    var z=index+design.MinLevel;
-   var x=x0+o.X+(o.Direction=="w"?i:0);var y=y0+o.Y+(o.Direction=="n"?i:0);var tiles=At(x,y,z+1);var upper=design.Floors[index+1];var cellIndex=(y-y0)*b.Width+x-x0;tiles.RemoveAll(t=>t.StartsWith("floors_",StringComparison.Ordinal)||t==upper.FloorTile||upper.FloorTiles.TryGetValue(cellIndex,out var custom)&&t==custom);
+   var x=x0+o.X+(o.Direction=="w"?i:0);var y=y0+o.Y+(o.Direction=="n"?i:0);if(!InCell(x,y))continue;var tiles=At(x,y,z+1);var upper=design.Floors[index+1];var cellIndex=(y-y0)*b.Width+x-x0;tiles.RemoveAll(t=>t.StartsWith("floors_",StringComparison.Ordinal)||t==upper.FloorTile||upper.FloorTiles.TryGetValue(cellIndex,out var custom)&&t==custom);
   }
   // Exposed lower-floor terraces and the final floor receive weather cover at the next z.
   for(var index=0;index<design.Floors.Count;index++){
@@ -60,6 +61,6 @@ internal sealed partial class TileComposer
     }
    }
   }
-  Buildings.Add(building);
+  if(building.Count>0)Buildings.Add(building);
  }
 }

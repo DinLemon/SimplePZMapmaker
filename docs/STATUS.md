@@ -1,4 +1,14 @@
-# Verification status — 0.5.0, 2026-10-12
+# Verification status — 0.6.0, 2026-10-13
+
+## World, mods, models, MCP and environment0.6.0
+
+- Core114/114 and Node60/60 pass; Release build has no warnings. Real X/FBX geometry and textures, basement placement, template4/project6 save and proxy export pass in isolated Chromium. Actual Workshop tdef/pack activation, previews, dependency/provider checks and atomic rejection of malformed mods pass against the installed game42.21.
+- Sparse world API/UI validates9 adjacent sections2304×256, retained edits, overlap rejection, move/remove/history, save/open and one native export. Environment workshop validates complete sprite/model placement, actual N/W variants, group operations, ground/paths/regions and one-step map undo/redo.
+- Official SDK client verifies21 MCP tools under2026-07-28 and2025-11-25. Browser sharing retains conflicting manual changes, imports an agent draft as one undoable action and revokes the session.
+- Actual Overpass small Smolensk query completed with source date2026-10-13T07:54:29Z: common scale1m/tile,4 native cells and8 buildings. UI progress/cache/date, complete-only application, world undo/redo and saved source pass. This is a223×193m area, not the entire city.
+- One independent whole-delta review found four P2 issues. Consolidated fixes cover generated terrain/tree ownership, pruning unused requirements, retained large replacement undo and visible model scale. Focused executable fixtures and real geometry scale20-versus3 pixel measurements pass. Oversized replacement is refused before mutation; source world remains unchanged.
+- `examples/Worlds/Worlds-B42.zip` independently validates16 cells,16,384 chunks,771 rooms,14 cell-local building records and108 installed tile names. Installed game classes load580 upper rooms,6 basement rooms and99 stair sprites, including6 basement stairs. Exported model proxy is accepted by the installed ScriptParser; placement glue is accepted by LuaCompiler without execution.
+- Native Lua placement/loot/collision appearance and multiplayer behavior have not been playtested. Models are world inventory props, not structural walls. Publication/package verification is recorded in PROGRESS.md after final checks.
 
 - Final 0.4.1 verification: core 72/72 and Node editor/model/resource/appearance 28/28 passed; Release build/publish zero errors/warnings. Eight isolated browser regression scenarios and the real Smolensk import/save/export flow passed.
 - Published app in isolated headless Chromium: map editing/history/save/reopen/GeoJSON/export, delayed-import cancellation, invalid input rejection, Pilna recovery/session isolation, and the complete three-floor and basement -16 workshop cycles pass without uncaught browser errors.

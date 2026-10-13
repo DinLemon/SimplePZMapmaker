@@ -19,10 +19,10 @@ class Reader{
  magic(){const text=this.bytes.subarray(this.offset,this.offset+4).toString('ascii');this.offset+=4;return text;}
  line(){const end=this.bytes.indexOf(10,this.offset);assert.ok(end>=this.offset&&end-this.offset<200);const text=this.bytes.subarray(this.offset,end).toString('ascii');this.offset=end+1;return text;}
 }
-const projectEntry=[...entries].find(([name])=>name.endsWith('/project.pzmap.json'));assert.ok(projectEntry);
-const project=JSON.parse(projectEntry[1].toString('utf8'));
+const projectEntry=[...entries].find(([name])=>name.endsWith('/project.pzmap.json')),worldEntry=[...entries].find(([name])=>name.endsWith('/world.pzworld.json'));assert.ok(projectEntry||worldEntry);
+const projects=projectEntry?[JSON.parse(projectEntry[1].toString('utf8'))]:JSON.parse(worldEntry[1].toString('utf8')).maps.map(m=>m.project);
 const headers=[...entries].filter(([name])=>name.endsWith('.lotheader'));
-assert.equal(headers.length,project.width*project.height/65536);
+assert.equal(headers.length,projects.reduce((sum,p)=>sum+p.width*p.height/65536,0));
 const allTiles=new Set();let chunks=0,rooms=0,buildings=0;
 for(const [name,bytes] of headers){
  const r=new Reader(bytes);assert.equal(r.magic(),'LOTH');assert.equal(r.int(),1);const tileCount=r.int();assert.ok(tileCount>0&&tileCount<1000);for(let i=0;i<tileCount;i++)allTiles.add(r.line());
@@ -30,7 +30,7 @@ for(const [name,bytes] of headers){
  for(let i=0;i<roomCount;i++){r.line();const z=r.int();assert.ok(z>=min&&z<max);const rects=r.int();assert.ok(rects>0&&rects<=4096);for(let j=0;j<rects;j++){const x=r.int(),y=r.int(),w=r.int(),h=r.int();assert.ok(x>=0&&y>=0&&w>0&&h>0&&x+w<=256&&y+h<=256);}const objects=r.int();assert.ok(objects>=0&&objects<1000);for(let j=0;j<objects*3;j++)r.int();}
  const buildingCount=r.int();buildings+=buildingCount;for(let i=0;i<buildingCount;i++){const count=r.int();assert.ok(count>0&&count<=roomCount);for(let j=0;j<count;j++){const id=r.int();assert.ok(id>=0&&id<roomCount);}}
  assert.equal(bytes.length-r.offset,1024,'Zombie grid is not32x32');
- const match=name.match(/(\d+)_(\d+)\.lotheader$/);assert.ok(match);const cx=+match[1],cy=+match[2];assert.ok(cx>=project.worldX&&cx<project.worldX+project.width/256&&cy>=project.worldY&&cy<project.worldY+project.height/256);
+ const match=name.match(/(\d+)_(\d+)\.lotheader$/);assert.ok(match);const cx=+match[1],cy=+match[2];const owners=projects.filter(project=>cx>=project.worldX&&cx<project.worldX+project.width/256&&cy>=project.worldY&&cy<project.worldY+project.height/256);assert.equal(owners.length,1,'Native cell has no unique source section');
  const folder=name.slice(0,name.lastIndexOf('/')+1),pack=entries.get(folder+`world_${cx}_${cy}.lotpack`);assert.ok(pack);
  const p=new Reader(pack);assert.equal(p.magic(),'LOTP');assert.equal(p.int(),1);assert.equal(p.int(),1024);const positions=[];for(let i=0;i<1024;i++){positions.push(Number(pack.readBigInt64LE(p.offset)));p.offset+=8;}
  for(let i=0;i<1024;i++){
@@ -42,9 +42,9 @@ for(const [name,bytes] of headers){
  for(let i=0;i<1024;i++){const kind=navigation[cursor++];assert.ok(kind<=5);if(kind===2){assert.ok(cursor+64<=navigation.length);for(let j=0;j<64;j++)assert.ok(navigation[cursor+j]<=63);cursor+=64;}}
  assert.equal(cursor,navigation.length);
 }
-assert.equal(buildings,project.buildings.length);
+const expectedBuildings=projects.reduce((sum,project)=>sum+project.buildings.reduce((n,b)=>{const cells=new Set();for(let y=0;y<b.height;y++)for(let x=0;x<b.width;x++)if(!b.design||b.design.floors.some(f=>f.cells[y*b.width+x]!=='.'))cells.add(`${Math.floor((b.x+x)/256)},${Math.floor((b.y+y)/256)}`);return n+cells.size;},0),0);assert.equal(buildings,expectedBuildings);
 const worldmap=[...entries].find(([name])=>name.endsWith('/worldmap.xml'));assert.ok(worldmap[1].toString('utf8').includes('cellSize="256"'));
-const attribution=[...entries].find(([name])=>name.endsWith('/ATTRIBUTION.txt'));assert.ok(attribution);for(const item of [...project.attribution,...project.buildings.flatMap(b=>b.attribution||[]),...(project.buildingLibrary||[]).flatMap(b=>b.attribution||[])])assert.ok(attribution[1].toString('utf8').includes(item),'Attribution lost');
+const attribution=[...entries].find(([name])=>name.endsWith('/ATTRIBUTION.txt'));assert.ok(attribution);for(const project of projects)for(const item of [...project.attribution,...project.buildings.flatMap(b=>b.attribution||[]),...(project.buildingLibrary||[]).flatMap(b=>b.attribution||[])])assert.ok(attribution[1].toString('utf8').includes(item),'Attribution lost');
 if(process.argv[3]){const source=process.argv[3],directory=(await stat(source)).isDirectory(),definitions=directory?(await Promise.all(['newtiledefinitions.tiles.txt','tiledefinitions_erosion.tiles.txt','jumbo_trees.tiles.txt','jumbo_trees_big.tiles.txt'].map(file=>readFile(source+'/'+file,'utf8').catch(()=>'')))).join('\n'):await readFile(source,'utf8'),known=new Set([...definitions.matchAll(/\/\/ ([a-zA-Z0-9_]+_\d+)/g)].map(m=>m[1]));for(const name of allTiles)assert.ok(known.has(name),`Unknown installed game tile: ${name}`);
  const catalog=JSON.parse(await readFile(new URL('../src/SimplePZMapmaker.Web/wwwroot/building-objects.json',import.meta.url),'utf8'));for(const [kind,directions] of Object.entries(catalog))for(const [direction,parts] of Object.entries(directions))for(const part of parts){const props=definitions.match(new RegExp('// '+part.tile+'\\r?\\n\\s*tile\\s*\\{([^}]+)\\}'))?.[1];assert.ok(props,'Missing furniture tile '+part.tile);assert.equal(props.match(/Facing = (\w+)/)?.[1],direction.toUpperCase(),kind+' orientation');const grid=props.match(/SpriteGridPos = ([\d,]+)/)?.[1];if(parts.length>1)assert.equal(grid,`${part.dx},${part.dy}`,kind+' grid position');else assert.equal(grid,undefined,kind+' must be a complete single-square object');}
 }

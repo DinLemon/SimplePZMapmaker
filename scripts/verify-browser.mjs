@@ -1,3 +1,4 @@
+const pzmapTestBase=process.env.PZMAP_TEST_URL||'http://127.0.0.1:48765';
 import {chromium} from '../work/qa/node_modules/playwright/index.mjs';
 import assert from 'node:assert/strict';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
@@ -7,7 +8,7 @@ const browser=await chromium.launch({headless:true});
 const page=await browser.newPage({viewport:{width:1440,height:960}});
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
 try {
- await page.goto('http://127.0.0.1:48765');
+ await page.goto(pzmapTestBase);
  await page.getByRole('button',{name:'Новая карта',exact:true}).waitFor({timeout:10000});
  assert.equal(await page.title(),'SimplePZMapmaker');
  await page.waitForFunction(()=>document.querySelector('#map-summary')?.textContent.includes('256'));
@@ -35,8 +36,8 @@ try {
  await page.getByRole('button',{name:'Обзор 3D',exact:true}).click();
  await page.screenshot({path:fileURLToPath(new URL('../work/qa-results/isometric.png',import.meta.url)),fullPage:true});
  await page.getByRole('button',{name:'Сверху',exact:true}).click();
- const badOrigin=await page.request.post('http://127.0.0.1:48765/api/export',{data:project,headers:{Origin:'https://untrusted.example'}});assert.equal(badOrigin.status(),403);
- const badProject=await page.request.post('http://127.0.0.1:48765/api/export',{data:{...project,terrain:[]}});assert.equal(badProject.status(),400);
+ const badOrigin=await page.request.post((pzmapTestBase+'/api/export'),{data:project,headers:{Origin:'https://untrusted.example'}});assert.equal(badOrigin.status(),403);
+ const badProject=await page.request.post((pzmapTestBase+'/api/export'),{data:{...project,terrain:[]}});assert.equal(badProject.status(),400);
  await page.screenshot({path:fileURLToPath(new URL('../work/qa-results/editor.png',import.meta.url)),fullPage:true});
  const fixturePath=fileURLToPath(new URL('../work/qa-results/geodata.geojson',import.meta.url));
  await writeFile(fixturePath,JSON.stringify({type:'FeatureCollection',features:[{type:'Feature',properties:{highway:'residential'},geometry:{type:'LineString',coordinates:[[30,50],[30.002,50.002]]}}]}));

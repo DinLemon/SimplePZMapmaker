@@ -1,3 +1,4 @@
+const pzmapTestBase=process.env.PZMAP_TEST_URL||'http://127.0.0.1:48765';
 import {chromium} from '../work/qa/node_modules/playwright/index.mjs';
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
@@ -6,9 +7,9 @@ import {refreshEdges,validateDesign,normalizeBuilding} from '../src/SimplePZMapm
 const output=new URL('../work/qa-results/',import.meta.url);await mkdir(output,{recursive:true});
 const browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport:{width:1600,height:1100}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
 async function save(name){const event=page.waitForEvent('download');await page.locator('#save-project').click();const file=fileURLToPath(new URL(name,output));await (await event).saveAs(file);return JSON.parse(await readFile(file,'utf8'));}
-async function api(path,body){const r=await fetch('http://127.0.0.1:48765'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});assert.equal(r.status,200,await r.clone().text());return r;}
+async function api(path,body){const r=await fetch(pzmapTestBase+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});assert.equal(r.status,200,await r.clone().text());return r;}
 try{
- await page.goto('http://127.0.0.1:48765');await page.waitForFunction(()=>document.querySelector('#game-status').textContent.includes('найден'));
+ await page.goto(pzmapTestBase);await page.waitForFunction(()=>document.querySelector('#game-status').textContent.includes('найден'));
  await page.locator('#new-map').click();await page.locator('#new-kind').selectOption('blank');await page.locator('#new-form [type=submit]').click();await page.waitForFunction(()=>!document.querySelector('#operation-dialog').open&&document.querySelector('#building-count').textContent==='0');
  await page.locator('#building-preset').selectOption('house');await page.locator('#placement-levels').fill('2');await page.locator('#placement-basements').fill('1');const box=await page.locator('#map-canvas').boundingBox(),s=Math.min((box.width-72)/256,(box.height-90)/256);await page.mouse.click(box.x+(box.width-256*s)/2+80*s,box.y+(box.height-256*s)/2+80*s);await page.waitForFunction(()=>document.querySelector('#building-count').textContent==='1'&&!document.querySelector('#operation-dialog').open);
  const original=await save('basement-original.pzmap.json');assert.equal(original.version,4);assert.equal(original.buildings[0].design.minLevel,-1);assert.equal(original.buildings[0].design.floors.length,3);

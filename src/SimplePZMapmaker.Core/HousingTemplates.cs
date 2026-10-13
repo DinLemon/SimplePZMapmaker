@@ -1,7 +1,7 @@
 namespace SimplePZMapmaker.Core;
 
 /// <summary>Original, hand-drawn adaptations of researched Russian housing types.</summary>
-public static class HousingTemplates
+public static partial class HousingTemplates
 {
  public sealed record Descriptor(string Id,string Name,string Category,string Description,int Width,int Height,int Levels,int Basements,IReadOnlyList<string> References);
  private const string IzbaReference="https://ar.culture.ru/ru/article/krestyanskiy-byt-russkaya-izba-i-podvore";
@@ -17,7 +17,7 @@ public static class HousingTemplates
   new("urban-brick-five","Кирпичная пятиэтажка","urban","Два независимых подъезда, по четыре двухкомнатные квартиры на площадке, регулярные окна и балконы. Авторская адаптация кирпичного секционного жилья.",48,26,5,0,Array.AsReadOnly(new[]{BrickReference})),
   new("urban-panel-five","Панельная пятиэтажка","urban","Два независимых подъезда, компактные однокомнатные квартиры с прихожими, серые фасады, балконы и плоская крыша. Другая планировка секций.",48,24,5,0,Array.AsReadOnly(new[]{PanelReference})),
   new("urban-panel-nine","Панельная девятиэтажная башня","urban","Один лестничный узел, четыре квартиры на этаже, подсобное помещение, балконы и плоская крыша. Лифт не моделируется.",32,30,9,0,Array.AsReadOnly(new[]{TowerReference,PanelReference}))
- });
+ }.Concat(AdditionalDescriptors()).ToArray());
 
  public static Building Create(string id)
  {
@@ -32,6 +32,7 @@ public static class HousingTemplates
    case "urban-brick-five":BrickFive(b);break;
    case "urban-panel-five":PanelFive(b);break;
    case "urban-panel-nine":PanelNine(b);break;
+   default:AdditionalPlan(b,id);break;
   }
   for(var z=0;z<b.Design.Floors.Count;z++){
    BuildingDesigner.Furnish(b,z,new Random(20261012+z));
