@@ -9,6 +9,9 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: 'G:\'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
@@ -17,6 +20,12 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
+      - name: Map workspace to the permitted drive
+        shell: pwsh
+        working-directory: ${{ github.workspace }}
+        run: |
+          subst G: "$env:GITHUB_WORKSPACE"
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot map the workspace to G:.' }
       - name: Core, editor and application checks
         shell: pwsh
         run: ./scripts/verify.ps1
