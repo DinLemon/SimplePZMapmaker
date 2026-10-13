@@ -15,6 +15,6 @@ public static partial class GeographicImporter
    var basements=int.TryParse(b.SourceBasements,out var depth)?Math.Clamp(depth,0,16):0;
    try{b.Design=BuildingDesigner.Generate(b,levels,unchecked(seed^x*73856093^y*19349663),"rect",basements);if(b.SourceRoof is "flat" or "gabled" or "shed" or "hipped")b.Design.Roof=b.SourceRoof;else if(b.SourceRoof=="skillion")b.Design.Roof="shed";ApplyOutline(b,rings);world.Buildings.Add(b);WorldAssembler.Validate(world);added++;if(sourceId is not null)existing.Add(sourceId);}catch(ArgumentException){world.Buildings.Remove(b);skipped++;}
   }
-  if(added>0)warnings.Add($"Общие здания на границах секций восстановлены из полных контуров OSM: {added}. Они хранятся один раз в мире, а комнаты и тайлы обрезаются по нативным ячейкам.");if(skipped>0)warnings.Add($"Общих зданий пропущено из-за воды, пересечений или непроходимой планировки: {skipped}.");return(added,skipped);
+  if(added>0)warnings.Add($"Shared buildings spanning section boundaries restored from complete OSM outlines: {added}. Each is stored once in the world; rooms and tiles are clipped to native cells.");if(skipped>0)warnings.Add($"Shared buildings skipped because of water, overlaps, or inaccessible layouts: {skipped}.");return(added,skipped);
  }
 }

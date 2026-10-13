@@ -7,8 +7,8 @@ export function validateAccess(b){
   }
  }
  const ground=-(d.minLevel||0),g=d.floors[ground];for(const e of g.edges.filter(e=>['door','open'].includes(e.kind))){const a=cell(g,e.x,e.y),nx=e.x-(e.edge==='w'?1:0),ny=e.y-(e.edge==='n'?1:0),other=cell(g,nx,ny);if((a==='.')===(other==='.'))continue;roots.add(labels[ground][(a==='.'?ny:e.y)*b.width+(a==='.'?nx:e.x)]);}
- if(!roots.size)throw Error('На наземном этаже (z=0) нужен наружный вход.');
+ if(!roots.size)throw Error('On the ground floor (z=0) an external entrance is required.');
  for(let z=0;z<d.floors.length-1;z++)for(const stair of d.floors[z].objects.filter(o=>o.kind==='stairs')){const i=stair.y*b.width+stair.x,lower=labels[z][i],upper=labels[z+1][i];links[lower].push(upper);links[upper].push(lower);}
  const seen=new Set(roots),queue=[...roots];for(let j=0;j<queue.length;j++)for(const next of links[queue[j]])if(!seen.has(next)){seen.add(next);queue.push(next);}
- if(seen.size!==links.length)throw Error('Есть изолированная комната или подъезд без доступа к наружному входу. Добавьте дверь, проход или лестницу.');
+ if(seen.size!==links.length)throw Error('There is an isolated room or entrance without access to an external entrance. Add a door, passage or staircase.');
 }

@@ -1,27 +1,27 @@
-# Ресурсы модов
+# Mod resources
 
-Откройте **Ресурсы игры → Моды и их ресурсы**. Папка Steam Workshop на диске G: уже указана. Введите версию установленной игры, нажмите **Найти моды**, отметьте нужные моды и нажмите **Включить выбранные моды**. Дополнительные папки вводятся по одной в строке; доступны только папки на G:. В проверенной установке игра сообщает версию **42.21**, поэтому исходное значение — `42.21.0`.
+Open **Game resources** and its mod-resource controls. The G: Steam Workshop root is prefilled. Enter the installed game version, discover mods, select them and activate them. Additional roots are entered one per line; only G: roots are accepted. The verified installation reports **42.21**, so the initial compatibility value is `42.21.0`.
 
-Каталог выбирает совместимый вариант `42`, `42.0`, `42.20` и т. п.; общие ресурсы `common` загружаются перед выбранным вариантом. Также читаются старые моды с `mod.info` в корневой папке. Совместимость старого мода с текущей игрой определяется его автором: отсутствие `versionMin/versionMax` не доказывает игровую совместимость.
+The catalog selects a compatible variant such as `42`, `42.0` or `42.20`; `common` resources load before that variant. Legacy mods with a root `mod.info` are also read. A legacy mod's actual game compatibility is determined by its author: absent `versionMin`/`versionMax` does not prove compatibility.
 
-Зависимости из `require` включаются автоматически, раньше зависимого мода. Порядок отмеченных модов определяет приоритет оставшихся конфликтов; диагностика сообщает заменённые тайлы и изображения. Неполный или повреждённый пакет не заменяет действующий каталог. При отключении модов возвращаются исходные ресурсы игры. Выбранные папки, версия и активные id сохраняются в `work/assets/mods.json`.
+Dependencies from `require` activate automatically before dependants. The selected mod order controls remaining conflicts; diagnostics identify replaced tiles/images. An incomplete/corrupt package does not replace the working catalog. Disabling mods restores game resources. Roots, version and active IDs are saved in `work/assets/mods.json`.
 
-В каталоге и палитре здания доступен фильтр источника: игра, все активные моды либо отдельный мод. На карточках показывается id мода. Поддерживаются зарегистрированные `tiledef` в бинарном формате `tdef` 0/1 и текстовом формате, PNG-пакеты текстур 0/1 и цельные сетки спрайтов. Спрайт без зарегистрированных свойств не размещается как неизвестный физический объект; отсутствие изображения показывается явно. Lua модов редактор не выполняет.
+The catalog/building palette can filter by game, all active mods or one mod, and cards show the mod ID. Registered `tiledef` resources support binary `tdef`0/1 and text definitions, PNG texture packs 0/1 and complete sprite grids. Sprites without registered properties are not placed as unknown physical objects; missing images are shown explicitly. The editor never executes mod Lua.
 
-В проекте сохраняются необходимые id модов и источник выбранных тайлов. Если другой мод подменил тайл с тем же именем, проверка остановит экспорт и попросит включить исходный источник. Экспорт записывает `require` в оригинальный `mod.info`; изображения, текстуры и справочники сторонних модов не копируются в архив. Получатель карты устанавливает указанные моды отдельно.
+Projects retain required mod IDs and the source of chosen tiles. If another mod takes over a tile of the same name, validation stops export and asks for the original owner. Export writes `require` into its original `mod.info`; third-party images, textures and definitions are not copied. Map recipients install those mods separately.
 
-## Локальное API
+## Local API
 
-- `GET /api/assets/mods` — обнаруженные моды, активные id, слои и диагностика.
-- `POST /api/assets/mods/discover` — `{ "roots": ["./workshop-content"], "gameVersion": "42.21.0" }`.
-- `POST /api/assets/mods/activate` — `{ "ids": ["Erikas_Tiles"] }`; зависимости разрешаются автоматически.
-- `GET /api/assets/search?source=Erikas_Tiles` — ресурсы одного мода; `source=game` и `source=mod` фильтруют группы.
-- Поиск, описание и цельная раскладка возвращают `source`, `modId`, `requirements`.
+- `GET /api/assets/mods`: discovered mods, active IDs, layers and diagnostics.
+- `POST /api/assets/mods/discover`: `{ "roots": ["./workshop-content"], "gameVersion": "42.21.0" }`.
+- `POST /api/assets/mods/activate`: `{ "ids": ["Erikas_Tiles"] }`; dependencies resolve automatically.
+- `GET /api/assets/search?source=Erikas_Tiles`: one mod; `source=game` and `source=mod` filter groups.
+- Search, descriptions and compound layouts return `source`, `modId` and `requirements`.
 
-## Проверка
+## Verification
 
-Сгенерированные тестовые справочники проверяют обрезанные файлы, пределы размеров, порядок зависимостей, смену владельца тайла и экспорт без сторонних файлов. Реальный установленный **Erika's Tiles** проверен чтением бинарного справочника, PNG-атласа, включением и отключением. В браузере проверены поиск модов, переключатель, фильтр источника, изображения и отказ от пути C: без потери активного выбора.
+Generated definition fixtures test truncated files, size limits, dependency order, changed tile ownership and export without third-party payloads. The installed **Erika's Tiles** was checked through binary definitions, PNG atlas reads, activation and deactivation. Browser checks covered discovery, toggles, source filtering, images and rejection of C: mod roots without losing the active selection.
 
-Дополнительно прочитана версия через класс установленной игры `zombie.core.Core`. Инструкции установленного `ChooseGameInfo.readModInfoAux` удаляют обратные слеши из значения `require` перед разделением по запятой: канонические id без префикса совместимы с этим парсером. Локальные результаты находятся в `work/logs/mod-assets-tests.log`, `work/logs/mod-native-info-probe.log`, `work/mod-inspect/mod-bytecode.txt`; эти файлы и сторонние ресурсы не входят в Git.
+The installed game version was also read through `zombie.core.Core`. Installed `ChooseGameInfo.readModInfoAux` instructions remove backslashes from `require` before comma splitting; canonical unprefixed IDs are compatible. Local evidence is in `work/logs/mod-assets-tests.log`, `work/logs/mod-native-info-probe.log` and `work/mod-inspect/mod-bytecode.txt`. These files and third-party assets are excluded from Git.
 
-Перед включением0.7 проверяет всю цепочку зависимостей и показывает отсутствующий id, путь «город → мебель → тайлы» и действие: установить мод через Workshop, добавить папку или проверить версию. Циклическая цепочка тоже показана. Ошибка сохраняет работающий каталог. Учитывается владелец невидимого игрового collision-спрайта.
+Before activation, 0.7 validates the full dependency chain and displays the missing ID, a path such as city → furniture → tiles, and an action: install the Workshop mod, add its root or check its version. Cycles are shown too. Failed activation retains the working catalog. Ownership tracking includes the invisible game collision sprite.

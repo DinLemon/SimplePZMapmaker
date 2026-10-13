@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 const browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1440,height:960}});
 let release=()=>{};
 try{
- await page.goto(pzmapTestBase);await page.waitForFunction(()=>document.querySelector('#game-status')?.textContent.includes('найден'));
+ await page.goto(pzmapTestBase);await page.waitForFunction(()=>document.querySelector('#game-status')?.textContent.includes('found'));
  const project=await page.request.post((pzmapTestBase+'/api/generate'),{data:{kind:'blank',size:256}}).then(r=>r.json());
  for(const [path,body] of [['/api/import/geojson',{project,json:null}],['/api/import/osm',{project,bounds:null}]])assert.equal((await page.request.post(pzmapTestBase+path,{data:body})).status(),400,'Malformed nested null should return400');
  let started;const start=new Promise(r=>started=r),gate=new Promise(r=>release=r);

@@ -20,7 +20,7 @@ public static class VisualWorkshopTests
   yield return ("an entrance section without access to outside is rejected",()=>{var b=TwoCores();b.Design!.Floors[0].Edges.Single(e=>e.X==9&&e.Y==0&&e.Edge=="n").Kind="wall";Reject(()=>BuildingDesigner.Validate(b));});
  }
  public static Building TwoCores(){
-  var b=new Building{Id="two-cores",Name="Два подъезда",Kind="apartments",Width=12,Height=6,Design=new(){Floors=[]}};
+  var b=new Building{Id="two-cores",Name="Two entrances",Kind="apartments",Width=12,Height=6,Design=new(){Floors=[]}};
   for(var z=0;z<2;z++){
    var f=new BuildingFloor{Rooms=new(){["1"]="hall",["2"]="hall"},Cells=string.Concat(Enumerable.Range(0,6).Select(_=>"11111..22222"))};
    b.Design.Floors.Add(f);f.Edges=BuildingDesigner.AutoEdges(b,f,z);

@@ -28,6 +28,6 @@ public static partial class AssetRules
  public static void ValidateDependencies(MapProject p,GameAssetCatalog assets)=>StampDependencies(p,assets);
  private static Dictionary<string,string> StampSources(IEnumerable<string> ids,Dictionary<string,string> saved,GameAssetCatalog assets)
  {
-  var next=new Dictionary<string,string>(StringComparer.Ordinal);foreach(var id in ids){var provider=assets.Get(id).ModId??"game";if(saved.TryGetValue(id,out var original)&&original!=provider)throw new ArgumentException($"Изменился источник тайла {id}: ожидался {original}, активен {provider}. Включите исходный мод.");next[id]=provider;}return next;
+  var next=new Dictionary<string,string>(StringComparer.Ordinal);foreach(var id in ids){var provider=assets.Get(id).ModId??"game";if(saved.TryGetValue(id,out var original)&&original!=provider)throw new ArgumentException($"Tile {id} has a different source: expected {original}, active {provider}. Enable the original mod.");next[id]=provider;}return next;
  }
 }

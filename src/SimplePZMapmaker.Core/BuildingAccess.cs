@@ -16,9 +16,9 @@ internal static class BuildingAccess
    var a=BuildingDesigner.Cell(b,g,e.X,e.Y);var nx=e.X-(e.Edge=="w"?1:0);var ny=e.Y-(e.Edge=="n"?1:0);var other=BuildingDesigner.Cell(b,g,nx,ny);
    if((a=='.')==(other=='.'))continue;var x=a=='.'?nx:e.X;var y=a=='.'?ny:e.Y;var label=labels[ground][y*b.Width+x];if(label>=0)roots.Add(label);
   }
-  if(roots.Count==0)throw new ArgumentException($"Здание «{b.Name}»: на наземном этаже (z=0) нужен наружный вход.");
-  for(var z=0;z<d.Floors.Count-1;z++)foreach(var stair in d.Floors[z].Objects.Where(o=>o.Kind=="stairs")){var i=stair.Y*b.Width+stair.X;var lower=labels[z][i];var upper=labels[z+1][i];if(lower<0||upper<0)throw new ArgumentException($"Здание «{b.Name}»: модель блокирует лестницу или площадку.");links[lower].Add(upper);links[upper].Add(lower);}
+  if(roots.Count==0)throw new ArgumentException($"Building '{b.Name}': ground level (z=0) needs an exterior entrance.");
+  for(var z=0;z<d.Floors.Count-1;z++)foreach(var stair in d.Floors[z].Objects.Where(o=>o.Kind=="stairs")){var i=stair.Y*b.Width+stair.X;var lower=labels[z][i];var upper=labels[z+1][i];if(lower<0||upper<0)throw new ArgumentException($"Building '{b.Name}': a model blocks the stairs or landing.");links[lower].Add(upper);links[upper].Add(lower);}
   var seen=new HashSet<int>(roots);var pending=new Queue<int>(roots);while(pending.TryDequeue(out var current))foreach(var next in links[current])if(seen.Add(next))pending.Enqueue(next);
-  if(seen.Count!=links.Count)throw new ArgumentException($"Здание «{b.Name}»: есть изолированная комната или подъезд без доступа к наружному входу. Добавьте дверь, проход или лестницу.");
+  if(seen.Count!=links.Count)throw new ArgumentException($"Building '{b.Name}': an isolated room or entrance section has no access to an exterior entrance. Add a door, passage, or stairs.");
  }
 }

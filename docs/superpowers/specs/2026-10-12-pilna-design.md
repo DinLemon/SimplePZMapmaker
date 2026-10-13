@@ -1,6 +1,6 @@
 # Pilna geographic import and GitHub delivery
 
-User authorized continuing development, importing the settlement linked at https://ru.wikipedia.org/wiki/Пильна and creating/uploading a GitHub repository. Existing carte blanche remains in force. All local work, including credentials handling, excludes new task files outside this repository; secrets never enter files or command output.
+User authorized continuing development, importing the settlement linked at https://ru.wikipedia.org/wiki/%D0%9F%D0%B8%D0%BB%D1%8C%D0%BD%D0%B0 and creating/uploading a GitHub repository. Existing carte blanche remains in force. All local work, including credentials handling, excludes new task files outside this repository; secrets never enter files or command output.
 
 Nominatim identifies Pilna as OSM way158713814, bounds55.5362737..55.5780901 latitude and45.8833248..45.9421580 longitude. Live Overpass has now returned2378 features including1789 building outlines and439 highway ways, unlike the prior service outages. Capture source data with ODbL attribution and reproducible import recipe.
 

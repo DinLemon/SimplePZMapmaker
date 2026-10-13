@@ -3,18 +3,18 @@ public static partial class HousingTemplates
 {
  // These are original gameplay layouts, informed by the same documented regional building typologies.
  private static IEnumerable<Descriptor> RegionalDescriptors()=>[
-  new("village-log-long","Северный длинный дом","village","Деревянный дом: длинные сени соединяют жилую половину, кухню и хозяйственный склад под общей двускатной крышей.",24,16,1,0,[MuseumReference]),
-  new("village-brick-cottage","Кирпичный коттедж с мансардным этажом","village","Два жилых уровня: гостиная, кухня и кабинет снизу; три спальни и санузел сверху. Лестница в отдельном холле.",22,20,2,0,[IzbaReference]),
-  new("village-farmstead","Дом с хозяйственным крылом","village","Жилой дом, сени и отдельное хозяйственное крыло образуют уступчатый контур и открытую террасу.",28,24,1,0,[FarmReference,MuseumReference]),
-  new("village-bathhouse","Деревенская баня","village","Раздевалка, моечная, хозяйственная комната и предбанник. Компактная деревянная постройка с вальмовой крышей.",14,12,1,0,[FarmReference]),
-  new("settlement-duplex","Поселковый дом на две семьи","settlement","Две полностью независимые квартиры, каждая со своим входом, лестницей и спальнями на втором этаже.",32,20,2,0,[SettlementReference]),
-  new("settlement-row-four","Поселковая блокированная застройка","settlement","Четыре независимых двухэтажных секции с отдельными входами, кухнями и внутренними лестницами.",48,18,2,0,[SettlementReference]),
-  new("settlement-clinic","Поселковая амбулатория","settlement","Два уровня: приёмная и кабинеты вокруг общего коридора; комнаты персонала и палаты сверху.",28,28,2,0,[ClassicReference]),
-  new("settlement-courtyard","Поселковый дом с общим двором","settlement","Два этажа жилых крыльев вокруг открытого внутреннего двора; общий коридор и лестница у ворот.",36,32,2,0,[SettlementReference,ClassicReference]),
-  new("urban-compact-six","Компактный шестиэтажный дом","urban","По две квартиры на этаже; общий лестничный холл и отдельные кухни, спальни и санузлы. Шесть уровней и плоская кровля.",28,26,6,0,[PanelReference,TowerReference]),
-  new("urban-perimeter-four","Городской квартальный дом с двором","urban","Четыре уровня замкнутого корпуса с открытым двором, проходным коридором, квартирами в боковых крыльях и двумя лестницами.",48,40,4,0,[ClassicReference,CornerReference]),
-  new("urban-shop-house","Городской дом над магазинами","urban","Широкий торговый первый этаж; два жилых уровня меньшего контура над ним. Служебные помещения и лестница отделены от торгового зала.",30,28,3,0,[ClassicReference]),
-  new("urban-townhouse-row","Городской ряд таунхаусов","urban","Три независимых трёхэтажных блока с отдельными входами; жилые комнаты, кухни и спальни распределены по уровням.",42,20,3,0,[ClassicReference,SettlementReference])
+  new("village-log-long","Northern longhouse","village","A wooden house with a long entrance hall connecting the living area, kitchen, and utility storage under a shared gabled roof.",24,16,1,0,[MuseumReference]),
+  new("village-brick-cottage","Brick cottage with attic floor","village","Two residential levels: living room, kitchen, and study downstairs; three bedrooms and a bathroom upstairs. Stairs in a separate hall.",22,20,2,0,[IzbaReference]),
+  new("village-farmstead","House with utility wing","village","A living area, entrance hall, and separate utility wing form a stepped outline and an open terrace.",28,24,1,0,[FarmReference,MuseumReference]),
+  new("village-bathhouse","Village bathhouse","village","A changing room, washing room, utility room, and entrance vestibule. A compact wooden building with a hipped roof.",14,12,1,0,[FarmReference]),
+  new("settlement-duplex","Village duplex","settlement","Two fully independent apartments, each with its own entrance, stairs, and upstairs bedrooms.",32,20,2,0,[SettlementReference]),
+  new("settlement-row-four","Village terraced housing","settlement","Four independent two-story sections with separate entrances, kitchens, and internal stairs.",48,18,2,0,[SettlementReference]),
+  new("settlement-clinic","Village clinic","settlement","Two levels: reception and offices along a shared corridor; staff rooms and patient wards upstairs.",28,28,2,0,[ClassicReference]),
+  new("settlement-courtyard","Village courtyard house","settlement","Two residential wings around an open courtyard; a shared corridor and stairs beside the gate.",36,32,2,0,[SettlementReference,ClassicReference]),
+  new("urban-compact-six","Compact six-story apartment block","urban","Two apartments per floor, a shared stair hall, and separate kitchens, bedrooms, and bathrooms. Six levels and a flat roof.",28,26,6,0,[PanelReference,TowerReference]),
+  new("urban-perimeter-four","Urban courtyard apartment block","urban","Four levels in an enclosed block with an open courtyard, a through corridor, apartments in the side wings, and two staircases.",48,40,4,0,[ClassicReference,CornerReference]),
+  new("urban-shop-house","Urban apartments above shops","urban","A spacious ground-floor shop with two smaller residential levels above it. Utility rooms and stairs are separate from the sales floor.",30,28,3,0,[ClassicReference]),
+  new("urban-townhouse-row","Urban townhouse row","urban","Three independent three-story blocks with separate entrances; living rooms, kitchens, and bedrooms are distributed across the levels.",42,20,3,0,[ClassicReference,SettlementReference])
  ];
  private static void RegionalPlan(Building b,string id){
   switch(id){
@@ -22,7 +22,7 @@ public static partial class HousingTemplates
    case "settlement-duplex":RowHouse(b,2,16,2);break;case "settlement-row-four":RowHouse(b,4,12,2);break;case "urban-townhouse-row":RowHouse(b,3,14,3);break;
    case "settlement-clinic":Clinic(b);break;case "settlement-courtyard":Courtyard(b,2);break;case "urban-perimeter-four":Courtyard(b,4);break;
    case "urban-compact-six":CompactSix(b);break;case "urban-shop-house":ShopHouse(b);break;
-   default:throw new ArgumentException("Неизвестная региональная планировка.");
+   default:throw new ArgumentException("Unknown regional layout.");
   }
  }
  private static void SetAppearance(Building b,string style,string roof){b.Design!.Style=style;b.Design.Material=VisualStyles.All[style].Material;b.Design.Roof=roof;b.Design.Shape="custom";}

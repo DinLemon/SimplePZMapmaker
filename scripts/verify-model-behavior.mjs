@@ -11,7 +11,7 @@ try{
  await page.evaluate(async()=>{const {openStaticModelPicker}=await import('/static-models.js');openStaticModelPicker({initialQuery:'BeerBottle',onPlace:p=>{window.modelBehaviorSelection=p;}});});
  await page.locator('[data-model-id="Base.BeerBottle"]').click();await page.waitForFunction(()=>document.querySelector('[data-sm-canvas]')?.dataset.modelId==='Base.BeerBottle');
  const profile=page.locator('[data-sm-profile]');assert.equal(await profile.inputValue(),'pickup');assert.equal(await page.locator('[data-sm-health-label]').isVisible(),false);
- await profile.selectOption('obstacle');assert.equal(await page.locator('[data-sm-health-label]').isVisible(),false);assert.match(await page.locator('[data-sm-behavior-note]').textContent(),/одну клетку/);
+ await profile.selectOption('obstacle');assert.equal(await page.locator('[data-sm-health-label]').isVisible(),false);assert.match(await page.locator('[data-sm-behavior-note]').textContent(),/one tile/i);
  await profile.selectOption('destructible');assert.equal(await page.locator('[data-sm-health-label]').isVisible(),true);assert.equal(await page.locator('[data-sm-capacity-label]').isVisible(),false);
  await profile.selectOption('container');await page.locator('[data-sm-health]').fill('350');await page.locator('[data-sm-capacity]').fill('75');await page.locator('[data-sm-rotation]').fill('45');await page.locator('[data-sm-scale]').fill('2');
  await page.screenshot({path:fileURLToPath(new URL('model-behavior-picker.png',output))});await page.locator('[data-sm-place]').click();await page.locator('.static-model-dialog').waitFor({state:'detached'});

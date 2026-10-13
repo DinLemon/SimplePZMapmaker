@@ -10,7 +10,7 @@ public static class NativeMapExporter {
     public static byte[] Export(MapProject p,bool worldSection=false,CancellationToken token=default)
     {
         ProjectValidator.Validate(p);
-        if(!worldSection&&p.Spawns.Count==0)throw new ArgumentException("Участок без точки появления экспортируется в составе мира с сушей.");
+        if(!worldSection&&p.Spawns.Count==0)throw new ArgumentException("A section without a spawn point is exported as part of a world containing dry land.");
         return ExportValidatedWorldSection(p,token);
     }
     // Only the world exporter calls this after validating full buildings against sparse sections.
@@ -23,9 +23,9 @@ public static class NativeMapExporter {
             void Bytes(string path,byte[] bytes){var e=zip.CreateEntry(path,CompressionLevel.Fastest);using var s=e.Open();s.Write(bytes);}
             zip.CreateEntry($"{slug}/common/");
             var dependencies=ResourceDependencies.ForProject(p);var require=dependencies.Length>0?"require="+string.Join(',',dependencies)+"\n":"";
-            Text($"{slug}/42/mod.info",$"name={p.Name}\nid={slug}\ndescription=Карта создана в SimplePZMapmaker. Build 42; новый мир.\nversionMin=42.0\n{require}");
+            Text($"{slug}/42/mod.info",$"name={p.Name}\nid={slug}\ndescription=Map created with SimplePZMapmaker. Build 42; new world.\nversionMin=42.0\n{require}");
             StaticModelExporter.Write(zip,slug,StaticModelExporter.Gather(p));
-            Text(root+"map.info",$"title={p.Name}\nfixed2x=true\ndescription=Карта {p.Width}×{p.Height}, SimplePZMapmaker\nzoomX={p.WorldX*256+p.Width/2}\nzoomY={p.WorldY*256+p.Height/2}\nzoomS=8\n");
+            Text(root+"map.info",$"title={p.Name}\nfixed2x=true\ndescription=Map {p.Width} x {p.Height}, SimplePZMapmaker\nzoomX={p.WorldX*256+p.Width/2}\nzoomY={p.WorldY*256+p.Height/2}\nzoomS=8\n");
             var spawns=string.Join(",\n",p.Spawns.Select(s=>$"        {{ posX = {p.WorldX*256+s.X}, posY = {p.WorldY*256+s.Y}, posZ = 0 }}"));
             Text(root+"spawnpoints.lua",$"function SpawnPoints()\n    local points = {{\n{spawns}\n    }}\n    return {{ unemployed = points }}\nend\n");
             Text(root+"spawnregions.lua",$"function SpawnRegions()\n return {{ {{ name = \"{slug}\", file = \"media/maps/{slug}/spawnpoints.lua\" }} }}\nend\n");
@@ -40,7 +40,7 @@ public static class NativeMapExporter {
             var attribution=p.Attribution.Concat(p.Buildings.Concat(p.BuildingLibrary).SelectMany(b=>b.Attribution)).Distinct();
             Text($"{slug}/ATTRIBUTION.txt",string.Join('\n',attribution.Prepend("Created with SimplePZMapmaker. Native export format: Build 42 (256-cell / 8-chunk)."))+"\n");
             Text($"{slug}/project.pzmap.json",JsonSerializer.Serialize(p,JsonOptions));
-            Text($"{slug}/INSTALL.txt",$"Распакуйте {slug} в папку Zomboid/mods. Включите мод, создайте НОВУЮ игру и выберите карту {p.Name}. Не добавляйте в важный существующий мир. Генератор не устанавливает мод автоматически. Другие карты, занимающие те же координаты, могут конфликтовать. Для своего сервера укажите Map={slug} и Mods={slug}. Экспорт B42; совместимость в игре проверяйте на отдельном новом сохранении. Идентификатор зависит от названия и seed; их изменение создаёт другой мод.\n");
+            Text($"{slug}/INSTALL.txt",$"Extract {slug} into Zomboid/mods. Enable the mod, create a NEW game, and choose the {p.Name} map. Do not add it to an important existing world. The generator does not install the mod automatically. Other maps occupying the same coordinates may conflict. For a server, set Map={slug} and Mods={slug}. This is a B42 export; check compatibility in a separate new save. The identifier depends on the name and seed; changing either creates a different mod.\n");
             Text(root+"worldmap.xml",WorldMap(p));
             for(var cellY=0;cellY<p.Height/256;cellY++)for(var cellX=0;cellX<p.Width/256;cellX++) {
                 token.ThrowIfCancellationRequested();

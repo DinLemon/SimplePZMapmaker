@@ -3,7 +3,7 @@ using SimplePZMapmaker.Core.Export;
 namespace SimplePZMapmaker.Core;
 
 public sealed class NeighborhoodConstraints {
- public string Objective {get;set;}="Жилой квартал";
+ public string Objective {get;set;}="Residential neighborhood";
  public int X {get;set;}=16; public int Y {get;set;}=16;
  public int Width {get;set;}=224; public int Height {get;set;}=224;
  public int MaximumBuildings {get;set;}=16; public int MinimumBuildings {get;set;}=1;
@@ -28,9 +28,9 @@ public sealed record PlannedRoad(string? MemberId,int X,int Y,int Width,int Heig
 public static class NeighborhoodPlanner {
  public static NeighborhoodPlan Create(MapProject project,NeighborhoodConstraints constraints,string? memberId=null) {
   ProjectValidator.Validate(project);ValidateConstraints(constraints);
-  if(constraints.X<0||constraints.Y<0||constraints.X+constraints.Width>project.Width||constraints.Y+constraints.Height>project.Height)throw new ArgumentException("Область задания выходит за пределы секции.");
+  if(constraints.X<0||constraints.Y<0||constraints.X+constraints.Width>project.Width||constraints.Y+constraints.Height>project.Height)throw new ArgumentException("The task area extends beyond the section.");
   var templates=HousingTemplates.Catalog.Where(t=>t.Levels<=constraints.MaximumLevels&&(constraints.TemplateIds.Count==0||constraints.TemplateIds.Contains(t.Id))).ToArray();
-  if(templates.Length==0||constraints.TemplateIds.Any(id=>!HousingTemplates.Catalog.Any(t=>t.Id==id)))throw new ArgumentException("Для ограничений задания нет подходящих шаблонов.");
+  if(templates.Length==0||constraints.TemplateIds.Any(id=>!HousingTemplates.Catalog.Any(t=>t.Id==id)))throw new ArgumentException("No templates match the task constraints.");
   var plan=new NeighborhoodPlan{Constraints=Copy(constraints)};var candidate=new MapProject{Width=project.Width,Height=project.Height,Terrain=project.Terrain,Buildings=project.Buildings.ToList(),Spawns=project.Spawns,StaticModels=project.StaticModels,Decorations=project.Decorations,SurfaceTiles=project.SurfaceTiles};var random=new Random(constraints.Seed);var edited=TerrainEditMask.Decode(project);
   var strideX=templates.Max(t=>t.Width)+constraints.Spacing;var strideY=templates.Max(t=>t.Height)+constraints.Spacing;
   for(var y=constraints.Y;y+templates.Min(t=>t.Height)<=constraints.Y+constraints.Height&&plan.Buildings.Count<constraints.MaximumBuildings;y+=strideY)
@@ -40,8 +40,8 @@ public static class NeighborhoodPlanner {
     if(!Available(candidate,b))continue;
     candidate.Buildings.Add(b);plan.Buildings.Add(new(){MemberId=memberId,Building=b});
    }
-  if(plan.Buildings.Count<constraints.MinimumBuildings)throw new ArgumentException("Не удалось разместить минимальное число зданий без пересечения воды и существующих объектов. Увеличьте область или уменьшите требование.");
-  if(plan.Buildings.Count<constraints.MaximumBuildings)plan.Warnings.Add($"Размещено{plan.Buildings.Count} из запрошенных{constraints.MaximumBuildings}; занятые участки и вода сохранены.");
+  if(plan.Buildings.Count<constraints.MinimumBuildings)throw new ArgumentException("Could not place the minimum number of buildings without overlapping water or existing objects. Enlarge the area or lower the requirement.");
+  if(plan.Buildings.Count<constraints.MaximumBuildings)plan.Warnings.Add($"Placed {plan.Buildings.Count} of {constraints.MaximumBuildings} requested buildings; occupied areas and water were preserved.");
   if(constraints.Roads)foreach(var row in plan.Buildings.Select(b=>b.Building.Y).Distinct()){
    var y=row-3;if(y<constraints.Y)continue;
    for(var x=constraints.X;x<constraints.X+constraints.Width;x++)if(GroundAvailable(candidate,x,y,edited)){
@@ -52,15 +52,15 @@ public static class NeighborhoodPlanner {
   return plan;
  }
  public static void Apply(MapProject project,NeighborhoodPlan plan,string? memberId=null) {
-  ValidateConstraints(plan.Constraints);if(plan.Buildings.Count>128||plan.Roads.Count>8192)throw new ArgumentException("План превышает бюджет квартала.");
+  ValidateConstraints(plan.Constraints);if(plan.Buildings.Count>128||plan.Roads.Count>8192)throw new ArgumentException("The proposal exceeds the neighborhood budget.");
   foreach(var entry in plan.Buildings.Where(e=>e.MemberId==memberId)){
-   var b=Copy(entry.Building);BuildingDesigner.Validate(b);if(!Available(project,b))throw new ArgumentException("План здания пересекается с текущей картой.");project.Buildings.Add(b);
+   var b=Copy(entry.Building);BuildingDesigner.Validate(b);if(!Available(project,b))throw new ArgumentException("The building proposal overlaps the current map.");project.Buildings.Add(b);
   }
   var mask=TerrainEditMask.Decode(project);
   foreach(var road in plan.Roads.Where(e=>e.MemberId==memberId)){
-   if(road.Width<1||road.Height<1||road.Width>2048||road.Height>2048)throw new ArgumentException("Дорога плана повреждена.");
+   if(road.Width<1||road.Height<1||road.Width>2048||road.Height>2048)throw new ArgumentException("Invalid proposal road.");
    for(var y=road.Y;y<road.Y+road.Height;y++)for(var x=road.X;x<road.X+road.Width;x++){
-    if(!GroundAvailable(project,x,y,mask))throw new ArgumentException("Дорога пересекается с объектом или ручной правкой.");var i=y*project.Width+x;project.Terrain[i]=Terrain.Road;project.SurfaceTiles.Remove(i);mask[i/8]|=(byte)(1<<(i%8));
+    if(!GroundAvailable(project,x,y,mask))throw new ArgumentException("The road overlaps an object or a manual edit.");var i=y*project.Width+x;project.Terrain[i]=Terrain.Road;project.SurfaceTiles.Remove(i);mask[i/8]|=(byte)(1<<(i%8));
    }
   }
   project.TerrainEdits=TerrainEditMask.Encode(mask);project.Version=Math.Max(6,project.Version);ProjectValidator.Validate(project);
@@ -78,7 +78,7 @@ public static class NeighborhoodPlanner {
   return true;
  }
  public static void ValidateConstraints(NeighborhoodConstraints c) {
-  if(c is null||c.Objective is null||c.Objective.Length>800||c.Objective.Any(char.IsControl)||c.Width is <16 or >2048||c.Height is <16 or >2048||c.MaximumBuildings is <1 or >128||c.MinimumBuildings<0||c.MinimumBuildings>c.MaximumBuildings||c.MaximumLevels is <1 or >16||c.Spacing is <4 or >64||c.TemplateIds is null||c.TemplateIds.Count>64)throw new ArgumentException("Проверьте область, бюджет зданий, этажность и отступы задания.");
+  if(c is null||c.Objective is null||c.Objective.Length>800||c.Objective.Any(char.IsControl)||c.Width is <16 or >2048||c.Height is <16 or >2048||c.MaximumBuildings is <1 or >128||c.MinimumBuildings<0||c.MinimumBuildings>c.MaximumBuildings||c.MaximumLevels is <1 or >16||c.Spacing is <4 or >64||c.TemplateIds is null||c.TemplateIds.Count>64)throw new ArgumentException("Check the task area, building budget, floor count, and spacing.");
  }
  public static T Copy<T>(T value)=>JsonSerializer.Deserialize<T>(JsonSerializer.SerializeToUtf8Bytes(value,NativeMapExporter.JsonOptions),NativeMapExporter.JsonOptions)!;
 }

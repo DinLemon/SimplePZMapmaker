@@ -5,13 +5,13 @@ import {placeEnvironmentDecoration,placeEnvironmentModel,moveEnvironmentSelectio
 const asset={id:'furniture_bedding_01_69',parts:[{dx:0,dy:0,tile:'furniture_bedding_01_69',flags:1},{dx:0,dy:1,tile:'furniture_bedding_01_68',flags:1}]};
 const model={modelId:'Base.BeerBottle',sourceId:'game',requiredMods:[],offsetX:.5,offsetY:.5,offsetZ:0,rotation:0,scale:1};
 test('complete environment objects reject water, occupied tails and boundaries without changing the draft',()=>{
- const p=blank();p.terrain[11*256+10]=3;const before=JSON.stringify(p);assert.throws(()=>placeEnvironmentDecoration(p,asset,10,10,'one'),/пересека/);assert.equal(JSON.stringify(p),before);
- p.terrain[11*256+10]=0;placeEnvironmentDecoration(p,asset,10,10,'one');assert.throws(()=>placeEnvironmentDecoration(p,asset,10,11,'two'),/пересека/);assert.throws(()=>placeEnvironmentDecoration(p,asset,10,255,'three'),/пересека/);assert.equal(p.decorations.length,1);
+ const p=blank();p.terrain[11*256+10]=3;const before=JSON.stringify(p);assert.throws(()=>placeEnvironmentDecoration(p,asset,10,10,'one'),/intersect|overlap/i);assert.equal(JSON.stringify(p),before);
+ p.terrain[11*256+10]=0;placeEnvironmentDecoration(p,asset,10,10,'one');assert.throws(()=>placeEnvironmentDecoration(p,asset,10,11,'two'),/intersect|overlap/i);assert.throws(()=>placeEnvironmentDecoration(p,asset,10,255,'three'),/intersect|overlap/i);assert.equal(p.decorations.length,1);
 });
 test('area selection includes object tails and group movement preserves canonical parts atomically',()=>{
  const p=blank();placeEnvironmentDecoration(p,asset,10,10,'one');placeEnvironmentDecoration(p,asset,12,10,'two');const selection=environmentSelection(p,{x:10,y:11},{x:12,y:11});assert.deepEqual(selection,['decor:one','decor:two']);const parts=JSON.stringify(p.decorations.map(o=>o.parts));
  moveEnvironmentSelection(p,selection,5,2);assert.equal(p.decorations[0].x,15);assert.equal(p.decorations[1].x,17);assert.equal(JSON.stringify(p.decorations.map(o=>o.parts)),parts);
- const before=JSON.stringify(p);assert.throws(()=>moveEnvironmentSelection(p,selection,250,0),/пересека/);assert.equal(JSON.stringify(p),before);
+ const before=JSON.stringify(p);assert.throws(()=>moveEnvironmentSelection(p,selection,250,0),/intersect|overlap/i);assert.equal(JSON.stringify(p),before);
 });
 test('terrain paths preserve protected objects and water painting cannot drown a static model',()=>{
  const p=blank();placeEnvironmentModel(p,model,20,20,'a'.repeat(32));placeEnvironmentDecoration(p,asset,21,20,'one');const history=new History();history.begin(p);paintEnvironment(p,{x:18,y:20},{x:23,y:20},3,1,history);history.commit(p);

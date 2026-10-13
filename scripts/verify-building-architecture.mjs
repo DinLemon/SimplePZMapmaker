@@ -9,7 +9,7 @@ const file=name=>fileURLToPath(new URL(name,out));
 async function ready(){await page.waitForFunction(()=>document.getElementById('be-visual-canvas')?.dataset.state==='ready');}
 async function draft(name){const event=page.waitForEvent('download');await page.locator('#be-template-export').click();await(await event).saveAs(file(name));return JSON.parse(await readFile(file(name),'utf8')).building;}
 try{
- await page.goto(base);await page.waitForFunction(()=>document.getElementById('game-status').textContent.includes('найден'));
+ await page.goto(base);await page.waitForFunction(()=>document.getElementById('game-status').textContent.includes('found'));
  await page.locator('#open-building-editor').click();assert.equal(await page.locator('[data-housing-preset]').count(),24);
  await page.locator('[data-housing-preset="village-brick-cottage"]').click();await ready();
  const original=await draft('before.pzbuilding.json');assert.equal(original.design.floors.length,2);

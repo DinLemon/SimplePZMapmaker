@@ -6,13 +6,13 @@ import assert from 'node:assert/strict';
 const output=new URL('../work/qa-results/',import.meta.url);await mkdir(output,{recursive:true});
 async function api(path,body){const r=await fetch(pzmapTestBase+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});assert.equal(r.status,200,await r.clone().text());return r;}
 const p=await api('/api/generate',{size:256,kind:'blank'}).then(r=>r.json()),credit='Template Author — CC BY 4.0';
-const b=await api('/api/building/design',{building:{id:'credited',name:'Авторский дом',kind:'house',x:40,y:40,width:12,height:10,attribution:[credit]},levels:2,seed:42,shape:'l'}).then(r=>r.json());p.buildings=[b];
+const b=await api('/api/building/design',{building:{id:'credited',name:'Original house',kind:'house',x:40,y:40,width:12,height:10,attribution:[credit]},levels:2,seed:42,shape:'l'}).then(r=>r.json());p.buildings=[b];
 const fixture=fileURLToPath(new URL('building-credited.pzmap.json',output));await writeFile(fixture,JSON.stringify(p));
 const geo={type:'FeatureCollection',features:[{type:'Feature',properties:{highway:'path'},geometry:{type:'LineString',coordinates:[[30,50],[30.003,50.003]]}}]},geoFile=fileURLToPath(new URL('building-library.geojson',output));await writeFile(geoFile,JSON.stringify(geo));
 const browser=await chromium.launch({headless:true}),page=await browser.newPage({viewport:{width:1600,height:1100}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
 async function save(name){const event=page.waitForEvent('download');await page.locator('#save-project').click();const file=fileURLToPath(new URL(name,output));await (await event).saveAs(file);return JSON.parse(await readFile(file,'utf8'));}
 try{
- await page.goto(pzmapTestBase);await page.waitForFunction(()=>document.querySelector('#game-status').textContent.includes('найден'));await page.locator('#project-file').setInputFiles(fixture);await page.waitForFunction(()=>!document.querySelector('#operation-dialog').open&&document.querySelector('#building-count').textContent==='1');
+ await page.goto(pzmapTestBase);await page.waitForFunction(()=>document.querySelector('#game-status').textContent.includes('found'));await page.locator('#project-file').setInputFiles(fixture);await page.waitForFunction(()=>!document.querySelector('#operation-dialog').open&&document.querySelector('#building-count').textContent==='1');
  await page.locator('[data-tool=select]').click();const box=await page.locator('#map-canvas').boundingBox(),s=Math.min((box.width-72)/256,(box.height-90)/256);await page.mouse.click(box.x+(box.width-256*s)/2+45*s,box.y+(box.height-256*s)/2+45*s);await page.locator('#edit-building').click();
  const event=page.waitForEvent('download');await page.locator('#be-template-export').click();const templateFile=fileURLToPath(new URL('building-credit-template.json',output));await (await event).saveAs(templateFile);await page.locator('#be-cancel').click();const template=JSON.parse(await readFile(templateFile,'utf8'));assert.ok(template.attribution.includes(credit));
  // An older template can have an empty envelope while its nested building carries credit.

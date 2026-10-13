@@ -1,25 +1,25 @@
-# Пильна
+# Pilna
 
-Воспроизводимый пример импорта реального посёлка из OpenStreetMap, обновлённый для редактора0.3.
+A reproducible OpenStreetMap import of a real settlement, captured for editor 0.3.
 
-- osm-source.json: полученный ответ Overpass,2378 объектов,1789 контуров зданий,439 дорожных объектов.
-- recipe.json: границы, seed, размер2048 и положение в игровом мире.
-- pilna.pzmap.json: редактируемый проект формата2, доступный через «Открыть Пильну»; нужен редактор0.3+.
-- Pilna-B42.zip: мод для Build42; установка описана внутри.
-- import-report.json: результаты, причины пропусков, типы/этажность/происхождение/формы.
-- ATTRIBUTION.txt: источник географии и условия ODbL.
+- `osm-source.json`: saved Overpass response, 2,378 features/1,789 building outlines/439 road features.
+- `recipe.json`: bounds, seed, 2048-map size and native world origin.
+- `pilna.pzmap.json`: editable format 2 project; open with the ordinary **Open** button in editor 0.3 or later. The dedicated Pilna button has been removed.
+- `Pilna-B42.zip`: Build 42 mod with installation instructions inside.
+- `import-report.json`: outcomes, skip reasons, types, levels, provenance and shapes.
+- `ATTRIBUTION.txt`: geography source and ODbL terms.
 
-Охват около3,7×4,7км; масштаб2,29м/клетка; север сверху.1577 зданий из1789:1470 произвольных клеточных контуров,107 адаптированных прямоугольников.1517 одноэтажных,52 двухэтажных,8 трёхэтажных.42 этажности взяты из OSM,1 оценена по высоте,1534 предположены. Интерьеры и фасады сгенерированы; это игровой вариант посёлка.
+Bounds are roughly 3.7×4.7 km at 2.29 m/cell, north up.1,577 buildings from 1,789 source outlines:1,470 free-form cell outlines and 107 adapted rectangles.1,517 buildings have one level, 52 two and eight three.42 level counts came from OSM, one from height and 1,534 from assumptions. Interiors/facades are generated; this is a gameplay adaptation.
 
-Пропущено212 контуров:59 вода/дорога,103 границы ячеек,49 пересечения,1 слишком большой. Все причины записаны в отчёт.
+The 212 skipped outlines were 59 water/road conflicts, 103 then-unsupported cell boundaries, 49 overlaps and one oversized outline. All reasons are recorded.
 
-Повторить из корня при запущенном редакторе:
+Regenerate from the repository root with the editor running:
 
 ```powershell
 . ./scripts/WorkspaceEnv.ps1
 node scripts/build-pilna.mjs
 ```
 
-Скрипт использует сохранённый источник и не требует сети. Для свежих данных используйте поиск Пильны и полный охват в интерфейсе. Сохраните проект перед обновлением; переключатель сохранения ручных изменений защищает от замены отредактированных зданий.
+The script uses the saved source and needs no network. For fresh geography, search for Pilna and select full bounds in the UI. Save before updating; the manual-edit preservation toggle protects edited buildings.
 
-Проверены64 ячейки/65 536 чанков/7345 комнат, а также чтение собственными загрузчиками установленной игры и распознавание204 лестничных спрайтов. Прохождение персонажем, визуальная правильность крыш/мебели, лут и мультиплеер ещё не проверены. Железнодорожный слой не реализован.
+Checks accepted 64 native cells, 65,536 chunks and 7,345 rooms, including installed-game loader reads and 204 recognized stair sprites. Character traversal, roof/furniture appearance, loot and multiplayer are unverified. A railway layer is not implemented.

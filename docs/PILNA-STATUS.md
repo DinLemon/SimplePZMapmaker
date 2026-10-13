@@ -1,15 +1,17 @@
-# Пильна — проверка 0.3, 2026-10-12
+# Pilna verification — 0.3, 2026-10-12
 
-Реальные данные Overpass:2378 объектов,1789 контуров зданий,439 дорожных объектов. Позднейшая повторная сетевая загрузка вернула504; зафиксированный исходный JSON позволяет повторять генерацию без сети.
+This dated record describes the saved 0.3 example, not current overall test counts.
 
-Карта2048×2048 содержит1577 зданий. Пропущено212:59 вода/дорога,103 граница ячейки,49 пересечение,1 слишком большой контур. Охват около3,7×4,7км; масштаб2,28995м/клетка.1470 контуров адаптированы в произвольные клеточные формы,107 заменены подходящими прямоугольниками. География и интерьеры не являются точной реконструкцией.
+Real Overpass data contained 2,378 features, 1,789 building outlines and 439 road features. A later repeated download returned 504; the committed source JSON permits offline regeneration.
 
-Типы:1487 частных домов,46 жилых корпусов,22 магазина,11 гаражей,3 школы,3 склада,2 больницы,2 промышленных корпуса,1 гостиница.1517 зданий имеют один этаж,52 — два,8 — три.42 этажности прочитаны из OSM,1 оценена по высоте,1534 предположены генератором; UI различает происхождение. Необычные исходные крыши адаптированы с примечаниями.
+The 2048×2048 map has 1,577 buildings. Of 212 skipped outlines, 59 conflicted with water/roads, 103 crossed the then-unsupported cell boundary, 49 overlapped and one was oversized. Bounds cover roughly 3.7×4.7 km at 2.28995 m/cell.1,470 outlines became free-form cell footprints;107 used adapted rectangles. Geography/interiors are not an exact reconstruction.
 
-Независимый читатель проверил64 ячейки,65 536 чанков,7345 комнат,1577 зданий. Все68 имён тайлов присутствуют в установленной игре; полные пары кроватей и направления мебели сверены с Facing/SpriteGridPos. Повторно проверен ZIP, скачанный через интерфейс опубликованной сборки.
+Types:1,487 detached homes, 46 residential blocks, 22 shops, 11 garages, three schools, three warehouses, two hospitals, two industrial buildings and one hotel.1,517 buildings have one level, 52 have two and eight have three.42 level counts came from OSM, one from a height estimate and 1,534 from the generator; the UI distinguishes these origins. Unusual source roofs were adapted with notes.
 
-Проверка собственными загрузчиками установленной игры:64 ячейки,65 536 чанков,7345 комнат,776 верхних комнат,204 лестничных спрайта, распознанных HasStairs(). Это программная проверка файлов и выбранных объектов, а не прохождение персонажем. Установленные файлы игры и сохранения не изменялись.
+The independent reader checked 64 native cells, 65,536 chunks, 7,345 rooms and 1,577 buildings. All 68 tile names existed in the installed game. Complete bed pairs and furniture orientations matched Facing/SpriteGridPos. The ZIP downloaded through the published UI was rechecked.
 
-41/41 основных и19/19 редакторских тестов проходят. Chromium проверил открытие Пильны, миграцию прежнего автосохранения, восстановление2048 после перезагрузки, изоляцию сессий, полные поисковые границы, сохранение, повторное открытие и мод. Отдельно проверены многоэтажный редактор и сохранение ручных изменений/шаблонов. Неперехваченных браузерных ошибок не было.
+The installed game's loaders accepted 64 native cells, 65,536 chunks, 7,345 rooms, 776 upstairs rooms and 204 stair sprites recognized by `HasStairs()`. This checks files and selected objects, not character traversal. The game installation and saves were not changed.
 
-Прохождение, внешний вид крыш/мебели, лут и мультиплеер остаются непроверенными. Изометрия схематическая; железнодорожный слой пока не переносится. ZIP воспроизводим по содержимому при одном источнике/рецепте; даты записей могут отличаться.
+At that stage, 41/41 core and 19/19 editor tests passed. Chromium checked opening Pilna, migration of old autosaves, 2048-map recovery after reload, session isolation, full search bounds, saving, reopening and export. Separate checks covered multi-level editing and preservation of manual changes/templates. No uncaught browser errors occurred.
+
+Character traversal, roof/furniture appearance, loot and multiplayer remain unverified. Isometry is schematic and a railway layer is absent. ZIP semantic content is repeatable for the same source/recipe, while entry timestamps can differ.

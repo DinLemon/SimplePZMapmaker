@@ -86,7 +86,7 @@ public static class BuildingTests
    var source="""{"elements":[{"type":"way","id":77,"tags":{"building":"apartments","building:levels":"3","building:levels:underground":"2","roof:shape":"gabled"},"geometry":[{"lon":30.0001,"lat":50.0001},{"lon":30.0004,"lat":50.0001},{"lon":30.0004,"lat":50.0004},{"lon":30.0001,"lat":50.0004},{"lon":30.0001,"lat":50.0001}]}]}""";
    var bounds=new GeoBounds{West=30,East=30.003,South=50,North=50.003};var result=GeographicImporter.Import(source,MapGenerator.Generate(new(){Kind="blank"}),bounds).Project;var b=result.Buildings.Single();
    if(b.Kind!="apartments"||b.Design?.Floors.Count!=5||b.Design.MinLevel!=-2||b.SourceBasements!="2"||b.LevelsOrigin!="osm-levels"||b.SourceId!="osm-way-77")throw new Exception("Building tags discarded");
-   b.Name="Ручной дом";b.Modified=true;b.Design.Material="brick";var refreshed=GeographicImporter.Import(source,result,bounds,default,true).Project.Buildings.Single();
+   b.Name="Manually edited house";b.Modified=true;b.Design.Material="brick";var refreshed=GeographicImporter.Import(source,result,bounds,default,true).Project.Buildings.Single();
    if(refreshed.Name!=b.Name||!refreshed.Modified||refreshed.Design?.Material!="brick")throw new Exception("Manual changes lost");
   });
  }

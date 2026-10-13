@@ -22,18 +22,18 @@ const building=()=>({width:6,height:6,design:{minLevel:0,floors:[{cells:'1'.repe
 const bed=(x,y)=>({x,y,kind:'asset',direction:'n',asset:'furniture_bedding_01_69',parts:[{dx:0,dy:0,tile:'furniture_bedding_01_69'},{dx:0,dy:1,tile:'furniture_bedding_01_68'}]});
 test('whole objects reject edge overflow, occupied tails, partitions and blocked doorways',()=>{
  const b=building();assert.equal(placementCheck(b,0,bed(2,2)).ok,true);
- assert.match(placementCheck(b,0,bed(2,5)).reason,/контур/);
+ assert.match(placementCheck(b,0,bed(2,5)).reason,/contour/i);
  b.design.floors[0].objects.push({x:2,y:3,kind:'seat',direction:'n'});
- assert.match(placementCheck(b,0,bed(2,2)).reason,/занята/);
+ assert.match(placementCheck(b,0,bed(2,2)).reason,/occupied/i);
  b.design.floors[0].objects=[];b.design.floors[0].edges.push({x:2,y:3,edge:'n',kind:'wall'});
- assert.match(placementCheck(b,0,bed(2,2)).reason,/стен/);
+ assert.match(placementCheck(b,0,bed(2,2)).reason,/wall/i);
  b.design.floors[0].edges=[{x:2,y:2,edge:'w',kind:'door'}];
- assert.match(placementCheck(b,0,bed(2,2)).reason,/проход/);
+ assert.match(placementCheck(b,0,bed(2,2)).reason,/passage/i);
 });
 test('stair landing from the lower floor is reserved even on the upper floor',()=>{
  const b=building();b.design.floors.push(structuredClone(b.design.floors[0]));
  b.design.floors[0].objects.push({x:2,y:0,kind:'stairs',direction:'n'});
- assert.match(placementCheck(b,1,bed(2,2)).reason,/лестниц/);
+ assert.match(placementCheck(b,1,bed(2,2)).reason,/stair/i);
  assert.equal(placementCheck(b,1,bed(4,2)).ok,true);
 });
 

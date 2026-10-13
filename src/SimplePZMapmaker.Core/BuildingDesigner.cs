@@ -3,7 +3,7 @@ namespace SimplePZMapmaker.Core;
 public static class BuildingDesigner
 {
  public static readonly string[] Kinds=["house","apartments","school","shop","warehouse","industrial","clinic","hotel","garage"];
- public static readonly Dictionary<string,string> Names=new(){["house"]="Частный дом",["apartments"]="Многоквартирный дом",["school"]="Школа",["shop"]="Магазин",["warehouse"]="Склад",["industrial"]="Промышленный корпус",["clinic"]="Больница",["hotel"]="Гостиница",["garage"]="Гараж"};
+ public static readonly Dictionary<string,string> Names=new(){["house"]="Detached house",["apartments"]="Apartment building",["school"]="School",["shop"]="Shop",["warehouse"]="Warehouse",["industrial"]="Industrial building",["clinic"]="Clinic",["hotel"]="Hotel",["garage"]="Garage"};
  public static readonly string[] RoomNames=["hall","livingroom","kitchen","bedroom","bathroom","classroom","office","conveniencestore","warehouse","medical","hotelroom","garage","storage","balcony"];
  public static char Cell(Building b,BuildingFloor floor,int x,int y)=>x<0||y<0||x>=b.Width||y>=b.Height?'.':floor.Cells[y*b.Width+x];
  public static bool Occupies(Building b,int x,int y)=>b.Design is null?x>=0&&y>=0&&x<b.Width&&y<b.Height:b.Design.Floors.Any(f=>Cell(b,f,x,y)!='.');
@@ -13,7 +13,7 @@ public static class BuildingDesigner
   if(b.Design is null&&perimeter)for(var y=0;y<=b.Height;y++)for(var x=0;x<=b.Width;x++)result.Add(y*(b.Width+1)+x);return result;
  }
  public static BuildingDesign Generate(Building b,int levels,int seed,string shape="rect",int basements=0){
-  if(b.Width is <6 or >64||b.Height is <6 or >64||levels is <1 or >16||basements is <0 or >16||!Kinds.Contains(b.Kind)||shape is not("rect" or "l" or "t" or "courtyard" or "annex"))throw new ArgumentException("Проверьте тип, размеры, форму и этажность здания: 1–16 этажей и 0–16 подвалов.");
+  if(b.Width is <6 or >64||b.Height is <6 or >64||levels is <1 or >16||basements is <0 or >16||!Kinds.Contains(b.Kind)||shape is not("rect" or "l" or "t" or "courtyard" or "annex"))throw new ArgumentException("Check the building type, dimensions, shape, and floor count: 1-16 above-ground floors and 0-16 basement levels.");
   levels+=basements;
   var rng=new Random(seed);var design=new BuildingDesign{MinLevel=-basements,Variant=seed,Shape=shape,Material=new[]{"wood","brick","plaster"}[rng.Next(3)],Roof=shape=="rect"?new[]{"flat","gabled","shed","hipped"}[rng.Next(4)]:"flat"};
   var names=b.Kind switch{"house"=>new[]{"livingroom","kitchen","bedroom","bathroom"},"apartments"=>new[]{"bedroom","kitchen","livingroom","bathroom"},"school"=>new[]{"classroom","office","classroom","bathroom"},"shop"=>new[]{"conveniencestore","storage","office","bathroom"},"clinic"=>new[]{"medical","office","medical","bathroom"},"hotel"=>new[]{"hotelroom","hotelroom","office","bathroom"},"garage"=>new[]{"garage","storage","garage","storage"},_=>new[]{"warehouse","storage","office","storage"}};
@@ -76,40 +76,40 @@ public static class BuildingDesigner
   }return edges;
  }
  public static void Validate(Building b,bool requireAccess=true){
-  if(b is null||b.Width is <6 or >64||b.Height is <6 or >64||!Kinds.Contains(b.Kind))throw new ArgumentException("Проверьте размеры и тип здания.");
-  if(b.Attribution is null||b.Attribution.Count>30||b.Attribution.Any(s=>s is null||s.Length>1000))throw new ArgumentException("Источник шаблона здания повреждён.");
+  if(b is null||b.Width is <6 or >64||b.Height is <6 or >64||!Kinds.Contains(b.Kind))throw new ArgumentException("Check the building dimensions and type.");
+  if(b.Attribution is null||b.Attribution.Count>30||b.Attribution.Any(s=>s is null||s.Length>1000))throw new ArgumentException("Invalid building template source.");
   ResourceDependencies.Validate(b.RequiredMods,b.AssetSources);
   if(b.Design is null)return;var d=b.Design;
-  [System.Diagnostics.CodeAnalysis.DoesNotReturn] void Fail(string text)=>throw new ArgumentException($"Здание «{b.Name}»: {text}");
-  if(d.Material is not("wood" or "brick" or "plaster")||d.Roof is not("flat" or "gabled" or "shed" or "hipped")||d.Shape is not("rect" or "l" or "t" or "courtyard" or "annex" or "custom")||d.Floors is null||d.MinLevel is < -16 or >0||d.Floors.Count is <1 or >32||d.Floors.Count+d.MinLevel is <1 or >16)Fail("повреждён материал, крыша или этажность: 1–16 этажей и 0–16 подвалов.");
-  if(d.Style is null||d.Style.Length>0&&!VisualStyles.All.ContainsKey(d.Style)||d.RoofTileset is not null&&!System.Text.RegularExpressions.Regex.IsMatch(d.RoofTileset,@"^roofs_30_[0-9]{2}$"))Fail("повреждён набор оформления или крыши.");
-  if(d.Floors.Any(f=>f is null||f.Cells is null||f.Cells.Length!=b.Width*b.Height||f.Objects is null||f.Objects.Count>512||f.Edges is null||f.Edges.Count>2*(b.Width+1)*(b.Height+1)||f.Edges.Any(e=>e is null)||f.Rooms is null))Fail("слой этажа повреждён.");
+  [System.Diagnostics.CodeAnalysis.DoesNotReturn] void Fail(string text)=>throw new ArgumentException($"Building '{b.Name}': {text}");
+  if(d.Material is not("wood" or "brick" or "plaster")||d.Roof is not("flat" or "gabled" or "shed" or "hipped")||d.Shape is not("rect" or "l" or "t" or "courtyard" or "annex" or "custom")||d.Floors is null||d.MinLevel is < -16 or >0||d.Floors.Count is <1 or >32||d.Floors.Count+d.MinLevel is <1 or >16)Fail("invalid material, roof, or floor count: 1-16 above-ground floors and 0-16 basement levels.");
+  if(d.Style is null||d.Style.Length>0&&!VisualStyles.All.ContainsKey(d.Style)||d.RoofTileset is not null&&!System.Text.RegularExpressions.Regex.IsMatch(d.RoofTileset,@"^roofs_30_[0-9]{2}$"))Fail("invalid appearance style or roof tileset.");
+  if(d.Floors.Any(f=>f is null||f.Cells is null||f.Cells.Length!=b.Width*b.Height||f.Objects is null||f.Objects.Count>512||f.Edges is null||f.Edges.Count>2*(b.Width+1)*(b.Height+1)||f.Edges.Any(e=>e is null)||f.Rooms is null))Fail("invalid floor layer.");
   for(var z=0;z<d.Floors.Count;z++){
-   var f=d.Floors[z];if(f is null||f.Cells is null||f.Cells.Length!=b.Width*b.Height||f.Rooms is null||f.Rooms.Count is <1 or >35||f.Rooms.Any(r=>r.Key.Length!=1||!"0123456789abcdefghijklmnopqrstuvwxyz".Contains(r.Key[0])||!RoomNames.Contains(r.Value))||f.Cells.Any(c=>c!='.'&&!f.Rooms.ContainsKey(c.ToString()))||!f.Cells.Any(c=>c!='.')||f.Edges is null||f.Edges.Count>2*(b.Width+1)*(b.Height+1)||f.Objects is null||f.Objects.Count>512)Fail($"уровень {z+d.MinLevel} повреждён.");
-   if(f.FloorTile is not null&&!VisualStyles.TileId(f.FloorTile)||f.FloorTiles is null||f.FloorTiles.Count>f.Cells.Length||f.FloorTiles.Any(v=>v.Key<0||v.Key>=f.Cells.Length||f.Cells[v.Key]=='.'||!VisualStyles.TileId(v.Value)))Fail("ресурсы пола стоят вне помещения или повреждены.");
-   if(f.StaticModels is null||f.StaticModels.Count>512)Fail("слой моделей повреждён.");var modelIds=new HashSet<string>();foreach(var model in f.StaticModels){StaticModelPlacement.Validate(model,b.Width,b.Height,z+d.MinLevel,z+d.MinLevel);if(!modelIds.Add(model.Id)||Cell(b,f,model.X,model.Y)=='.')Fail("модель находится вне помещения.");}
-   foreach(var e in f.Edges)if(e.WallTile is not null&&!VisualStyles.TileId(e.WallTile)||e.OpeningTile is not null&&!VisualStyles.TileId(e.OpeningTile))Fail("повреждён ресурс стены или проёма.");
-   var keys=new HashSet<string>();foreach(var e in f.Edges){if(e is null||e.X<0||e.Y<0||e.X>b.Width||e.Y>b.Height||e.Edge is not("n" or "w")||e.Kind is not("wall" or "door" or "window" or "open")||!keys.Add($"{e.X},{e.Y},{e.Edge}")||Cell(b,f,e.X,e.Y)=='.'&&(e.Edge=="n"?Cell(b,f,e.X,e.Y-1):Cell(b,f,e.X-1,e.Y))=='.')Fail($"проверьте стены уровня {z+d.MinLevel}.");}
-   var objectPositions=new HashSet<int>();foreach(var o in f.Objects){if(o is null||o.Kind is not("stairs" or "bed" or "storage" or "counter" or "seat" or "sink" or "asset")||o.Direction is not("n" or "w")||o.Style is null||o.Style.Length>0&&!VisualStyles.All.ContainsKey(o.Style)||Cell(b,f,o.X,o.Y)=='.'||!objectPositions.Add(o.Y*b.Width+o.X))Fail($"мебель уровня {z+d.MinLevel} стоит вне помещения или пересекается.");
-    if(o.Kind=="asset")VisualStyles.ValidateParts(o.Asset,o.Parts);else if(o.Asset is not null||o.Parts is null||o.Parts.Count>0)Fail("ресурс предмета не соответствует типу.");
+   var f=d.Floors[z];if(f is null||f.Cells is null||f.Cells.Length!=b.Width*b.Height||f.Rooms is null||f.Rooms.Count is <1 or >35||f.Rooms.Any(r=>r.Key.Length!=1||!"0123456789abcdefghijklmnopqrstuvwxyz".Contains(r.Key[0])||!RoomNames.Contains(r.Value))||f.Cells.Any(c=>c!='.'&&!f.Rooms.ContainsKey(c.ToString()))||!f.Cells.Any(c=>c!='.')||f.Edges is null||f.Edges.Count>2*(b.Width+1)*(b.Height+1)||f.Objects is null||f.Objects.Count>512)Fail($"invalid level {z+d.MinLevel}.");
+   if(f.FloorTile is not null&&!VisualStyles.TileId(f.FloorTile)||f.FloorTiles is null||f.FloorTiles.Count>f.Cells.Length||f.FloorTiles.Any(v=>v.Key<0||v.Key>=f.Cells.Length||f.Cells[v.Key]=='.'||!VisualStyles.TileId(v.Value)))Fail("floor resources are invalid or outside a room.");
+   if(f.StaticModels is null||f.StaticModels.Count>512)Fail("invalid model layer.");var modelIds=new HashSet<string>();foreach(var model in f.StaticModels){StaticModelPlacement.Validate(model,b.Width,b.Height,z+d.MinLevel,z+d.MinLevel);if(!modelIds.Add(model.Id)||Cell(b,f,model.X,model.Y)=='.')Fail("the model is outside a room.");}
+   foreach(var e in f.Edges)if(e.WallTile is not null&&!VisualStyles.TileId(e.WallTile)||e.OpeningTile is not null&&!VisualStyles.TileId(e.OpeningTile))Fail("invalid wall or opening resource.");
+   var keys=new HashSet<string>();foreach(var e in f.Edges){if(e is null||e.X<0||e.Y<0||e.X>b.Width||e.Y>b.Height||e.Edge is not("n" or "w")||e.Kind is not("wall" or "door" or "window" or "open")||!keys.Add($"{e.X},{e.Y},{e.Edge}")||Cell(b,f,e.X,e.Y)=='.'&&(e.Edge=="n"?Cell(b,f,e.X,e.Y-1):Cell(b,f,e.X-1,e.Y))=='.')Fail($"check the walls on level {z+d.MinLevel}.");}
+   var objectPositions=new HashSet<int>();foreach(var o in f.Objects){if(o is null||o.Kind is not("stairs" or "bed" or "storage" or "counter" or "seat" or "sink" or "asset")||o.Direction is not("n" or "w")||o.Style is null||o.Style.Length>0&&!VisualStyles.All.ContainsKey(o.Style)||Cell(b,f,o.X,o.Y)=='.'||!objectPositions.Add(o.Y*b.Width+o.X))Fail($"furniture on level {z+d.MinLevel} is outside a room or overlaps.");
+    if(o.Kind=="asset")VisualStyles.ValidateParts(o.Asset,o.Parts);else if(o.Asset is not null||o.Parts is null||o.Parts.Count>0)Fail("the object resource does not match its type.");
     if(o.Kind=="stairs"){
-     if(z==d.Floors.Count-1)Fail("лестница должна вести на следующий этаж.");
-     for(var i=0;i<5;i++){var x=o.X+(o.Direction=="w"?i:0);var y=o.Y+(o.Direction=="n"?i:0);if(Cell(b,f,x,y)=='.'||Cell(b,d.Floors[z+1],x,y)=='.')Fail("лестнице нужны три ступени и площадки на обоих этажах.");}
+     if(z==d.Floors.Count-1)Fail("stairs must lead to the next floor.");
+     for(var i=0;i<5;i++){var x=o.X+(o.Direction=="w"?i:0);var y=o.Y+(o.Direction=="n"?i:0);if(Cell(b,f,x,y)=='.'||Cell(b,d.Floors[z+1],x,y)=='.')Fail("stairs need three steps and landings on both floors.");}
     }
    }
    var furnitureCells=new HashSet<int>();foreach(var o in f.Objects.Where(o=>o.Kind!="stairs")){
-    foreach(var point in BuildingObjects.Cells(o))if(Cell(b,f,point.X,point.Y)=='.'||StairSpace(b,z,point.X,point.Y)||!furnitureCells.Add(point.Y*b.Width+point.X))Fail("мебель пересекается, перекрывает лестницу или выходит за контур.");
-    var parts=BuildingObjects.Cells(o).ToHashSet();foreach(var point in parts)foreach(var (dx,dy,edge) in new[]{(1,0,"w"),(0,1,"n")})if(parts.Contains((point.X+dx,point.Y+dy))&&f.Edges.Any(e=>e.X==point.X+dx&&e.Y==point.Y+dy&&e.Edge==edge&&e.Kind!="open"))Fail("мебель пересекает стену или проём.");
-    if(f.Edges.Any(e=>e.Kind is "door" or "open"&&(parts.Contains((e.X,e.Y))||parts.Contains(e.Edge=="n"?(e.X,e.Y-1):(e.X-1,e.Y)))))Fail("мебель перекрывает дверь или проход.");
+    foreach(var point in BuildingObjects.Cells(o))if(Cell(b,f,point.X,point.Y)=='.'||StairSpace(b,z,point.X,point.Y)||!furnitureCells.Add(point.Y*b.Width+point.X))Fail("furniture overlaps, blocks the stairs, or extends beyond the outline.");
+    var parts=BuildingObjects.Cells(o).ToHashSet();foreach(var point in parts)foreach(var (dx,dy,edge) in new[]{(1,0,"w"),(0,1,"n")})if(parts.Contains((point.X+dx,point.Y+dy))&&f.Edges.Any(e=>e.X==point.X+dx&&e.Y==point.Y+dy&&e.Edge==edge&&e.Kind!="open"))Fail("furniture crosses a wall or opening.");
+    if(f.Edges.Any(e=>e.Kind is "door" or "open"&&(parts.Contains((e.X,e.Y))||parts.Contains(e.Edge=="n"?(e.X,e.Y-1):(e.X-1,e.Y)))))Fail("furniture blocks a door or passage.");
    }
    var blockingModels=new HashSet<int>();foreach(var model in f.StaticModels.Where(m=>m.Profile is "obstacle" or "destructible" or "container")){
-    if(!blockingModels.Add(model.Y*b.Width+model.X)||StairSpace(b,z,model.X,model.Y)||furnitureCells.Contains(model.Y*b.Width+model.X)||f.Edges.Any(e=>e.Kind is "door" or "open"&&(e.X==model.X&&e.Y==model.Y||(e.Edge=="n"?e.X==model.X&&e.Y-1==model.Y:e.X-1==model.X&&e.Y==model.Y))))Fail("блокирующая модель перекрывает другую модель, мебель, лестницу или проход.");
+    if(!blockingModels.Add(model.Y*b.Width+model.X)||StairSpace(b,z,model.X,model.Y)||furnitureCells.Contains(model.Y*b.Width+model.X)||f.Edges.Any(e=>e.Kind is "door" or "open"&&(e.X==model.X&&e.Y==model.Y||(e.Edge=="n"?e.X==model.X&&e.Y-1==model.Y:e.X-1==model.X&&e.Y==model.Y))))Fail("a blocking model overlaps another model, furniture, stairs, or a passage.");
    }
-   if(requireAccess&&z<d.Floors.Count-1&&!f.Objects.Any(o=>o.Kind=="stairs"))Fail($"на этаже {z+1} нет лестницы.");
-   foreach(var o in f.Objects.Where(o=>o.Kind!="stairs"))if(StairSpace(b,z,o.X,o.Y))Fail("мебель перекрывает лестницу.");
+   if(requireAccess&&z<d.Floors.Count-1&&!f.Objects.Any(o=>o.Kind=="stairs"))Fail($"floor {z+1} has no stairs.");
+   foreach(var o in f.Objects.Where(o=>o.Kind!="stairs"))if(StairSpace(b,z,o.X,o.Y))Fail("furniture blocks the stairs.");
    var stairCells=new HashSet<int>();foreach(var stair in f.Objects.Where(o=>o.Kind=="stairs"))for(var i=0;i<5;i++){
-    var x=stair.X+(stair.Direction=="w"?i:0);var y=stair.Y+(stair.Direction=="n"?i:0);if(!stairCells.Add(y*b.Width+x))Fail("лестницы пересекаются.");
-    if(i>0)foreach(var level in new[]{z,z+1})if(d.Floors[level].Edges.Any(e=>e.X==x&&e.Y==y&&e.Edge==stair.Direction&&e.Kind!="open"))Fail("лестница пересекает стену или проём. Оставьте свободный проход вдоль ступеней.");
+    var x=stair.X+(stair.Direction=="w"?i:0);var y=stair.Y+(stair.Direction=="n"?i:0);if(!stairCells.Add(y*b.Width+x))Fail("stairs overlap.");
+    if(i>0)foreach(var level in new[]{z,z+1})if(d.Floors[level].Edges.Any(e=>e.X==x&&e.Y==y&&e.Edge==stair.Direction&&e.Kind!="open"))Fail("stairs cross a wall or opening. Keep the passage along the steps clear.");
    }
   }
   if(requireAccess)BuildingAccess.Validate(b);

@@ -12,7 +12,7 @@ public static class PilnaTests
         });
         yield return ("real Pilna source imports reproducibly with majority of buildings",()=>{
             var source=File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(),"examples","Pilna","osm-source.json"));
-            var result=GeographicImporter.Import(source.TrimStart('\uFEFF'),MapGenerator.Generate(new(){Kind="blank",Size=2048,Name="Пильна"}),new(){South=55.5363,North=55.5781,West=45.8833,East=45.9422});
+            var result=GeographicImporter.Import(source.TrimStart('\uFEFF'),MapGenerator.Generate(new(){Kind="blank",Size=2048,Name="Pilna"}),new(){South=55.5363,North=55.5781,West=45.8833,East=45.9422});
             if(result.SourceBuildings!=1789||result.Project.Buildings.Count<1300||result.Project.Buildings.Count+result.SkippedBuildings!=result.SourceBuildings||result.Project.MetresPerTile is not >2 or not <3||result.Project.ImportSummary?.PlacedBuildings!=result.Project.Buildings.Count)throw new Exception("Pilna geometry, scale or report changed unexpectedly");
             ProjectValidator.Validate(result.Project);
         });

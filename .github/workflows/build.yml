@@ -9,6 +9,7 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: 'G:\'
@@ -32,6 +33,17 @@ jobs:
       - name: Publish Windows application
         shell: pwsh
         run: ./scripts/publish.ps1
+      - name: Install isolated browser check dependencies
+        shell: pwsh
+        run: |
+          . ./scripts/WorkspaceEnv.ps1
+          npm ci --prefix tools/BrowserSmoke --ignore-scripts
+          if ($LASTEXITCODE -ne 0) { throw 'Browser dependency installation failed.' }
+          node tools/BrowserSmoke/node_modules/playwright/cli.js install chromium
+          if ($LASTEXITCODE -ne 0) { throw 'Browser installation failed.' }
+      - name: Launch the published application and exercise its editor
+        shell: pwsh
+        run: ./scripts/verify-actions-startup.ps1
       - name: Verify all cells of the example mod
         shell: pwsh
         run: node scripts/verify-native-map.mjs
@@ -53,6 +65,23 @@ jobs:
       - name: Verify stitched world and live OSM examples
         shell: pwsh
         run: |
-          node scripts/verify-native-map.mjs examples/Worlds/Worlds-B42.zip
-          node scripts/verify-native-map.mjs examples/Worlds/Smolensk-small-B42.zip
-          node scripts/verify-native-map.mjs examples/Worlds/World-DEM-B42.zip
+          foreach ($archive in @('Worlds-B42.zip', 'Smolensk-small-B42.zip', 'World-DEM-B42.zip')) {
+            node scripts/verify-native-map.mjs (Join-Path 'examples/Worlds' $archive)
+            if ($LASTEXITCODE -ne 0) { throw "Native world verification failed: $archive" }
+          }
+      - name: Upload ready-to-run Windows application
+        uses: actions/upload-artifact@v7
+        with:
+          name: SimplePZMapmaker-win-x64
+          path: G:/artifacts/SimplePZMapmaker-*-win-x64.zip
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+      - name: Upload application startup evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Application-startup-check
+          path: G:/work/actions-smoke/
+          if-no-files-found: warn
+          retention-days: 14

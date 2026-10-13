@@ -7,7 +7,7 @@ using ModelContextProtocol.AspNetCore;
 var builder=WebApplication.CreateBuilder(args);
 builder.Logging.AddFilter("Microsoft.AspNetCore",LogLevel.Warning);
 var listenUrl=Environment.GetEnvironmentVariable("PZMAP_LISTEN_URL")??"http://127.0.0.1:48765";
-if(!Uri.TryCreate(listenUrl,UriKind.Absolute,out var listen)||listen.Scheme!="http"||listen.Host!="127.0.0.1"||listen.AbsolutePath!="/")throw new ArgumentException("Редактор слушает только локальный адрес127.0.0.1.");
+if(!Uri.TryCreate(listenUrl,UriKind.Absolute,out var listen)||listen.Scheme!="http"||listen.Host!="127.0.0.1"||listen.AbsolutePath!="/")throw new ArgumentException("The editor only listens on the local address 127.0.0.1.");
 builder.WebHost.UseUrls(listenUrl);
 builder.WebHost.ConfigureKestrel(o=>o.Limits.MaxRequestBodySize=128*1024*1024);
 builder.Services.ConfigureHttpJsonOptions(o=>{o.SerializerOptions.MaxDepth=48;});
@@ -28,7 +28,7 @@ var app=builder.Build();
 app.Use(async(context,next)=> {
     var host=context.Request.Host.Host;
     if(host is not ("127.0.0.1" or "localhost")){context.Response.StatusCode=403;return;}
-    if(context.Request.Method=="POST"&&(!context.Request.HasJsonContentType() || context.Request.Headers.TryGetValue("Origin",out var origin)&&origin.ToString()!=$"http://{context.Request.Host}")) {context.Response.StatusCode=403;await context.Response.WriteAsJsonAsync(new{error="Запрос должен поступать из локального редактора."});return;}
+    if(context.Request.Method=="POST"&&(!context.Request.HasJsonContentType() || context.Request.Headers.TryGetValue("Origin",out var origin)&&origin.ToString()!=$"http://{context.Request.Host}")) {context.Response.StatusCode=403;await context.Response.WriteAsJsonAsync(new{error="The request must come from the local editor."});return;}
     context.Response.Headers["X-Content-Type-Options"]="nosniff";
     context.Response.Headers["Referrer-Policy"]="no-referrer";
     context.Response.Headers["Content-Security-Policy"]="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; frame-src https://www.openstreetmap.org; object-src 'none'; base-uri 'none'; frame-ancestors 'none'";
@@ -36,11 +36,11 @@ app.Use(async(context,next)=> {
     catch(AgentRevisionConflict e){if(context.Response.HasStarted)throw;context.Response.StatusCode=409;await context.Response.WriteAsJsonAsync(new{error=e.Message,revision=e.Current});}
     catch(Exception e) when(e is ArgumentException or JsonException or InvalidOperationException or BadHttpRequestException or KeyNotFoundException or FormatException) {
         if(context.Response.HasStarted)throw;
-        context.Response.StatusCode=400;await context.Response.WriteAsJsonAsync(new{error=e is ArgumentException?e.Message:"Не удалось прочитать данные. Проверьте проект или файл геоданных."});
+        context.Response.StatusCode=400;await context.Response.WriteAsJsonAsync(new{error=e is ArgumentException?e.Message:"Could not read the data. Check the project or geographic data file."});
     }
     catch(Exception e) when(e is HttpRequestException or OperationCanceledException) {
         if(context.RequestAborted.IsCancellationRequested)return;
-        context.Response.StatusCode=502;await context.Response.WriteAsJsonAsync(new{error=e is HttpRequestException?e.Message:"Сервис не ответил вовремя. Уменьшите участок или повторите позже."});
+        context.Response.StatusCode=502;await context.Response.WriteAsJsonAsync(new{error=e is HttpRequestException?e.Message:"The service did not respond in time. Reduce the area or retry later."});
     }
 });
 app.UseDefaultFiles();app.UseStaticFiles();
@@ -60,20 +60,20 @@ app.MapGet("/api/building/presets",()=>HousingTemplates.Catalog);
 app.MapPost("/api/building/presets/{id}",(string id,GameAssetCatalog assets)=>{var b=HousingTemplates.Create(id);AssetRules.Building(b,assets);return b;});
 app.MapPost("/api/preview/cell",(GameAssetCatalog assets,StaticModelCatalog models,CellPreviewRequest request)=>{if(request.Project.Spawns.Count==0&&!request.Project.WorldSection)request.Project.Spawns.Add(MapGenerator.FindSafeSpawn(request.Project));AssetRules.Project(request.Project,assets);models.Validate(request.Project);return NativeScene.Cell(request.Project,request.X,request.Y,request.Width,request.Height,request.Level,request.X,request.Y,request.CellX,request.CellY);});
 app.MapPost("/api/preview/appearance",(GameAssetCatalog assets,AppearancePreviewRequest request)=>{AppearanceDesigner.Apply(request.Project,request.SurfaceTheme,request.Region,request.StyleBuildings);AssetRules.Project(request.Project,assets);return NativeScene.Cell(request.Project,request.X,request.Y,48,48,request.Level,request.X,request.Y,request.CellX,request.CellY);});
-app.MapPost("/api/styles/apply",(GameAssetCatalog assets,StyleApplyRequest request)=>{if(!assets.Ready)throw new ArgumentException("Для оформления найдите установку игры в разделе «Ресурсы игры».");var changed=AppearanceDesigner.Apply(request.Project,request.SurfaceTheme,request.Region,request.StyleBuildings);AssetRules.Project(request.Project,assets);return new{project=request.Project,changed};});
-app.MapGet("/api/environment",(GameAssetCatalog assets)=>new {version="0.7.0",runtime=System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,selfContained=File.Exists(Path.Combine(AppContext.BaseDirectory,"coreclr.dll")),target="Project Zomboid Build 42",gameFound=assets.Ready,gamePath=assets.GamePath,cellSize=256,chunkSize=8,workspace});
+app.MapPost("/api/styles/apply",(GameAssetCatalog assets,StyleApplyRequest request)=>{if(!assets.Ready)throw new ArgumentException("To apply appearance styles, locate the game installation under Game resources.");var changed=AppearanceDesigner.Apply(request.Project,request.SurfaceTheme,request.Region,request.StyleBuildings);AssetRules.Project(request.Project,assets);return new{project=request.Project,changed};});
+app.MapGet("/api/environment",(GameAssetCatalog assets)=>new {version="0.7.1",runtime=System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,selfContained=File.Exists(Path.Combine(AppContext.BaseDirectory,"coreclr.dll")),target="Project Zomboid Build 42",gameFound=assets.Ready,gamePath=assets.GamePath,cellSize=256,chunkSize=8,workspace});
 app.MapGet("/api/examples/pilna",async(CancellationToken token)=>{
     var file=Path.Combine(workspace,"examples","Pilna","pilna.pzmap.json");
     if(!File.Exists(file))file=Path.Combine(AppContext.BaseDirectory,"examples","Pilna","pilna.pzmap.json");
-    if(!File.Exists(file))return Results.NotFound(new{error="Пример Пильны отсутствует. Пересоберите приложение с папкой examples/Pilna."});
-    if(new FileInfo(file).Length>48_000_000)throw new ArgumentException("Пример карты слишком большой.");
-    var p=JsonSerializer.Deserialize<MapProject>(await File.ReadAllTextAsync(file,token),NativeMapExporter.JsonOptions)??throw new ArgumentException("Пример карты повреждён.");
+    if(!File.Exists(file))return Results.NotFound(new{error="The Pilna example is missing. Rebuild the application with the examples/Pilna folder."});
+    if(new FileInfo(file).Length>48_000_000)throw new ArgumentException("The example map is too large.");
+    var p=JsonSerializer.Deserialize<MapProject>(await File.ReadAllTextAsync(file,token),NativeMapExporter.JsonOptions)??throw new ArgumentException("Invalid example map.");
     ProjectValidator.Validate(p);return Results.Ok(p);
 });
 app.MapPost("/api/generate",(GameAssetCatalog assets,GenerationOptions options)=>{if(!assets.Ready)options.SurfaceTheme="legacy";return MapGenerator.Generate(options);});
 app.MapPost("/api/import/geojson",(GeoImportRequest request,CancellationToken token)=>GeographicImporter.Import(request.Json,request.Project,request.Bounds,token,request.PreserveEdits));
 app.MapPost("/api/import/osm",async(OsmImportRequest request,OsmClient client,CancellationToken token)=>{ProjectValidator.Validate(request.Project);var download=request.UseRegionalExtract?await client.FetchExtractDetailed(request.Bounds,token):await client.FetchDetailed(request.Bounds,token);var result=GeographicImporter.Import(download.Data,request.Project,request.Bounds,token,request.PreserveEdits);result.Warnings.AddRange(download.Warnings);if(result.Project.ImportSummary is {} summary){summary.Notes.InsertRange(0,download.Warnings);if(summary.Notes.Count>20)summary.Notes.RemoveRange(20,summary.Notes.Count-20);}return result;});
-app.MapPost("/api/building/design",(GameAssetCatalog assets,BuildingDesignRequest request)=>{var b=request.Building;if(b is null)throw new ArgumentException("Не задано здание.");b.Design=BuildingDesigner.Generate(b,request.Levels,request.Seed,request.Shape,request.Basements);VisualStyles.Apply(b,request.Style=="auto"&&!assets.Ready?"":request.Style);AssetRules.Building(b,assets);return b;});
+app.MapPost("/api/building/design",(GameAssetCatalog assets,BuildingDesignRequest request)=>{var b=request.Building;if(b is null)throw new ArgumentException("No building specified.");b.Design=BuildingDesigner.Generate(b,request.Levels,request.Seed,request.Shape,request.Basements);VisualStyles.Apply(b,request.Style=="auto"&&!assets.Ready?"":request.Style);AssetRules.Building(b,assets);return b;});
 app.MapPost("/api/building/validate",(GameAssetCatalog assets,StaticModelCatalog models,Building b)=>{AssetRules.Building(b,assets);foreach(var m in b.Design?.Floors.SelectMany(f=>f.StaticModels)??[])models.Validate(m);return Results.Ok(new{valid=true,building=b});});
 app.MapPost("/api/buildings/regenerate",(BuildingRegenerateRequest request)=>{var changed=BuildingDesigner.Regenerate(request.Project,request.Id);return Results.Ok(new{project=request.Project,changed,skipped=request.Project.Buildings.Count-changed});});
 app.MapPost("/api/search",async(SearchRequest request,OsmClient client,CancellationToken token)=>await client.Search(request.Query,token));

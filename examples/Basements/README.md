@@ -1,9 +1,9 @@
-# Подвалы -1…-16
+# Basements −1 to −16
 
-Демонстрация полного диапазона: один корпус с16 наземными этажами (игровые z=0…15) и16 подвалами (z=-16…-1), соединёнными лестницами. Это искусственный пример возможностей редактора, без реальных геоданных.
+Full vertical-range demonstration: one building with 16 above-ground levels(game z=0…15) and 16 basements(z=−16…−1), linked by stairs. This is a synthetic editor example without real geography.
 
-- basements.pzmap.json: открыть через «Открыть» в редакторе0.3.1+; проект формата3.
-- Basements-B42.zip: экспорт для Build42; инструкция установки находится внутри. Проверяйте на отдельном новом мире.
-- В мастерской «Копировать вниз» добавляет новый нижний подвал, «Удалить нижний» удаляет его. Наземный этаж z=0 остаётся. Выбирайте отрицательный уровень на карте для просмотра подземного слоя.
+- Open `basements.pzmap.json` with **Open** in editor 0.3.1 or later; it uses project format 3.
+- `Basements-B42.zip` is the Build 42 export; follow its installation file and use a separate new world.
+- Copy downward in the workshop to add a new lowest basement, or remove the lowest basement. Ground z=0 remains. Choose a negative map level to inspect underground content.
 
-Независимый читатель и загрузчики установленной игры прочитали1 ячейку/1024чанка/160комнат,80 подземных комнат до z=-16 и48 подземных лестничных спрайтов. Полное прохождение персонажем и визуальная правильность ещё не проверены. Игровые ресурсы не включены; экспорт содержит идентификаторы тайлов.
+The independent reader and installed-game loaders accepted one cell, 1,024 chunks, 160 rooms, 80 underground rooms down to z=−16 and 48 underground stair sprites. Full character traversal and appearance remain unverified. Game assets are excluded; export contains tile identifiers.

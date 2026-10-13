@@ -6,7 +6,7 @@ public sealed class MapProject
     private int version=4;
     public int Version { get=>version==6&&(StaticModels?.Any(m=>m?.Profile!="pickup")==true||(Buildings??[]).Concat(BuildingLibrary??[]).Any(b=>b?.Design?.Floors?.Any(f=>f?.StaticModels?.Any(m=>m?.Profile!="pickup")==true)==true))?7:version;set=>version=value; }
     public bool WorldSection {get;set;}
-    public string Name { get; set; }="Новая карта";
+    public string Name { get; set; }="New map";
     public int Width { get; set; }=256;
     public int Height { get; set; }=256;
     public int Seed { get; set; }=42;
@@ -46,7 +46,7 @@ public sealed class Building
     public int Y { get; set; }
     public int Width { get; set; }=12;
     public int Height { get; set; }=10;
-    public string Name { get; set; }="Дом";
+    public string Name { get; set; }="House";
     public BuildingDesign? Design {get;set;}
     public string? SourceId {get;set;}
     public string? SourceKind {get;set;}
@@ -115,6 +115,6 @@ public sealed class GenerationOptions
     public int ForestDensity { get; set; }=35;
     public int BuildingDensity { get; set; }=55;
     public int ZombieDensity { get; set; }=90;
-    public string Name { get; set; }="Новая карта";
+    public string Name { get; set; }="New map";
     public string SurfaceTheme {get;set;}="legacy";
 }

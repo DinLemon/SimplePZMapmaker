@@ -3,7 +3,7 @@ public static class MapGenerator
 {
     public static MapProject Generate(GenerationOptions o)
     {
-        if(o.Size is <256 or >2048 || o.Size%256!=0 || o.Kind is not ("town" or "wilderness" or "blank") || o.ForestDensity is <0 or >100 || o.BuildingDensity is <0 or >100 || o.ZombieDensity is <0 or >255) throw new ArgumentException("Проверьте размер, тип карты и плотность объектов.");
+        if(o.Size is <256 or >2048 || o.Size%256!=0 || o.Kind is not ("town" or "wilderness" or "blank") || o.ForestDensity is <0 or >100 || o.BuildingDensity is <0 or >100 || o.ZombieDensity is <0 or >255) throw new ArgumentException("Check the map size, type, and object density.");
         var n=o.Size; var p=new MapProject {Name=o.Name,Width=n,Height=n,Seed=o.Seed,SurfaceTheme=o.SurfaceTheme,Terrain=new Terrain[n*n],Zombies=new int[n*n/64]};
         var random=new Random(o.Seed);
         if(o.Kind!="blank")
@@ -48,6 +48,6 @@ public static class MapGenerator
         for(var y=p.Height/2;y<p.Height;y++) for(var x=p.Width/2;x<p.Width;x++)
             if(p.Terrain[y*p.Width+x] is Terrain.Grass or Terrain.Road or Terrain.Pavement && !decor.Contains(y*p.Width+x)&&!p.Buildings.Any(b=>x>=b.X-1&&x<=b.X+b.Width+1&&y>=b.Y-1&&y<=b.Y+b.Height+1)) return new(){X=x,Y=y};
         for(var y=0;y<p.Height;y++) for(var x=0;x<p.Width;x++) if(p.Terrain[y*p.Width+x]!=Terrain.Water &&!decor.Contains(y*p.Width+x)&&!p.Buildings.Any(b=>x>=b.X-1&&x<=b.X+b.Width+1&&y>=b.Y-1&&y<=b.Y+b.Height+1)) return new(){X=x,Y=y};
-        throw new ArgumentException("На карте нет безопасной земли для появления.");
+        throw new ArgumentException("The map has no safe land for spawning.");
     }
 }

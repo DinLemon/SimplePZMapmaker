@@ -1,0 +1,6 @@
+{
+  "name": "simple-pz-mapmaker-browser-smoke",
+  "private": true,
+  "type": "module",
+  "dependencies": { "playwright": "1.64.0" }
+}

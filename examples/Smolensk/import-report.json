@@ -1,8 +1,8 @@
 {
   "ui": {
     "status": "PASS live Smolensk city search/source selection/regional import/UI/save/native ZIP",
-    "name": "Смоленск — центр 1,5 км",
-    "city": "Смоленск, Смоленская область, Центральный федеральный округ, Россия",
+    "name": "Smolensk — 1.5 km city-center area",
+    "city": "Smolensk, Smolensk Oblast, Central Federal District, Russia",
     "bounds": {
       "south": 54.77223276618757,
       "north": 54.78570743381243,
@@ -15,7 +15,7 @@
     "sourceBuildings": 772,
     "placed": 352,
     "source": [
-      "Источник — ежедневная региональная выгрузка OSM France, дата данных: 2026-10-11T00:29:05.0000000+00:00. Использован локальный кэш выгрузки."
+      "Source: daily OSM France regional extract; data date: 2026-10-11T00:29:05.0000000+00:00. Used the locally cached extract."
     ]
   },
   "summary": {
@@ -23,18 +23,18 @@
     "sourceBuildings": 772,
     "placedBuildings": 352,
     "skipReasons": {
-      "Вода или дорога": 206,
-      "Слишком большой контур": 24,
-      "Граница ячейки": 88,
-      "Пересечение зданий": 79,
-      "За границей карты": 23
+      "Water or road": 206,
+      "Outline too large": 24,
+      "Cell boundary": 88,
+      "Building overlap": 79,
+      "Outside the map": 23
     },
     "notes": [
-      "Источник — ежедневная региональная выгрузка OSM France, дата данных: 2026-10-11T00:29:05.0000000+00:00. Использован локальный кэш выгрузки.",
-      "Пропущено неполных или вложенных контуров отношений в региональном источнике: 199 (в том числе вне выбранного участка). Они не выдаются за точные водные/земельные полигоны.",
-      "Пропущено объектов с отсутствующими узлами в региональном источнике: 90 (в том числе вне выбранного участка). Неполная геометрия не используется.",
-      "Этажность из OSM: 184; оценка по высоте: 0; предположена: 168.",
-      "Необычные формы крыши адаптированы для 5 контуров; исходный тег сохранён в свойствах здания."
+      "Source: daily OSM France regional extract; data date: 2026-10-11T00:29:05.0000000+00:00. Used the locally cached extract.",
+      "Skipped 199 incomplete or nested relation outlines in the regional source, including those outside the selected area. They are not treated as accurate water or land polygons.",
+      "Skipped 90 objects with missing nodes in the regional source, including those outside the selected area. Incomplete geometry is not used.",
+      "Floor counts from OSM: 184; inferred from height: 0; estimated: 168.",
+      "Unusual roof shapes adapted for 5 outlines; original tags are preserved in building metadata."
     ]
   }
 }

@@ -16,11 +16,11 @@ public static class NativeScene
  public static Scene Cell(MapProject p,int x,int y,int width,int height,int? level=null,int offsetX=0,int offsetY=0,int cellX=0,int cellY=0){
   return Collect(p,x,y,width,height,level,offsetX,offsetY,cellX,cellY,true);
  }
- public static Scene WorldCell(WorldProject world,string memberId,int x,int y,int? level=0,int cellX=0,int cellY=0){WorldAssembler.Validate(world);var member=world.Maps.SingleOrDefault(m=>m.Id==memberId)??throw new ArgumentException("Участок мира не найден.");return Collect(WorldAssembler.ProjectSection(world,member),x,y,48,48,level,x,y,cellX,cellY,false);}
+ public static Scene WorldCell(WorldProject world,string memberId,int x,int y,int? level=0,int cellX=0,int cellY=0){WorldAssembler.Validate(world);var member=world.Maps.SingleOrDefault(m=>m.Id==memberId)??throw new ArgumentException("World section not found.");return Collect(WorldAssembler.ProjectSection(world,member),x,y,48,48,level,x,y,cellX,cellY,false);}
  private static Scene Collect(MapProject p,int x,int y,int width,int height,int? level,int offsetX,int offsetY,int cellX,int cellY,bool validateProject){
-  if(cellX<0||cellY<0||cellX>=p.Width/256||cellY>=p.Height/256||x<0||y<0||width is <1 or >96||height is <1 or >96||x+width>256||y+height>256||level is < -16 or >31)throw new ArgumentException("Предпросмотр: участок до 96×96 в пределах одной ячейки.");
+  if(cellX<0||cellY<0||cellX>=p.Width/256||cellY>=p.Height/256||x<0||y<0||width is <1 or >96||height is <1 or >96||x+width>256||y+height>256||level is < -16 or >31)throw new ArgumentException("Preview: up to 96 x 96 tiles inside one cell.");
   if(p.Spawns.Count==0&&!p.WorldSection)p.Spawns.Add(MapGenerator.FindSafeSpawn(p));if(validateProject)ProjectValidator.Validate(p);var composer=new TileComposer(p,cellX,cellY);var min=level??composer.MinLevel;var max=level??composer.MaxLevel;var sprites=new List<Sprite>();
-  for(var z=min;z<=max;z++)for(var yy=y;yy<y+height;yy++)for(var xx=x;xx<x+width;xx++)foreach(var tile in composer.At(xx,yy,z)){if(sprites.Count>=250000)throw new ArgumentException("Слишком много спрайтов: выберите один уровень или меньший участок.");sprites.Add(new(xx-offsetX,yy-offsetY,z,tile));}
+  for(var z=min;z<=max;z++)for(var yy=y;yy<y+height;yy++)for(var xx=x;xx<x+width;xx++)foreach(var tile in composer.At(xx,yy,z)){if(sprites.Count>=250000)throw new ArgumentException("Too many sprites: select one level or a smaller area.");sprites.Add(new(xx-offsetX,yy-offsetY,z,tile));}
   return new(min,max,width,height,sprites);
  }
 }

@@ -6,7 +6,7 @@ public sealed class WorldGeoReference
  public double MetresPerTile {get;set;}=1;
  public int OriginCellX {get;set;}=100;
  public int OriginCellY {get;set;}=100;
- public static void Validate(WorldGeoReference reference){if(reference is null)throw new ArgumentException("Географическая привязка мира не задана.");ProjectValidator.ValidateBounds(reference.Bounds);if(!double.IsFinite(reference.MetresPerTile)||reference.MetresPerTile is <.5 or >20||reference.OriginCellX is <0 or >1000||reference.OriginCellY is <0 or >1000)throw new ArgumentException("Географическая привязка мира повреждена: масштаб0,5–20метров на клетку.");}
+ public static void Validate(WorldGeoReference reference){if(reference is null)throw new ArgumentException("The world has no geographic reference.");ProjectValidator.ValidateBounds(reference.Bounds);if(!double.IsFinite(reference.MetresPerTile)||reference.MetresPerTile is <.5 or >20||reference.OriginCellX is <0 or >1000||reference.OriginCellY is <0 or >1000)throw new ArgumentException("Invalid world geographic reference: scale must be 0.5-20 meters per tile.");}
 }
 public sealed class GeographicProjection
 {

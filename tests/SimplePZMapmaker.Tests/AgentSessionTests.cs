@@ -5,9 +5,9 @@ static class AgentSessionTests {
   yield return ("agent session revisions reject stale and preserve manual changes",()=>WithStore((store,_)=>{
    var created=store.Create(MapGenerator.Generate(new(){Kind="blank"}));
    Check(store.Status(created.Token.ToUpperInvariant()).Revision==1,"Initial aliased status wrong");
-   var updated=store.Mutate(created.Token,created.Revision,p=>p.Name="Ручное имя","browser");
-   try{store.Mutate(created.Token,created.Revision,p=>p.Name="Устаревший агент","agent");throw new Exception("Stale mutation accepted");}catch(AgentRevisionConflict){}
-   Check(store.Read(created.Token).Project.Name=="Ручное имя"&&updated.Revision==2,"Manual state lost");
+   var updated=store.Mutate(created.Token,created.Revision,p=>p.Name="Manually edited name","browser");
+   try{store.Mutate(created.Token,created.Revision,p=>p.Name="Stale agent","agent");throw new Exception("Stale mutation accepted");}catch(AgentRevisionConflict){}
+   Check(store.Read(created.Token).Project.Name=="Manually edited name"&&updated.Revision==2,"Manual state lost");
    Check(store.Status(created.Token.ToUpperInvariant()).Revision==2,"Aliased token cached stale revision");store.Close(created.Token.ToUpperInvariant());try{store.Status(created.Token);throw new Exception("Closed alias stayed active");}catch(ArgumentException){}
   }));
   yield return ("agent invalid mutation and returned clone cannot alter stored project",()=>WithStore((store,_)=>{

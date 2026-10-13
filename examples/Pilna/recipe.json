@@ -1,10 +1,15 @@
 {
-  "name": "Пильна",
+  "name": "Pilna",
   "size": 2048,
   "seed": 42,
   "worldX": 100,
   "worldY": 100,
-  "bounds": { "south": 55.5363, "north": 55.5781, "west": 45.8833, "east": 45.9422 },
+  "bounds": {
+    "south": 55.5363,
+    "north": 55.5781,
+    "west": 45.8833,
+    "east": 45.9422
+  },
   "source": "https://overpass-api.de/api/interpreter",
   "sourceFile": "osm-source.json",
   "sourceDate": "2026-10-12",

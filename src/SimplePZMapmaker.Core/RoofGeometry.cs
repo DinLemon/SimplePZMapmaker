@@ -5,7 +5,7 @@ public static class RoofGeometry
  public readonly record struct RoofPiece(int Depth,int TileIndex);
  public static RoofPiece Piece(Building building,BuildingFloor floor,int x,int y){
   bool Covered(int xx,int yy){var code=BuildingDesigner.Cell(building,floor,xx,yy);return code!='.'&&floor.Rooms[code.ToString()]!="balcony";}
-  if(!Covered(x,y))throw new ArgumentException("Крыша ставится только над помещением.");
+  if(!Covered(x,y))throw new ArgumentException("A roof can only be placed above an indoor tile.");
   var west=0;while(Covered(x-west-1,y))west++;var east=0;while(Covered(x+east+1,y))east++;var north=0;while(Covered(x,y-north-1))north++;var south=0;while(Covered(x,y+south+1))south++;
   if(building.Design!.Roof=="hipped"){
    var depth=Math.Min(Math.Min(west,east),Math.Min(north,south));var h=depth%6;var w=west==depth;var e=east==depth;var n=north==depth;var s=south==depth;

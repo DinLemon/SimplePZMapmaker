@@ -11,17 +11,17 @@ public static partial class HousingTemplates
  private const string PanelReference="https://photobuildings.com/projects/622/";
  private const string TowerReference="https://photobuildings.com/projects/164/?lang=ru";
  public static IReadOnlyList<Descriptor> Catalog {get;}=Array.AsReadOnly(new Descriptor[]{
-  new("village-izba","Деревенская изба с сенями","village","Деревянный дом: жилая изба, кухня, спальня, сени, кладовая, крыльцо и погреб. Двускатная крыша.",16,14,1,1,Array.AsReadOnly(new[]{IzbaReference,MuseumReference})),
-  new("village-veranda","Сельский дом с верандой","village","Дом с боковой деревянной верандой и выступающим крыльцом; кухня, спальня и гостиная образуют отдельный жилой объём.",20,16,1,0,Array.AsReadOnly(new[]{MuseumReference,IzbaReference})),
-  new("settlement-two-storey","Поселковый двухэтажный дом","settlement","Четыре квартиры на этаже вокруг центральной лестницы; отдельные прихожие, кухни, спальни и санузлы. Восемь квартир всего.",30,24,2,0,Array.AsReadOnly(new[]{SettlementReference})),
-  new("urban-brick-five","Кирпичная пятиэтажка","urban","Два независимых подъезда, по четыре двухкомнатные квартиры на площадке, регулярные окна и балконы. Авторская адаптация кирпичного секционного жилья.",48,26,5,0,Array.AsReadOnly(new[]{BrickReference})),
-  new("urban-panel-five","Панельная пятиэтажка","urban","Два независимых подъезда, компактные однокомнатные квартиры с прихожими, серые фасады, балконы и плоская крыша. Другая планировка секций.",48,24,5,0,Array.AsReadOnly(new[]{PanelReference})),
-  new("urban-panel-nine","Панельная девятиэтажная башня","urban","Один лестничный узел, четыре квартиры на этаже, подсобное помещение, балконы и плоская крыша. Лифт не моделируется.",32,30,9,0,Array.AsReadOnly(new[]{TowerReference,PanelReference}))
+  new("village-izba","Village izba with entrance hall","village","A wooden house with a living room, kitchen, bedroom, entrance hall, pantry, porch, and cellar. Gabled roof.",16,14,1,1,Array.AsReadOnly(new[]{IzbaReference,MuseumReference})),
+  new("village-veranda","Rural house with veranda","village","A house with a wooden side veranda and projecting porch; the kitchen, bedroom, and living room form a separate residential volume.",20,16,1,0,Array.AsReadOnly(new[]{MuseumReference,IzbaReference})),
+  new("settlement-two-storey","Two-story village house","settlement","Four apartments per floor around central stairs; separate entrance halls, kitchens, bedrooms, and bathrooms. Eight apartments in total.",30,24,2,0,Array.AsReadOnly(new[]{SettlementReference})),
+  new("urban-brick-five","Five-story brick apartment block","urban","Two independent entrances, four two-room apartments per landing, regular windows, and balconies. An original adaptation of a sectional brick apartment building.",48,26,5,0,Array.AsReadOnly(new[]{BrickReference})),
+  new("urban-panel-five","Five-story panel apartment block","urban","Two independent entrances, compact studio apartments with entrance halls, gray facades, balconies, and a flat roof. An alternative section layout.",48,24,5,0,Array.AsReadOnly(new[]{PanelReference})),
+  new("urban-panel-nine","Nine-story panel apartment tower","urban","One stair core, four apartments per floor, a utility room, balconies, and a flat roof. The elevator is not modeled.",32,30,9,0,Array.AsReadOnly(new[]{TowerReference,PanelReference}))
  }.Concat(AdditionalDescriptors()).Concat(RegionalDescriptors()).ToArray());
 
  public static Building Create(string id)
  {
-  var descriptor=Catalog.SingleOrDefault(d=>d.Id==id)??throw new ArgumentException("Неизвестный готовый шаблон здания.",nameof(id));
+  var descriptor=Catalog.SingleOrDefault(d=>d.Id==id)??throw new ArgumentException("Unknown building template.",nameof(id));
   var b=new Building{X=8,Y=8,Width=descriptor.Width,Height=descriptor.Height,Name=descriptor.Name,Kind=descriptor.Category=="village"?"house":"apartments",Modified=true,LevelsOrigin="manual",SourceKind="original-housing-template",Attribution=["Original housing layout by SimplePZMapmaker; architectural adaptation, not a replica of a standard project.",..descriptor.References]};
   b.Design=new(){MinLevel=-descriptor.Basements,Shape=descriptor.Category=="village"?"custom":"rect",Style=id switch{"village-izba"=>"cottage","village-veranda"=>"modern","urban-panel-five" or "urban-panel-nine"=>"modern",_=>"brick"},Roof=id is "village-izba" or "settlement-two-storey"?"gabled":id=="village-veranda"?"shed":"flat"};
   b.Design.Material=VisualStyles.All[b.Design.Style].Material;
@@ -142,9 +142,9 @@ public static partial class HousingTemplates
  {
   private readonly Building building;private readonly int level;private readonly char[] cells;private readonly BuildingFloor floor=new();private readonly List<(char A,char B)> joins=[];private readonly List<(int X,int Y,string Edge)> entrances=[];
   internal Plan(Building b,int z){building=b;level=z;cells=Enumerable.Repeat('.',b.Width*b.Height).ToArray();}
-  internal char Code(string name){if(floor.Rooms.Count==35)throw new InvalidOperationException("Шаблон превышает 35 кодов комнат.");var code="0123456789abcdefghijklmnopqrstuvwxyz"[floor.Rooms.Count];floor.Rooms.Add(code.ToString(),name);return code;}
+  internal char Code(string name){if(floor.Rooms.Count==35)throw new InvalidOperationException("The template exceeds 35 room codes.");var code="0123456789abcdefghijklmnopqrstuvwxyz"[floor.Rooms.Count];floor.Rooms.Add(code.ToString(),name);return code;}
   internal char Room(string name,int x,int y,int w,int h,bool replace=false){var code=Code(name);Fill(code,x,y,w,h,replace);return code;}
-  internal void Fill(char code,int x,int y,int w,int h,bool replace=false){for(var yy=y;yy<y+h;yy++)for(var xx=x;xx<x+w;xx++){var i=yy*building.Width+xx;if(!replace&&cells[i]!='.')throw new InvalidOperationException("Пересечение комнат шаблона.");cells[i]=code;}}
+  internal void Fill(char code,int x,int y,int w,int h,bool replace=false){for(var yy=y;yy<y+h;yy++)for(var xx=x;xx<x+w;xx++){var i=yy*building.Width+xx;if(!replace&&cells[i]!='.')throw new InvalidOperationException("Template rooms overlap.");cells[i]=code;}}
   internal void Join(char a,char b)=>joins.Add((a,b));
   internal void Entrance(int x,int y,string edge)=>entrances.Add((x,y,edge));
   internal void Stairs(int x,int y,string direction="n")=>floor.Objects.Add(new(){Kind="stairs",X=x,Y=y,Direction=direction});
@@ -156,7 +156,7 @@ public static partial class HousingTemplates
    foreach(var (a,b) in joins){
     var candidates=floor.Edges.Where(e=>{var first=BuildingDesigner.Cell(building,floor,e.X,e.Y);var second=e.Edge=="n"?BuildingDesigner.Cell(building,floor,e.X,e.Y-1):BuildingDesigner.Cell(building,floor,e.X-1,e.Y);return first==a&&second==b||first==b&&second==a;}).ToArray();
     // Each apartment has its own room code, so its balcony adjacency selects only that apartment's door.
-    if(candidates.Length==0)throw new InvalidOperationException($"Нет общей стены комнат {a}/{b}.");
+    if(candidates.Length==0)throw new InvalidOperationException($"Rooms {a}/{b} have no shared wall.");
     var chosen=candidates[candidates.Length/2];chosen.Kind="door";
    }
    foreach(var entrance in entrances){var e=floor.Edges.Single(e=>e.X==entrance.X&&e.Y==entrance.Y&&e.Edge==entrance.Edge);e.Kind="door";}

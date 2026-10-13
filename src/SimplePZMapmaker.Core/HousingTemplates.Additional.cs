@@ -5,12 +5,12 @@ public static partial class HousingTemplates
  private const string ClassicReference="https://www.culture.ru/materials/258275/arkhitektura-xx-veka-ot-moderna-do-formalizma";
  private const string CornerReference="https://photobuildings.com/projects/2228/";
  private static IEnumerable<Descriptor> AdditionalDescriptors()=>[
-  new("village-barn","Сельский амбар с навесом","village","Хозяйственная постройка: зерновой зал, кладовая, мастерская и открытая площадка под навесом. Авторская планировка по образцам русского деревянного хозяйства.",24,18,1,0,[FarmReference]),
-  new("village-workshop","Сельский гараж и мастерская","village","Небольшая пристройка с широким рабочим залом, кладовой и кабинетом. Односкатная крыша; самостоятельный вход.",18,14,1,0,[FarmReference]),
-  new("settlement-shop","Поселковый магазин","settlement","Торговый зал, кабинет, кладовая, задний склад и санузел. Один этаж; планировка магазина создана для игры, без копирования типового проекта.",24,20,1,0,[SettlementReference]),
-  new("settlement-school","Поселковая двухэтажная школа","settlement","Два этажа с четырьмя классами, учительской, санузлами и подсобными комнатами вокруг центрального коридора и лестницы. Авторская адаптация общественного здания.",30,32,2,0,[ClassicReference]),
-  new("urban-classic-three","Кирпичный трёхэтажный дом","urban","Компактный дом с двумя просторными квартирами на этаже и центральной лестницей. Кирпичные стены и скатная крыша по мотивам городского жилья середины XX века.",36,28,3,0,[ClassicReference]),
-  new("urban-corner-four","Г-образный городской дом","urban","Четыре этажа, три квартиры на уровне и общий лестничный узел. Два крыла образуют двор; авторская адаптация углового кирпичного корпуса.",40,36,4,0,[CornerReference,ClassicReference])
+  new("village-barn","Rural barn with canopy","village","A utility building with a grain hall, pantry, workshop, and open area under a canopy. An original layout inspired by Russian wooden farm buildings.",24,18,1,0,[FarmReference]),
+  new("village-workshop","Rural garage and workshop","village","A small annex with a spacious workshop, storage room, and office. Shed roof and a separate entrance.",18,14,1,0,[FarmReference]),
+  new("settlement-shop","Village shop","settlement","A sales floor, office, pantry, rear storage room, and bathroom. One floor; the shop layout was designed for the game without copying a standard plan.",24,20,1,0,[SettlementReference]),
+  new("settlement-school","Two-story village school","settlement","Two floors with four classrooms, a staff room, bathrooms, and utility rooms around a central corridor and stairs. An original adaptation of a public building.",30,32,2,0,[ClassicReference]),
+  new("urban-classic-three","Three-story brick apartment block","urban","A compact building with two spacious apartments per floor and central stairs. Brick walls and a pitched roof inspired by mid-20th-century urban housing.",36,28,3,0,[ClassicReference]),
+  new("urban-corner-four","L-shaped urban house","urban","Four floors, three apartments per level, and a shared stair core. Two wings form a courtyard; an original adaptation of a corner brick building.",40,36,4,0,[CornerReference,ClassicReference])
  ];
  private static void AdditionalPlan(Building b,string id)
  {

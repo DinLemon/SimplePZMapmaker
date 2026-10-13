@@ -1,7 +1,7 @@
-# Игровые ресурсы — пример0.4.0
+# Game-resource example (0.4.0)
 
-Откройте `resources.pzmap.json` через «Открыть проект». Шесть наборов оформления, два наземных этажа и подвал на каждом из шести зданий. У первого здания явно выбраны пол и одна стена; снаружи стоят полная кровать и покрытие дороги. В лесу используются разные игровые деревья.
+Open `resources.pzmap.json` with **Open**. Six appearance styles, two above-ground levels and one basement per building. The first building has an explicit floor and wall choice; outside are a complete bed and road surface. The forest uses different game tree resources.
 
-`Resources-B42.zip` — готовый мод Build42. Используйте INSTALL.txt внутри архива; включайте отдельно от Пильны/подвалов, потому что примеры занимают одинаковые мировые координаты100,100.
+`Resources-B42.zip` is a ready Build 42 mod. Follow its `INSTALL.txt`; enable separately from Pilna/basements because examples overlap native origin 100,100.
 
-Экспорт содержит ссылки на122 тайла; текстуры/игровые классы в него не включены. Их наличие и загрузка84 комнат/1024 чанков проверены установленной игрой. Прохождение персонажем и освещение ещё не проверялись.
+Export references 122 tile IDs without bundling textures/game classes. The installed game verified their presence and loaded 84 rooms/1,024 chunks. Character traversal and lighting remain untested.

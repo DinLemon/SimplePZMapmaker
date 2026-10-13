@@ -10,6 +10,6 @@ public static class WorldTests
   yield return ("world move rejects overlap without changing source projects",()=>{var w=Fixture(2);var before=JsonSerializer.Serialize(w);try{WorldAssembler.Move(w,w.Maps[1].Id,100,100);}catch(ArgumentException){if(before!=JsonSerializer.Serialize(w))throw new Exception("Failed move mutated source.");return;}throw new Exception("Overlapping native cells accepted.");});
   yield return ("world seam diagnostics preserve water and report scale differences",()=>{var w=Fixture(2);w.Maps[1].Project.MetresPerTile=2;w.Maps[0].Project.Terrain[255]=Terrain.Water;var warnings=WorldAssembler.SeamWarnings(w);if(warnings.Length!=2||w.Maps[0].Project.Terrain[255]!=Terrain.Water)throw new Exception("Seam issue hidden or terrain rewritten.");});
  }
- public static WorldProject Fixture(int count){var w=new WorldProject{Name="Сшитый мир"};for(var i=0;i<count;i++){var p=MapGenerator.Generate(new(){Kind="blank",Name="Участок"+i});p.WorldX=100+i;p.WorldY=100;w.Maps.Add(new(){Project=p});}return w;}
+ public static WorldProject Fixture(int count){var w=new WorldProject{Name="Stitched world"};for(var i=0;i<count;i++){var p=MapGenerator.Generate(new(){Kind="blank",Name="Section"+i});p.WorldX=100+i;p.WorldY=100;w.Maps.Add(new(){Project=p});}return w;}
  private static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
 }

@@ -22,20 +22,20 @@ public static class WorldEndpoints
    var world=WorldAssembler.PromoteBuilding(request.World,request.MemberId,request.BuildingId,request.X,request.Y);Validate(world,assets,models);return Results.Ok(new{world});
   });
   app.MapPost("/api/world/buildings/remove",(WorldRemoveBuildingRequest request,GameAssetCatalog assets,StaticModelCatalog models)=>{
-   var world=WorldAssembler.Clone(request.World);if(world.Buildings.RemoveAll(b=>b.Id==request.BuildingId)!=1)throw new ArgumentException("Общее здание не найдено.");Validate(world,assets,models);return Results.Ok(new{world});
+   var world=WorldAssembler.Clone(request.World);if(world.Buildings.RemoveAll(b=>b.Id==request.BuildingId)!=1)throw new ArgumentException("Shared building not found.");Validate(world,assets,models);return Results.Ok(new{world});
   });
   app.MapPost("/api/world/seams/repair",(WorldSeamRequest request,GameAssetCatalog assets,StaticModelCatalog models)=>{
    var result=WorldSeams.Repair(request.World,request.Mode);Validate(result.World,assets,models);return Results.Ok(result);
   });
   app.MapPost("/api/world/elevation/import",(WorldElevationRequest request,GameAssetCatalog assets,StaticModelCatalog models)=>{
-   var world=WorldAssembler.Clone(request.World);if(world.GeoReference is null)throw new ArgumentException("Для DEM нужна географическая привязка мира. Импортируйте территорию OSM с общим масштабом.");
+   var world=WorldAssembler.Clone(request.World);if(world.GeoReference is null)throw new ArgumentException("DEM requires a geographic world reference. Import an OSM area with a shared scale.");
    world.Elevation=ElevationSurvey.ParseAscii(request.Text,request.CoordinateSystem,request.Source,request.License);Validate(world,assets,models);var values=world.Elevation.Values.Where(v=>v.HasValue).Select(v=>v!.Value).ToArray();
    var measured=0;var sampled=0;foreach(var m in world.Maps){var projection=new GeographicProjection(world.GeoReference,m.Project.WorldX,m.Project.WorldY);for(var y=0;y<m.Project.Height;y+=16)for(var x=0;x<m.Project.Width;x+=16){var g=projection.Geographic(x+.5,y+.5);sampled++;if(world.Elevation.Sample(g.Longitude,g.Latitude).HasValue)measured++;}}
-   if(measured==0)throw new ArgumentException("DEM не покрывает ни одной проверочной точки этого мира. Проверьте систему координат и границы данных.");
-   return Results.Ok(new{world,minimum=values.Min(),maximum=values.Max(),measured,sampled,nativeSlopes=false,note="Реальные высоты сохраняются как географический слой и elevation.asc. Нативная карта PZ остаётся плоской; высоты не подменяются этажами зданий."});
+   if(measured==0)throw new ArgumentException("The DEM does not cover any world reference sample. Check the coordinate system and data bounds.");
+   return Results.Ok(new{world,minimum=values.Min(),maximum=values.Max(),measured,sampled,nativeSlopes=false,note="Measured heights are saved as a geographic layer and elevation.asc. The native PZ map remains flat; heights are not substituted with building floors."});
   });
   app.MapPost("/api/world/elevation/download",async(WorldProject input,TerrainElevationClient client,GameAssetCatalog assets,StaticModelCatalog models,CancellationToken token)=>{
-   Validate(input,assets,models);if(input.GeoReference is null)throw new ArgumentException("Сначала импортируйте территорию OSM с общей географической привязкой.");var world=WorldAssembler.Clone(input);world.Elevation=await client.Fetch(input.GeoReference.Bounds,token);Validate(world,assets,models);var heights=world.Elevation.Values.Where(v=>v.HasValue).Select(v=>v!.Value).ToArray();return Results.Ok(new{world,minimum=heights.Min(),maximum=heights.Max(),nativeSlopes=false,note="DEM загружен из Terrain Tiles / AWS Open Data. Нативная карта PZ остаётся плоской; обзор высот и исходные измерения сохраняются в мире и elevation.asc."});
+   Validate(input,assets,models);if(input.GeoReference is null)throw new ArgumentException("First import an OSM area with a shared geographic reference.");var world=WorldAssembler.Clone(input);world.Elevation=await client.Fetch(input.GeoReference.Bounds,token);Validate(world,assets,models);var heights=world.Elevation.Values.Where(v=>v.HasValue).Select(v=>v!.Value).ToArray();return Results.Ok(new{world,minimum=heights.Min(),maximum=heights.Max(),nativeSlopes=false,note="DEM downloaded from Terrain Tiles / AWS Open Data. The native PZ map remains flat; the height overview and original measurements are saved in the world and elevation.asc."});
   });
   app.MapGet("/api/world/recovery/{id}",async(string id,WorldStore store,GameAssetCatalog assets,StaticModelCatalog models,CancellationToken token)=>{
    var world=await store.LoadAsync(id,token);if(world is null)return Results.NotFound();Validate(world,assets,models);return Results.Ok(world);

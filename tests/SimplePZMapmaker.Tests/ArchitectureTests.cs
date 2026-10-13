@@ -18,7 +18,7 @@ public static class ArchitectureTests
    foreach(var profile in new[]{"obstacle","destructible","container"}){
     var b=new Building{Width=10,Height=10,Kind="house",Name="Model access fixture",Design=new(){Floors=[new(){Cells=new string('1',100),Rooms=new(){["1"]="livingroom"},Edges=[new(){X=5,Y=0,Edge="n",Kind="door"}]}]}};
     var f=b.Design.Floors[0];var m=new StaticModelPlacement{ModelId="Base.Test",X=5,Y=0,Profile=profile};f.StaticModels.Add(m);
-    void Rejected(){try{BuildingDesigner.Validate(b,false);}catch(ArgumentException e) when(e.Message.Contains("модель")){return;}throw new Exception("Blocking model accepted at forbidden location");}
+    void Rejected(){try{BuildingDesigner.Validate(b,false);}catch(ArgumentException e) when(e.Message.Contains("model")){return;}throw new Exception("Blocking model accepted at forbidden location");}
     Rejected();m.X=2;m.Y=2;f.Objects.Add(new(){Kind="storage",X=2,Y=2});Rejected();f.Objects.Clear();f.Objects.Add(new(){Kind="stairs",X=2,Y=2});b.Design.Floors.Add(new(){Cells=f.Cells,Rooms=new(f.Rooms)});Rejected();
    }
   });

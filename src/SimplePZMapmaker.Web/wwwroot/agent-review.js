@@ -2,7 +2,7 @@ export function changeSummary(before,after,world=false){
  const count=p=>(p.buildings?.length||0)+(world?p.maps.reduce((n,m)=>n+m.project.buildings.length,0):0);
  const objects=value=>{const projects=world?value.maps.map(m=>m.project):[value];return [...(world?value.buildings||[]:[]),...projects.flatMap(p=>[...p.buildings,...p.staticModels||[],...p.decorations||[]]),...projects.flatMap(p=>p.buildings.flatMap(b=>b.design?.floors?.flatMap(f=>f.staticModels||[])||[]))];};
  const oldObjects=new Map(objects(before).map(o=>[o.id,o])),newObjects=new Map(objects(after).map(o=>[o.id,o]));
- const changes=[];for(const id of new Set([...oldObjects.keys(),...newObjects.keys()])){const old=oldObjects.get(id),next=newObjects.get(id);if(JSON.stringify(old)!==JSON.stringify(next))changes.push((!old?'Добавлено: ':!next?'Удалено: ':'Изменено: ')+(next?.name||old?.name||next?.modelId||old?.modelId||next?.asset||old?.asset||id));}
+ const changes=[];for(const id of new Set([...oldObjects.keys(),...newObjects.keys()])){const old=oldObjects.get(id),next=newObjects.get(id);if(JSON.stringify(old)!==JSON.stringify(next))changes.push((!old?'Added: ':!next?'Removed: ':'Changed: ')+(next?.name||old?.name||next?.modelId||old?.modelId||next?.asset||old?.asset||id));}
  const result={buildingsBefore:count(before),buildingsAfter:count(after),sectionsBefore:before.maps?.length||1,sectionsAfter:after.maps?.length||1,terrainChanged:0,changedSections:0,changes:changes.slice(0,12),changedObjects:changes.length};
  if(world){const previous=new Map(before.maps.map(m=>[m.id,m]));for(const m of after.maps){const old=previous.get(m.id);if(!old||old.project.worldX!==m.project.worldX||old.project.worldY!==m.project.worldY||JSON.stringify(old.project.buildings)!==JSON.stringify(m.project.buildings))result.changedSections++;if(old)for(let i=0;i<m.project.terrain.length;i++)if(old.project.terrain[i]!==m.project.terrain[i])result.terrainChanged++;}}
  else for(let i=0;i<after.terrain.length;i++)if(before.terrain[i]!==after.terrain[i])result.terrainChanged++;
@@ -22,5 +22,5 @@ export function drawAgentReview(canvas,before,after,world=false){
   }
   if(world){ctx.fillStyle='#e7a876';for(const b of value.buildings||[])ctx.fillRect(offset+12+(b.x-minX)*scale,34+(b.y-minY)*scale,Math.max(1,b.width*scale),Math.max(1,b.height*scale));}
  }
- draw(before,0,'Текущий проект');draw(after,320,'Предложенная версия');
+ draw(before,0,'Current project');draw(after,320,'Proposed version');
 }

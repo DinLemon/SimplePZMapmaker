@@ -1,34 +1,45 @@
-# Агент проектирует здания
+# Agent-assisted building, neighbourhood and world design
 
-Запустите приложение, откройте карту и нажмите **«Подключить агента» → «Подключить текущую карту»**. Передайте агенту URL `http://127.0.0.1:48765/mcp` и ключ сеанса из окна. **«Скачать конфигурацию MCP»** создаёт пример настройки Streamable HTTP; добавьте его в используемый клиент. Ключ передаётся аргументом `sessionToken`, а не хранится в конфигурации клиента. Приложение не изменяет настройки Codex на системном диске.
+Start the application, open a map and choose **Connect agent**, then connect the current map. Give your agent the endpoint `http://127.0.0.1:48765/mcp` and session key from the dialog. Download the sample MCP configuration to add a Streamable HTTP server to your client. The key is passed in the `sessionToken` tool argument, not stored in the client configuration. The editor does not alter Codex settings on the system drive.
 
-Сервер использует [официальный MCP C# SDK](https://github.com/modelcontextprotocol/csharp-sdk)2.2.0. Проверочный клиент находится в `tools/McpSmoke`; поддержаны протоколы2026-07-28 и2025-11-25. Сервер доступен только через127.0.0.1, без выполнения команд оболочки и произвольных файловых операций.
+The server uses the [official MCP C# SDK](https://github.com/modelcontextprotocol/csharp-sdk), version 2.2.0. The verification client is `tools/McpSmoke`; protocols 2026-07-28 and 2025-11-25 are supported. The endpoint is loopback-only and offers neither shell execution nor arbitrary filesystem operations.
 
-Агент сначала вызывает `project_summary`, чтобы получить текущую ревизию, затем ищет реальные ресурсы через `assets_search`, `assets_placement`, `assets_pair`, `models_search` и `models_placement`. `building_templates` перечисляет исходные планировки. `building_draft_create` создаёт отдельный черновик из шаблона, выбранного здания или генератора. До применения черновик не меняет карту.
+## Map and building workflow
 
-`building_draft_read` возвращает комнаты и этажи; `building_draft_room`, `building_draft_edge`, `building_draft_object` меняют конкретные части. `building_draft_replace` принимает полное описание здания для свободных форм и нескольких этажей. `building_draft_preview` возвращает композицию настоящих спрайтов. `building_draft_validate` проверяет лестницы, входы и доступность всех помещений. Черновик может временно не иметь полного доступа, но применять и экспортировать его в таком состоянии нельзя.
+1. Call `project_summary` to get the current revision.
+2. Discover real resources with `assets_search`, `assets_placement`, `assets_pair`, `models_search` and `models_placement`.
+3. Enumerate original plans with `building_templates`. Create an isolated draft from a template, selected building or generator using `building_draft_create`. It does not change the map yet.
+4. Use `building_draft_read` for rooms/levels and `building_draft_room`, `building_draft_edge`, `building_draft_object` to edit parts. `building_draft_replace` accepts a full multi-level/free-form design.
+5. Use `building_draft_preview` for actual-sprite composition and `building_draft_validate` to check stairs, entrances and room access. Incomplete access is allowed in a draft, but not at commit/export.
+6. Commit with `building_draft_commit`, supplying `expectedRevision`, placement and optionally the ID to replace.
 
-`building_draft_commit` принимает `expectedRevision`, положение и при необходимости ID заменяемого здания. `environment_place_sprite`, `environment_place_model`, `environment_paint` и `project_remove_object` тоже требуют актуальную ревизию. Устаревшая команда оставляет карту прежней: агент должен снова прочитать `project_summary`. `project_export` выдаёт ссылку на проверенный нативный ZIP.
+`environment_place_sprite`, `environment_place_model`, `environment_paint` and `project_remove_object` also require the current revision. Stale commands retain the map: reread `project_summary` before retrying. `project_export` returns a verified native ZIP link.
 
-В редакторе **«Получить изменения агента»** переносит его ревизию одной операцией с отменой. При конфликте «Отправить изменения редактора» останавливается; ручная карта сохраняется. Если получить карту агента поверх своих правок, Ctrl+Z восстановит предыдущее состояние. Изменения черновика, ещё не применённые агентом, не появляются в редакторе. Закрытие сеанса отзывает его ключ.
+The editor receives an agent revision in one undoable operation. Sending editor changes stops on a revision conflict and retains the manual map. Undo restores the preceding editor state after receiving agent changes. Uncommitted building drafts never appear in the editor. Closing a session revokes its key.
 
-Сеансы и черновики находятся в `work/agent-sessions/`, автосохранение карты — в `work/recovery/`; никаких игровых ресурсов в этих файлах нет. Предел одного сеанса48МБ, одновременно32 сохранённых сеанса и16 черновиков в каждом. Ключ даёт доступ к конкретной карте: передавайте его только тому агенту, которому поручили её менять.
+Map sessions/drafts live in `work/agent-sessions/`; map recovery is `work/recovery/`. These files contain resource references, not game artwork. Limits are 48 MB per map session, 32 saved sessions and 16 drafts per session. Share a key only with the agent authorized to change that project.
 
-Проверить SDK-клиентом после запуска приложения:
+## Neighbourhoods and worlds (0.7)
+
+In **Connect agent**, choose the current map or the entire world; add sections before connecting a world. Give the agent the URL, key, scope and revision. Map/world keys refer to separate sessions.
+
+Before receiving changes, inspect the before/after comparison and object list, then explicitly receive the reviewed changes. If the local project or remote revision changes after review, generate a fresh comparison. Undo restores the previous project in one action.
+
+The server exposes 38 tools. `building_template_read` returns the complete original plan. `world_buildings`, `world_building_read`, `world_building_replace` and `world_building_put` read/edit buildings, including shared buildings across sections. Shared positions use absolute game-tile coordinates; section origins use native cell coordinates (256×256 tiles per cell).
+
+`world_section_generate`, `world_section_move`, `world_remove_object`, `world_paint_terrain` and `world_section_preview` edit/inspect worlds; `world_export` produces one combined mod. Section previews include the native parts of shared buildings.
+
+`neighborhood_plan_create`/`neighborhood_plan_commit` and `world_plan_create`/`world_plan_commit` separate proposals from application. Constraints specify the area, allowed `templateIds`, minimum/maximum buildings, maximum levels, spacing, seed and roads. The building budget is distributed across selected sections while protecting water and existing objects. The `objective` describes the agent's task; the placement algorithm uses explicit constraints and selected templates. Unused budget is reported; an impossible minimum is rejected.
+
+World sessions live in `work/agent-world-sessions/`, limited to 16 sessions of 128 MB each. Proposals live in `work/agent-plans/`, at most 16 per session, 12 MB each, and 128 buildings per assignment. Closing a session removes its proposals and revokes access. World 2 preserves shared buildings/DEM; map 7 and template 5 preserve native model behavior. Earlier formats remain readable.
+
+## Verify the SDK client
+
+With the application running, from the repository root:
 
 ```powershell
 . ./scripts/WorkspaceEnv.ps1
 dotnet run --project tools/McpSmoke
 ```
 
-Проверка создаёт отдельные сеансы карты и мира, применяет черновик и задания кварталов, проверяет конфликт ревизий, общее здание на шве и нативный ZIP; в конце закрывает свои сеансы. Текущий проект пользователя не затрагивается.
-
-## Кварталы и мир0.7
-
-В «Подключить агента» выберите «Текущая карта» или «Весь мир». Для мира сначала добавьте секции. Передавайте агенту URL, ключ, scope и ревизию; ключ карты и ключ мира относятся к разным сеансам. Изменения сначала показываются сравнением до/после с перечнем объектов; только «Получить просмотренные изменения» переносит их в редактор. Изменение проекта или серверной ревизии после просмотра требует нового сравнения. История восстанавливает предыдущий проект одним Undo.
-
-В сервере38 инструментов. `building_template_read` возвращает полный авторский план; `world_buildings`, `world_building_read/replace/put` позволяют агенту читать и редактировать здания, включая общий слой на границах секций. Координаты общих зданий — абсолютные игровые клетки; позиции секций — нативные ячейки256×256. `world_section_generate/move`, `world_remove_object`, `world_paint_terrain` и `world_section_preview` работают с миром; `world_export` выдаёт единый мод. Предпросмотр включает нативные части общего здания.
-
-`neighborhood_plan_create/commit` и `world_plan_create/commit` разделяют предложение и применение. Ограничения задают область, разрешённые templateIds, максимум/минимум зданий, максимум этажей, отступ, seed и дороги. Бюджет распределяется между выбранными секциями; вода и существующие объекты сохраняются. Поле objective описывает задачу агенту; программа размещает выбранные шаблоны по явным ограничениям. Невместившийся бюджет сообщается, невыполнимый минимум отклоняется.
-
-Сеансы мира — `work/agent-world-sessions/`: до16 сеансов,128МБ каждый. Предложения — `work/agent-plans/`: до16 на сеанс,12МБ каждое и128 зданий в задании. Закрытие сеанса удаляет предложения и отзывает доступ. Мир2 сохраняет общие здания/DEM, карты7 и шаблоны5 — нативное поведение моделей; прежние форматы читаются.
+The check creates its own map/world sessions, commits a building draft and neighbourhood plans, verifies revision conflicts, a shared seam-crossing building and a native ZIP, then closes its sessions. It does not alter the user's editor project.

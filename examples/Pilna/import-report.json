@@ -2,15 +2,15 @@
   "importedFeatures": 2098,
   "skippedBuildings": 212,
   "warnings": [
-    "Пропущено зданий: 212. Граница ячейки: 103; Вода или дорога: 59; Пересечение зданий: 49; Слишком большой контур: 1. Контуры адаптированы к сетке; интерьеры сгенерированы."
+    "Skipped buildings: 212. Cell boundary: 103; Water or road: 59; Building overlap: 49; Outline too large: 1. Outlines adapted to the grid; interiors generated."
   ],
   "sourceBuildings": 1789,
   "sourceFeatures": 2378,
   "skipReasons": {
-    "Граница ячейки": 103,
-    "Вода или дорога": 59,
-    "Пересечение зданий": 49,
-    "Слишком большой контур": 1
+    "Cell boundary": 103,
+    "Water or road": 59,
+    "Building overlap": 49,
+    "Outline too large": 1
   },
   "sourceDate": "2026-10-12",
   "mapSize": 2048,

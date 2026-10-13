@@ -13,7 +13,7 @@ test('nine adjacent sections retain individual rasters and exceed the single-map
 });
 test('cell footprint overlap is rejected atomically, touching edges are allowed',()=>{
  const session=new WorldSession({id:id(90),name:'City',format:'SimplePZWorld',version:1,maps:[section(1,100,100),section(2,101,100)]});
- const before=JSON.stringify(session.world);assert.throws(()=>session.move(id(2),100,100),/перекрыва/);assert.equal(JSON.stringify(session.world),before);assert.equal(session.history.past.length,0);
+ const before=JSON.stringify(session.world);assert.throws(()=>session.move(id(2),100,100),/overlap/i);assert.equal(JSON.stringify(session.world),before);assert.equal(session.history.past.length,0);
  session.move(id(2),102,100);assert.equal(session.world.maps[1].project.worldX,102);session.undo();assert.equal(session.world.maps[1].project.worldX,101);session.redo();assert.equal(session.world.maps[1].project.worldX,102);
 });
 test('world move history preserves fresh map edits and never clones full terrain on a move',()=>{
@@ -28,9 +28,9 @@ test('remove/undo retains section data and rename is reversible',()=>{
 });
 test('import rejects malformed world identifiers and overlapping source files',()=>{
  const world={id:id(90),name:'City',format:'SimplePZWorld',version:1,maps:[section(1),section(2)]};validateWorld(world);
- assert.throws(()=>validateWorld({...world,id:'../outside'}),/идентификатор/i);
- const duplicate=structuredClone(world);duplicate.maps[1].id=duplicate.maps[0].id;assert.throws(()=>validateWorld(duplicate),/идентификатор/i);
- const overlap=structuredClone(world);overlap.maps[1].project.worldX=overlap.maps[0].project.worldX;assert.throws(()=>validateWorld(overlap),/перекрыва/);
+ assert.throws(()=>validateWorld({...world,id:'../outside'}),/identifier/i);
+ const duplicate=structuredClone(world);duplicate.maps[1].id=duplicate.maps[0].id;assert.throws(()=>validateWorld(duplicate),/identifier/i);
+ const overlap=structuredClone(world);overlap.maps[1].project.worldX=overlap.maps[0].project.worldX;assert.throws(()=>validateWorld(overlap),/overlap/i);
 });
 test('negative mouse coordinates and panned/zoomed canvas select integer native cells',()=>{
  assert.deepEqual(worldCellAt(399,201,{x:400,y:200,scale:20}),{x:-1,y:0});
@@ -40,5 +40,5 @@ test('negative mouse coordinates and panned/zoomed canvas select integer native 
 test('completed world replacement is one reversible operation and partial overlapping data is rejected',()=>{
  const session=new WorldSession({id:id(90),name:'Old city',format:'SimplePZWorld',version:1,maps:[section(1)]}),old=session.world;
  const complete={id:id(91),name:'Imported city',format:'SimplePZWorld',version:1,maps:[section(2),section(3)]};session.replace(complete);assert.equal(session.world,complete);assert.equal(session.history.past.length,1);session.undo();assert.equal(session.world,old);session.redo();assert.equal(session.world,complete);
- const partial=structuredClone(complete);partial.maps[1].project.worldX=partial.maps[0].project.worldX;assert.throws(()=>session.replace(partial),/перекрыва/);assert.equal(session.world,complete);assert.equal(session.history.past.length,1);
+ const partial=structuredClone(complete);partial.maps[1].project.worldX=partial.maps[0].project.worldX;assert.throws(()=>session.replace(partial),/overlap/i);assert.equal(session.world,complete);assert.equal(session.history.past.length,1);
 });

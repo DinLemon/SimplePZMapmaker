@@ -1,35 +1,32 @@
-# Жилые и общественные шаблоны
+# Housing and public-building templates
 
-24 оригинальных адаптаций деревенской, поселковой и городской архитектуры. Подробные [источники и ограничения](../../docs/HOUSING-REFERENCES.md).
+24 original adaptations of village, small-town and urban architecture. Detailed [references and limits](../../docs/HOUSING-REFERENCES.md).
 
-- `village-izba`: изба, 16×14, один этаж, сени, крыльцо и погреб.
-- `village-veranda`: дом с боковой верандой, 20×16.
-- `settlement-two-storey`: двухэтажный дом, 30×24, восемь квартир.
-- `urban-brick-five`: кирпичный корпус, 48×26, пять этажей, два независимых подъезда.
-- `urban-panel-five`: панельный корпус, 48×24, пять этажей, два подъезда.
-- `urban-panel-nine`: башня, 32×30, девять этажей; функционального лифта нет.
-- `village-barn`: амбар с кладовой, мастерской и открытым навесом, 24×18.
-- `village-workshop`: гараж и мастерская с кладовой и кабинетом, 18×14.
-- `settlement-shop`: магазин с торговым залом, складом и служебными комнатами, 24×20.
-- `settlement-school`: двухэтажная школа с классами и центральной лестницей, 30×32.
-- `urban-classic-three`: трёхэтажный кирпичный дом с двумя квартирами на этаже, 36×28.
-- `urban-corner-four`: четырёхэтажный Г-образный корпус с двором, 40×36.
+- `village-izba`:16×14, one level, vestibule, porch and cellar.
+- `village-veranda`:20×16 house with side veranda.
+- `settlement-two-storey`:30×24, two levels/eight apartments.
+- `urban-brick-five`:48×26, five levels/two independent entrances.
+- `urban-panel-five`:48×24, five levels/two entrances.
+- `urban-panel-nine`:32×30, nine-level tower without a functional lift.
+- `village-barn`:24×18, storage, workshop and open canopy.
+- `village-workshop`:18×14 garage/workshop with storage and office.
+- `settlement-shop`:24×20, sales floor, storage and staff rooms.
+- `settlement-school`:30×32, two-level school/classrooms/central stairs.
+- `urban-classic-three`:36×28, three-level brick house/two apartments per floor.
+- `urban-corner-four`:40×36, four-level L-shaped block/courtyard.
+- `village-log-long`:24×16 long northern-style house.
+- `village-brick-cottage`:22×20 two-level brick cottage.
+- `village-farmstead`:28×24 house with utility wing/terrace.
+- `village-bathhouse`:14×12 wooden bathhouse.
+- `settlement-duplex`:32×20, two independent households.
+- `settlement-row-four`:48×18, four two-level sections.
+- `settlement-clinic`:28×28, two-level outpatient clinic.
+- `settlement-courtyard`:36×32, two levels/open courtyard.
+- `urban-compact-six`:28×26, compact six-level block.
+- `urban-perimeter-four`:48×40, four levels/courtyard/two stairs.
+- `urban-shop-house`:30×28, shops under two smaller residential levels.
+- `urban-townhouse-row`:42×20, three independent three-level blocks.
 
-Для отдельного здания загрузите файл `.pzbuilding.json` через «Загрузить шаблон JSON». `catalog.json` содержит описание и ссылки. Общий проект `housing-templates.pzmap.json` и нативный архив `HousingTemplates-B42.zip` включают все 24 здания.
+For one building, import its `.pzbuilding.json` through the template JSON control. `catalog.json` lists descriptions and references. Open `housing-templates.pzmap.json` to inspect all 24 plans; `HousingTemplates-B42.zip` exports them together.
 
-Пример занимает одну ячейку 256×256, world origin **100,100**, spawn (4,4). Используйте отдельно от других примеров с теми же координатами либо измените world origin и экспортируйте повторно. Архив содержит идентификаторы штатных тайлов; фотографии и игровые изображения не копируются. Каждый план редактируется по комнатам, граням, этажам и ресурсам.
-
-Добавлены ещё 12 оригинальных планов:
-
-- `village-log-long`, северный длинный дом, 24×16.
-- `village-brick-cottage`, двухэтажный кирпичный коттедж, 22×20.
-- `village-farmstead`, дом с хозяйственным крылом и террасой, 28×24.
-- `village-bathhouse`, деревянная баня, 14×12.
-- `settlement-duplex`, независимый дом на две семьи, 32×20.
-- `settlement-row-four`, четыре двухэтажных секции, 48×18.
-- `settlement-clinic`, двухэтажная амбулатория, 28×28.
-- `settlement-courtyard`, двухэтажный дом с открытым двором, 36×32.
-- `urban-compact-six`, компактный шестиэтажный корпус, 28×26.
-- `urban-perimeter-four`, четырёхэтажный корпус с внутренним двором и двумя лестницами, 48×40.
-- `urban-shop-house`, магазины под двумя жилыми этажами меньшего контура, 30×28.
-- `urban-townhouse-row`, три независимых трёхэтажных блока, 42×20.
+The sample occupies one native cell of 256×256 tiles at origin **100,100**, spawn(4,4). Enable separately from other examples at these coordinates, or move origin and export again. It contains vanilla tile identifiers, not reference photographs or game artwork. Each plan is editable by rooms, edges, levels and resources.

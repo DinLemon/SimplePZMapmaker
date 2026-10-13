@@ -1,159 +1,255 @@
 # SimplePZMapmaker
 
-Локальный редактор карт для **Project Zomboid Build 42**. C#/.NET 10, интерфейс в браузере; программирование для создания карты не требуется. Версия0.7.0 добавляет коллизии и игровые свойства моделей, общие здания на границах секций, реальные высоты DEM, соединение дорог/рек, фасады/балконы/пристройки и задания MCP для кварталов/мира с просмотром изменений. Доступны24 редактируемых планировки, наземные этажи и подвалы−1…−16.
+A local visual map and building editor for **Project Zomboid Build 42**, written in C#/.NET 10 with a browser interface. Create maps without programming, assemble rooms from your installed game's resources, import OpenStreetMap geography, and join adjacent sections into one world.
 
-Новые возможности: [мир, OSM и окружение](docs/WORLD-AND-ENVIRONMENT.md), [ресурсы модов](docs/MOD-RESOURCES.md), [статичные модели](docs/STATIC-MODELS.md), [подключение агента через MCP](docs/MCP.md).
+**Current release: 0.7.1.** The Windows x64 download includes the .NET Runtime. The editor supports 24 original editable building plans, up to 16 above-ground levels and basements **−1 to −16**, game/mod sprites and static models, shared buildings across section boundaries, measured DEM elevation, and MCP planning with a review before changes enter your project.
 
-## Запуск
+[Download releases](https://github.com/DinLemon/SimplePZMapmaker/releases) · [Verification status](docs/STATUS.md) · [Code and data provenance](docs/PROVENANCE.md)
 
-1. Запустите `Start.cmd` из корня проекта.
-2. Откроется `http://127.0.0.1:48765`.
-3. В готовый Windows-архив включён **.NET Runtime**; отдельно устанавливать его не нужно. Для сборки из исходников нужен .NET 10 SDK.
+![The English map editor](docs/screenshots/01-editor.png)
 
-Архив готового приложения доступен в [Releases](https://github.com/DinLemon/SimplePZMapmaker/releases). Распакуйте его целиком и запустите `Start.cmd`: пересборка, SDK и системный ASP.NET Core Runtime не нужны. Исходный код соответствующей версии доступен по её Git-тегу. Подробности: [RUNTIME.md](docs/RUNTIME.md).
+## Install the ready-to-run Windows application
 
-Собранное приложение: `artifacts/app/SimplePZMapmaker.Web.exe`. `Start.cmd` запускает сервер в фоне. Для остановки завершите только процесс `SimplePZMapmaker.Web.exe` в диспетчере задач. Логи — `work/logs/`. Сервер слушает только loopback.
+### 1. Check the requirements
 
-## Создать карту
+- Windows 64-bit and a current browser such as Edge, Chrome or Firefox.
+- A writable application folder on **G:**. Temporary files, caches, recovery snapshots and logs stay beside the application, inside `work/`.
+- **Project Zomboid Build 42** for real game-resource previews and resource-aware export. The development installation is `./game-installation`; choose your own installation in the resource catalog.
+- Internet access for downloading the application, searching/importing online geography and downloading elevation. Local projects and saved geography open offline.
 
-- «Новая карта»: пустая земля, небольшой город либо лес с рекой. Размер 256–2048, воспроизводимый seed, плотность леса и зданий.
-- Кисть B, прямоугольник A, дорога R. Выберите поверхность и размер кисти слева. Для дороги протяните линию; размер кисти задаёт её ширину.
-- Здание H: выберите один из девяти типов, форму, 1–16 наземных этажей и0–16 подвалов. Поставьте на суше внутри участка; помещения и стены не должны пересекать другие здания. Границы нативных ячеек256×256 поддерживаются. Через «Выбор» V доступны перемещение, удаление, новый вариант и редактор здания.
-- Точка появления P: поставьте снаружи здания на суше. Выберите точку инструментом V и нажмите Delete для удаления; минимум одна должна остаться.
-- Зомби Z: нарисуйте плотность выбранным значением от 0 до 255. Разрешение слоя — один чанк 8×8.
-- Ctrl+Z / Ctrl+Shift+Z — отмена/повтор; колесо — масштаб; средняя кнопка, правая кнопка или Space — перемещение.
-- «Обзор 3D» — схематическая изометрия. Редактирование выполняется в виде сверху. «Предпросмотр участка» показывает игровыми спрайтами участок 48×48 вокруг выбранного здания либо курсора.
+**Release users do not need Visual Studio, a .NET SDK, Node.js, TileZed or WorldEd.** The package is self-contained. Game files and Workshop resources are read from your installation and are not included. Build 41 is not supported.
 
-## Оформить местность или участок
+### 2. Download the application ZIP
 
-1. Нажмите **«Оформление карты»** сверху либо «Выбрать оформление…» слева.
-2. В «Где применить» выберите «Вся карта» или «Выделенный участок». Для участка нажмите «Выделить участок на карте» и протяните прямоугольник; окно оформления откроется снова с его размерами.
-3. Выберите карточку пресета: смешанный лес и город, посёлок и просёлки, город и парк, сухая местность либо прежнее оформление. Карточки показывают покрытия из установленной игры.
-4. Нажмите «Предпросмотр оформления», чтобы увидеть участок игровыми спрайтами. Предпросмотр не меняет проект.
-5. Нажмите **«Применить оформление»**. Изменение попадёт в историю одним действием и сохранится в `.pzmap.json`.
+1. Open [GitHub Releases](https://github.com/DinLemon/SimplePZMapmaker/releases).
+2. Select **v0.7.1**, or a newer published release. The project publishes prereleases, so use the release list rather than assuming GitHub's `/latest` page shows the newest build.
+3. Expand **Assets** and download **`SimplePZMapmaker-0.7.1-win-x64.zip`**. Example map ZIPs contain game mods, not the editor. GitHub's automatic **Source code** archives are development sources, not the ready-to-run application.
+4. Optionally download the release checksum file and compare the archive's SHA-256 before extracting it:
 
-Пресет меняет покрытия и породы деревьев, сохраняя дороги, воду, геометрию и точки появления. Флажок «Также подобрать оформление автоматических зданий» назначает согласованные стили зданиям с генерируемой схемой. На участке меняются только здания, целиком находящиеся внутри него; ручные здания, выбранные покрытия и декор сохраняются.
+```powershell
+Get-FileHash -Algorithm SHA256 -LiteralPath 'G:\Downloads\SimplePZMapmaker-0.7.1-win-x64.zip'
+```
 
-Поддерживается до 128 прямоугольных участков. В пересечении действует последний применённый пресет; повторное применение к тем же границам заменяет существующий участок. Применение ко всей карте очищает региональные пресеты, сохраняя ручные ресурсы. Отмена/повтор, открытие проекта и повторный импорт с сохранением ручных правок удерживают оформление участков.
+### 3. Extract the entire archive
 
-## Редактор здания
+1. Create or choose `./SimplePZMapmaker` for the application.
+2. Extract **all** files from the application ZIP into that folder. Do not launch from inside the ZIP viewer or copy only the executable.
+3. Confirm that it contains `Start.cmd`, `scripts/`, `artifacts/app/`, `examples/`, `docs/`, and `LICENSE`.
+4. Keep `artifacts/app/SimplePZMapmaker.Web.exe`, its bundled runtime DLLs and its `licenses/` directory together.
 
-- Основной режим **«Игровой вид»** показывает настоящие полы, стены, проёмы и мебель из вашей установки. Справа — палитра: выберите назначение ресурса, категорию, картинку и нажмите на нужную клетку здания. Кисть показывает полный предмет; кровать и другие составные предметы ставятся целиком. Стену, дверь или окно ставьте на ближайшую грань клетки. Несовместимые размещения не записываются в историю.
-- Колесо масштабирует относительно указателя, средняя или правая кнопка перемещает вид, «Вписать» восстанавливает обзор. Переключайте этажи и подвалы; редактируется выбранный уровень. «Всё здание с крышей» показывает полный объём и отключает изменения. «План комнат» оставляет привычные инструменты помещений и контура.
-- Покрытие пола наносится на отдельные клетки или протянутую область; флажок «Применить выбранный пол на весь этаж» задаёт покрытие всему этажу. При выборе крыши задаётся поддерживаемое семейство скатных тайлов; геометрическая форма крыши выбирается отдельно.
-- Незавершённые проходы и связи этажей остаются видимыми в черновике. Для применения и экспорта все помещения должны иметь путь к наземному наружному входу через двери и лестницы. Несколько подъездов могут иметь собственные входы и лестницы; искусственный проход между квартирами не требуется.
-- Нажмите постоянную кнопку «Редактор зданий» сверху: откройте здание из списка либо «Создать свой шаблон здания» без размещения на карте. Выбранное здание открывается сразу. Также доступно «Выбор» → «Редактировать здание». Переключайте этажи; нижний этаж показывается полупрозрачно. Можно скопировать верхний этаж или удалить его. Предел размера — 64×64 клетки.
-- «Копировать вниз» добавляет новый нижний подвал, «Удалить нижний» удаляет его; предел — −16. Наземный этаж нельзя удалить. Этаж1 соответствует игровому z=0, подвал−1 находится непосредственно под ним. Отрицательные уровни имеют собственные комнаты, контуры и лестницы; переключатель уровня карты позволяет их посмотреть. Генератор без явного запроса подвалы не придумывает.
-- Задайте прямоугольник, Г-/Т-образную форму, внутренний двор или пристройку отдельно на каждом этаже. «Контур» добавляет площадь, «Убрать пол» вырезает её протягиванием прямоугольника. Так создаются свободные формы и балконы.
-- «Новое помещение» → назначение → инструмент «Комната» → протяните область. Стены и проходы создаются автоматически; инструменты стены, двери, окна и открытого прохода позволяют править отдельные грани клеток. Назначение «Балкон» экспортируется как открытая площадка с ограждением.
-- Ставьте лестницы и мебель, задавайте северную/западную ориентацию. Лестница занимает пять клеток с площадками и требует соответствующего пола наверху; кровать занимает две. «Лестницы автоматически» соединяет соседние этажи. Проверка сообщает о разрывах, перекрытых проёмах и пересечениях.
-- Доступны дерево, кирпич, штукатурка и плоская, двускатная, односкатная или вальмовая крыша. «Применить» переносит весь черновик на карту одним действием; «Отмена» оставляет исходное здание. Внутри редактора действует собственная отмена/повтор.
-- При копировании вверх/вниз новая лестница связывает только новую пару уровней; существующие ручные лестницы сохраняются. Отдельная команда «Соединить этажи лестницами» заново расставляет лестницы по всему зданию.
-- «В библиотеку» сохраняет шаблон в проекте; отдельный JSON шаблона можно скачать и импортировать в другой проект. Источники и авторство переносятся вместе с ним. Новый вариант выбранного здания сохраняет его положение, этажность и контуры; массовая генерация пропускает ручные правки.
+The launcher creates `work/` as needed. You can move the entire application folder on G: while the server is stopped. Keep explicit saved projects separately when replacing an installation.
 
-Школы, жилые корпуса, гостиницы, магазины, склады, промышленные здания, больницы, гаражи и частные дома имеют разные схемы помещений, коридоров и меблировки. Варианты воспроизводимы по seed. Верхний этаж карты выбирается отдельным переключателем.
+### 4. Start the editor
 
-## Ресурсы установленной игры
+1. Double-click **`Start.cmd`**.
+2. It starts `SimplePZMapmaker.Web.exe` in the background and opens **[http://127.0.0.1:48765](http://127.0.0.1:48765)**.
+3. Wait for the map and tool panels. If the browser does not open, visit that address manually.
+4. Keep the server running while editing. Closing the browser tab does not stop it. To stop it, end the `SimplePZMapmaker.Web.exe` process belonging to this application folder in Task Manager.
 
-- «Ресурсы игры» открывает локальный каталог: категории, поиск и страницы по60 тайлов. В текущей установке найдено30256 ресурсов, включая эрозионные и крупные деревья. Если игра установлена иначе, укажите её папку и нажмите «Обновить каталог». Картинки читаются из её `.pack`; установка не изменяется.
-- В мастерской выбирайте «Набор оформления»: дерево, кирпич, камень, светлый современный, магазин/офис или промышленный корпус. «Пол из игры» назначает пол этажу либо отдельным клеткам, когда выключен флажок «Пол на весь этаж». «Стена/Дверь/Окно из игры» подбирают пару север/запад; затем ставьте её на грани клеток. «Покрытие крыши» выбирает совместимую палитру30°, а наклон задаётся формой крыши.
-- «Предмет из игры» размещает весь составной предмет, даже если выбрана одна часть кровати. Все его клетки проверяются вместе с лестницами и проходами. Настенные предметы и неполные группы пока доступны для осмотра.
-- Слева выбирайте декор и покрытия карты из тех же ресурсов; размещайте их на наземном уровне. «Убрать декор» удаляет предмет целиком. «Оформление карты» открывает выбор пресета и области его применения; порядок действий описан выше.
-- «Предпросмотр тайлами игры» показывает текущий этаж, другой уровень либо всё здание. Раскладку создаёт тот же код, который собирает мод. Динамический свет и игровой рендерер не запускаются.
+The server listens only on your computer's loopback interface. Another workspace or stale version on the same port is rejected. Startup logs are `work/logs/server.log` and `work/logs/server-errors.log`.
 
-Ссылки на ресурсы сохраняются в проекте, истории и шаблонах. Без установки игры доступны прежние базовые карты и сохранение проектов; применение/экспорт выбранных ресурсов требует соответствующего каталога. Игровые изображения не входят в приложение, GitHub или ZIP мода; извлечённые атласы кэшируются только в `work/assets/` рядом с приложением.
+### 5. Connect the game resources
 
-`examples/Assets/` содержит пример и мод с шестью стилями, этажами/подвалами, выбранными полом и стеной, составным декором, покрытием дороги и игровыми деревьями. Включайте его отдельно от других примеров на тех же мировых координатах.
+1. Open **Game resources**.
+2. Check the game folder, change it to the actual installation if needed, and refresh the catalog.
+3. Search for a floor, wall or piece of furniture. A successful load shows real thumbnails from the game's `.pack` files.
+4. Open **Building editor**, choose a building or new template, and use the game view to place resources visually.
 
-## Реальный район
+The tested installation supplied 30,256 resources; this varies with the game version and mods. Catalog reads do not modify the game. Extracted atlas caches stay in `work/assets/` and are excluded from releases and exported mods.
 
-«Импорт реального места» → найдите город/адрес, выберите результат → используйте «Весь найденный посёлок или район» либо задайте участок вручную → «Показать участок» → «Импортировать участок». Для небольшого посёлка выбирается полный охват из поиска и подходящий размер карты; для слишком больших городов полный охват недоступен.
+![The visual building editor with installed game resources](docs/screenshots/02-building-editor.png)
 
-География заменяет землю текущей карты. Перед заменой сохраните проект. Дороги и полигоны масштабируются с сохранением географических пропорций; ширина дорог вычисляется в метрах. Контуры зданий переводятся в клеточную сетку, интерьеры генерируются по типу. Слишком маленькие или непроходимые исходные формы адаптируются; неподходящие здания пропускаются с отчётом. Импорт читает `building:levels`, `building:levels:underground`, `height` и `roof:shape`; реальные значения, оценка высоты и предположение генератора обозначаются отдельно. Необычные крыши адаптируются с примечанием.
+![The game-resource catalog used to verify the installation](docs/screenshots/05-game-resources.png)
 
-«Сохранить ручные здания, декор и покрытия» удерживает изменённые и вручную поставленные здания при повторном импорте того же размера, в том числе исчезнувшие из источника. Они получают приоритет перед новыми соседними контурами. Выбранные покрытия, декор и оформление отдельных участков также сохраняются при включённом переключателе; вода под сохранёнными предметами восстанавливается в сушу. Библиотека шаблонов сохраняется независимо от этого переключателя. В инспекторе показывается масштаб и отчёт импорта; полнота зависит от исходных данных.
+### 6. Enable optional Workshop resources
 
-### Смоленск и ошибка504
+1. In **Game resources**, open the mod-resource controls.
+2. Set the Workshop root to `./workshop-content` or the corresponding installation folder. Additional roots are entered one per line; the current build accepts mod roots on G:.
+3. Enter the installed game version and discover mods. The verified installation reports 42.21, represented by `42.21.0` in the compatibility field.
+4. Select and activate the desired mods. Dependencies load first. A missing/incompatible dependency produces an actionable diagnostic and retains the working catalog.
+5. Filter resources by game, all active mods or a particular mod. Static models have a textured 3D viewer.
 
-Найдите «Смоленск», выберите результат и задайте нужную ширину участка. В «Источник геоданных» доступна **«Выгрузка Смоленска — без Overpass»**: редактор скачивает региональный PBF с [OSM France](https://download.openstreetmap.fr/extracts/russia/central_federal_district/smolensk_oblast-latest.osm.pbf) и извлекает из него выбранную область. Проверяемый пример охватывает участок центра шириной 1,5 км, а не весь город.
+Players must install required mods separately. Export writes their IDs into `require` without redistributing artwork, textures or geometry. Details: [Mod resources](docs/MOD-RESOURCES.md), [Static models](docs/STATIC-MODELS.md).
 
-Первая загрузка составляет около 44 МБ; полный файл области сохраняется в `work/geodata-cache/region-smolensk-oblast.pbf` рядом с приложением и повторно используется семь дней. В отчёте показывается дата исходных данных; проверенная выгрузка датирована 2026-10-11. Файл `latest` обновляется поставщиком, поэтому новый импорт может отличаться. Это отдельный источник чтения OSM, без изменения картографических данных. Неполные или вложенные контуры отношений пропускаются с предупреждением.
+### 7. Open an included example
 
-Для других мест «OSM онлайн — автоматический выбор сервера» пробует резервные серверы после504, таймаута или временного сбоя. Ошибка504 возникает у внешнего картографического сервиса; резервирование не гарантирует его доступность. Неудачный или отменённый импорт оставляет текущую карту прежней. Доступен также импорт сохранённого GeoJSON/Overpass JSON без сети.
+Use **Open** for an editable map, or the world workspace's open control for `.pzworld.json`:
 
-`examples/Smolensk/` — релизный пример центра: ширина 1,5 км, центр 54.7789701° N / 32.0471812° E, карта 1024×1024. Он включает редактируемый проект, нормализованный исходный OSM JSON, рецепт импорта с датой выгрузки, авторство и готовый native ZIP. Полнота зданий зависит от исходных контуров и адаптации к сетке; это не весь Смоленск. Примеры занимают одинаковые мировые ячейки начиная с 100,100: включайте их по одному или сначала измените координаты карты и пересоберите мод.
+- `examples/Pilna/pilna.pzmap.json`: imported 2048×2048-tile settlement, 1,577 buildings. There is no dedicated Pilna button.
+- `examples/Smolensk/`: editable 1.5 km section of central Smolensk, source geography, recipe and native mod.
+- `examples/HousingTemplates/housing-templates.pzmap.json`: all 24 plans; individual `*.pzbuilding.json` files import into the template library.
+- `examples/Basements/`: 16 above-ground levels and 16 basements.
+- `examples/Assets/`: selected floors, walls, compound decorations, surfaces and vegetation.
+- `examples/Worlds/World-DEM.pzworld.json`: two sections, shared house with cellar, authored roads/river and measured elevation near Smolensk. Its layout is a demonstration, not an OSM reconstruction.
 
-### Готовая Пильна
+Most example mods use native world origin **100,100**. Enable them **one at a time**, or move their coordinates and export again before combining them.
 
-Откройте `examples/Pilna/pilna.pzmap.json` стандартной кнопкой «Открыть»: карта 2048×2048 с 1577 зданиями из 1789 контуров, масштаб 2,29 м/клетка. 52 здания имеют два этажа, 8 — три. В 42 случаях этажность взята из OSM, в одном оценена по высоте, остальные значения предположены. Пример, исходный OSM JSON, инструкция и мод находятся в `examples/Pilna/`; пропуск 212 зданий объяснён в отчёте. Исходники географии ODbL доступны вместе с производным проектом.
+## Create a map and choose appearance
 
-Для повторения при запущенном сервере: `node scripts/build-pilna.mjs`. Повторяется семантическое содержимое; ZIP сохраняет дату текущей сборки, поэтому его байты могут различаться. Сервер Overpass бывает недоступен; зафиксированный пример открывается без сети.
+1. Create blank land, a small town or a forest-and-river map. One section is 256–2048 tiles; the seed makes generation repeatable.
+2. Choose terrain/brush width at the left. **B** paints, **A** draws a rectangle, **R** draws a road at the selected width.
+3. **H** places a building with a type, shape, 1–16 above-ground levels and 0–16 basements. Buildings must stay on land without intersecting occupied structures. Native cell boundaries (each cell is 256×256 tiles) are supported.
+4. **V** selects objects for moving, removal or editing. **P** places an outdoor spawn on land; at least one valid spawn must remain in the exported map/world. **Z** paints density 0–255 at 8×8 chunk resolution.
+5. **Ctrl+Z / Ctrl+Shift+Z** undo/redo. Wheel zooms; middle/right dragging or Space pans. Save a `.pzmap.json` before a large replacement/import.
 
-«Загрузить GeoJSON»: FeatureCollection с LineString, Polygon, MultiLineString или MultiPolygon; WGS84 `[долгота, широта]`; свойства `highway`, `building`, `natural`, `landuse`, `waterway`, `shop`, `name`. Поддерживается также JSON Overpass, включая составные границы и острова внутри водоёмов. До 16 МБ / 250 000 точек / 30 000 объектов; чрезмерная сложность полигонов отдельно ограничена. Сеть для импорта файла не нужна. Для автоматического определения участка нужен небольшой географический охват.
+The 3D overview is schematic. The local game-sprite preview shows a 48×48-tile area using the native-export composer without running the game renderer.
 
-Google Maps не используется как источник экспортируемой геометрии. Перепады высот SRTM и отдельный железнодорожный слой пока не реализованы.
+To style terrain, open **Map appearance**, choose the whole map or a rectangular area, select a preset, preview it, then apply. Preview leaves the project unchanged; applying is one undoable edit. Presets alter surface families and vegetation while retaining roads, water, geometry and spawns. Optional automatic-building styling affects fully contained generated designs, preserving manual buildings and explicit resource choices. Up to 128 appearance regions are supported; later overlapping presets take priority. A whole-map preset clears regional presets while retaining manual resources.
 
-## Сохранить и экспортировать
+## Edit buildings and environment visually
 
-«Сохранить» скачивает `.pzmap.json`; «Открыть» продолжает работу с ним. Автосохранения записываются в `work/recovery/` внутри рабочего пространства; браузер хранит только идентификатор своего автосохранения. Старые небольшие автосохранения переносятся туда автоматически. При очистке данных браузера теряется привязка, но файлы остаются в `work/recovery/` и могут быть открыты вручную. Сохраняйте отдельный файл проекта для обмена и долговременного хранения.
+Open **Building editor** from the toolbar, select a building with **V**, or create a template before placement. In game view, choose a resource picture and paint directly into the building. Multi-cell furniture is placed and checked as one object. Walls, doors and windows attach to the nearest tile edge.
 
-Проекты формата4 остаются в нём до добавления первого участка оформления; непустой список участков требует формат5. Поддерживаются проекты1–5, до48МБ; шаблон здания — версия3, прежние шаблоны1–2 читаются. Старый редактор отвергает новые версии, защищая подвалы, выбранные ресурсы и региональное оформление от потери. Здания без новой схемы сохраняют прежний экспорт.
+- Edit independent floor shapes, L/T forms, courtyards and extensions by adding footprint or removing floor. Maximum overall footprint: 64×64 tiles.
+- Define rooms and purposes, then edit walls, doors, windows and passages. Balconies export as outdoor platforms with railings.
+- Place north/west stairs and furniture. Stairs occupy five tiles including landings and require floor above; beds occupy two tiles. Automatic stairs connect levels.
+- Copy floors upward and basements downward to **−16**. The first above-ground floor is game `z=0`. Basements are generated only when requested.
+- Choose flat, gabled, shed or hipped roofs and compatible tile families. Facade tools alter exterior walls; balcony/annex tools add connected volumes while preserving the rest.
+- Place game/mod models with pickup, scenery, obstacle, destructible or container behavior. Blocking profiles occupy one game tile regardless of visible scale; they are not structural walls or arbitrary collision meshes.
+- Save to the project template library or exchange standalone JSON with attribution. Applying transfers a draft as one map edit; cancelling retains the original. Building-editor undo is separate.
 
-`examples/Basements/` содержит отдельный пример полного диапазона:16 наземных этажей и16 подвалов, JSON для редактирования и готовый мод. Исходная Пильна сохранена как самостоятельный пример без добавления выдуманных подвалов.
+Before applying/exporting, each room needs a route through doors/stairs to an exterior ground-level entrance. Independent entrances may use their own stair cores; no artificial apartment-to-apartment passage is required. Incomplete drafts remain editable.
 
-История действий использует упакованные блоки и ограничена 64 МБ/30 действиями. При больших заливках самые старые действия удаляются из истории раньше. Большая заливка водой сохраняет землю под зданиями и точками появления.
+The gallery includes **24** original izbas, cottages, farmsteads, bathhouses, duplexes, rows, schools, clinics, shops, barns, workshops, apartment blocks, courtyard houses and townhouses. They adapt real building types to the game grid, without reproducing exact construction drawings or working lifts. See [Housing references](docs/HOUSING-REFERENCES.md).
 
-«Собрать мод» → «Скачать ZIP». Внутри находится папка `SimplePZMap_<идентификатор>` с:
-- `42/mod.info`, `common/`, `42/media/maps/<идентификатор>/`;
-- native B42 `.lotheader`, `.lotpack`, `chunkdata_*.bin`;
-- room/building definitions, `spawnpoints.lua`, `objects.lua`, `worldmap.xml`;
-- `project.pzmap.json`, `ATTRIBUTION.txt`, `INSTALL.txt`.
+**Environment editor** displays a local area with actual sprites/models. Paint ground and paths, choose regional appearance, place compound objects, select one/several objects, move or remove them. Sprite rotation uses registered north/west variants; models have arbitrary rotation/scale. Apply records one undoable map edit. Required mod IDs/resource owners are stored; changing the owner stops export instead of silently substituting it.
 
-Распакуйте папку мода в обычную папку `Zomboid/mods`, включите его и создайте **новую игру**. Название и seed определяют ID мода; изменение одного из них создаёт другой ID. Координаты начала по умолчанию — ячейка 100,100. Несколько карт на одинаковых координатах могут конфликтовать. Приложение не копирует файлы в игру и не изменяет сохранения автоматически.
+## Import a real place from OpenStreetMap
 
-Загрузчик установленной игры прочитал все ячейки Пильны, верхние комнаты и распознал лестничные спрайты. **Прохождение персонажем, внешний вид крыш, лут и мультиплеер пока не проверены.** B41 не поддерживается. Конкретные результаты проверок — `docs/STATUS.md`.
+1. Open real-place import, search for a town/address and select a result.
+2. Choose the full settlement/district when small enough, or define a smaller area.
+3. Preview bounds, choose size/source and import. Save first: geography replaces the current terrain.
+4. Review imported/adapted/skipped features, scale and source date. On repeat imports of the same layout, preserve manual edits when desired.
 
-## Разработка
+Roads/polygons retain geographic proportions; widths use metres. Footprints become cell outlines with generated interiors. `building:levels`, `building:levels:underground`, `height` and `roof:shape` are read, distinguishing explicit data, height estimates and assumptions. Unsuitable geometry is reported.
 
-Все команды выполняйте из корня после `. ./scripts/WorkspaceEnv.ps1`: скрипт направляет временные файлы, кэши .NET/NuGet/npm/Chromium в `work/` на том же диске.
+For Smolensk, the regional source downloads an oblast PBF from [OSM France](https://download.openstreetmap.fr/extracts/russia/central_federal_district/smolensk_oblast-latest.osm.pbf), then extracts selected bounds locally without Overpass. The verified first download was about 44 MB; `work/geodata-cache/region-smolensk-oblast.pbf` is reused for seven days. The sample covers 1.5 km of the centre, not the whole city. The provider's `latest` snapshot can change.
+
+Automatic OSM selection retries temporary failures through backup servers. A 504 is an external timeout; availability cannot be guaranteed. Failed/cancelled imports keep the current project. Saved GeoJSON/Overpass JSON imports work offline: WGS 84 `[longitude, latitude]`, supported lines/polygons/multipolygons, limits of 16 MB, 250,000 points and 30,000 features, plus polygon complexity limits.
+
+The interface and authored examples are English; original imported OSM place names and source tags remain unchanged so the geographic source stays reproducible. OSM attribution is retained; its geography has separate ODbL obligations. Google Maps is not an exportable-geometry source. A separate railway layer is not implemented.
+
+## Stitch sections and use elevation
+
+![The world workspace](docs/screenshots/03-world.png)
+
+1. Open **World** (the World sections dialog) and add the current map or multiple `.pzmap.json` files.
+2. Position sections in native cell coordinates (each cell contains 256×256 tiles); overlapping sections are rejected. Select a section to edit it; edits return to the world when switching sections.
+3. Promote a building to the shared layer or place a template across section boundaries. Shared buildings use absolute game-tile coordinates and are clipped for section export; models are emitted once.
+4. Review road/water seams. The connection operation joins compatible roads/rivers within three tiles on each side while protecting objects and manual terrain. Roads facing water need a manual bridge.
+5. Import ESRI ASCII DEM (EPSG:4326/3857), or download from [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/). Use the elevation overlay to plan.
+6. Save `.pzworld.json` or export one combined mod with shared spawns, zones and atlas.
+
+**One editor section is limited to 2048×2048 tiles; this does not limit the entire PZ world.** Worlds allow 128 sections/8,192 native cells, with files up to 128 MB and ZIPs up to 256 MB. OSM world imports share one projection, split requests, and allow at most 768 cells/15 minutes. Preserved reimports require identical bounds, scale and layout.
+
+DEM retains heights, NODATA, coordinates, source, license and import time; import time is not measurement time. Limits: one million samples, two-minute network budget, seven-day cache. **Native PZ ground stays flat.** `elevation.asc` is exported as a data sidecar, not floors or invented slopes. Details: [World and environment](docs/WORLD-AND-ENVIRONMENT.md).
+
+## Connect an MCP agent
+
+![Agent connection and change-review controls](docs/screenshots/04-agent.png)
+
+1. Keep the application running and open **Connect agent**.
+2. Choose the map or the whole world; add world sections first.
+3. Create a session and pass the endpoint **`http://127.0.0.1:48765/mcp`**, key, scope and revision to an MCP-capable agent.
+4. Download the sample Streamable HTTP configuration and add it to your client. The key is supplied as tool argument `sessionToken`, not stored in the sample configuration.
+5. Ask the agent to inspect resources, draft buildings or propose neighbourhood/world plans with explicit constraints.
+6. Review the before/after view and object list, then explicitly receive reviewed changes. Undo restores the preceding editor project.
+
+The 38 tools support searches, complete templates, rooms/edges/objects, validation, previews, shared buildings, constrained proposals and native export. Stale revisions are rejected; closing the session revokes access. Local session/proposal files stay in `work/`; there is no arbitrary shell/filesystem execution. The editor does not modify your Codex settings. Full instructions: [MCP](docs/MCP.md).
+
+## Save, recover and install an exported map
+
+Save downloads an editable project. Recovery files stay in `work/recovery/`; the browser stores a linking identifier. Clearing browser data removes the link, not the files. Keep explicit files for sharing and long-term storage. Recovery controls expose current and three previous versions; damaged current snapshots fall back to a valid backup.
+
+History is bounded/sparse, so large actions can remove older entries. A world replacement needing over 512 MB of history is refused before mutation: save the current world, then open the result into an empty world. Supported formats: maps **1–7**, templates **1–5**, worlds **1–2**. New layers raise their version; old editors reject newer formats to protect data. Model behaviors use map 7/template 5, shared buildings/DEM world 2.
+
+1. Build the mod and download its ZIP.
+2. Extract the complete `SimplePZMap_<identifier>` folder into the configured game-user-data `Zomboid/mods` folder. This is not the Steam installation's `media` directory. Choose your own user-data location; the editor never installs files automatically.
+3. Install dependencies listed in `INSTALL.txt` and enable them together with the map mod.
+4. Create a **new game** using the exported map. Existing saves are not migrated.
+5. Enable overlapping example mods separately, or relocate and re-export them.
+
+Exports include Build 42 `mod.info`, `common/`, native `.lotheader/.lotpack/chunkdata_*.bin`, room/building definitions, spawn points, zones, world map XML, editable project, attribution and installation instructions. Name/seed determine the mod ID; changing either creates a different ID. Origin defaults to native cell 100,100.
+
+## Build from source
+
+Release users can skip this section.
+
+1. Download **.NET 10 SDK** from the [official .NET download page](https://dotnet.microsoft.com/en-us/download/dotnet/10.0), **Node.js 24** from [nodejs.org](https://nodejs.org/en/download), and **Git for Windows** from [git-scm.com](https://git-scm.com/install/windows). Choose Windows x64 packages; an ASP.NET/.NET runtime alone cannot compile sources.
+2. To keep tool installations off the system drive, use the SDK's **Binaries → x64 ZIP**, Node's Windows **ZIP** distribution, and portable Git. Extract them under a G: tools directory and add their executable directories to the current PowerShell session's `PATH`. Existing installations can be used instead. Confirm `dotnet --version` starts with `10.`, `node --version` starts with `v24.`, and `git --version` returns a Git version before continuing.
+3. Clone into a G: workspace. If the folder is an existing checkout, update it instead of cloning over it.
+4. Run from the repository root and load `WorkspaceEnv.ps1`; it directs task temporary files, .NET/NuGet/npm caches and Chromium data into `work/`.
+
+```powershell
+git clone --branch develop https://github.com/DinLemon/SimplePZMapmaker.git './SimplePZMapmaker'
+Set-Location -LiteralPath './SimplePZMapmaker'
+. ./scripts/WorkspaceEnv.ps1
+dotnet --version
+node --version
+dotnet run --project src/SimplePZMapmaker.Web
+```
+
+Open `http://127.0.0.1:48765` once started. Stop the foreground development server with **Ctrl+C** before another server uses its port. In another PowerShell window from the same root:
 
 ```powershell
 . ./scripts/WorkspaceEnv.ps1
-dotnet run --project src/SimplePZMapmaker.Web
 ./scripts/verify.ps1
 ./scripts/publish.ps1
 ./scripts/package.ps1
 ```
 
-Основные тесты не требуют NuGet-пакетов. Браузерные проверки требуют Playwright только в `work/qa/`:
+Verification runs C#/JavaScript checks and a Release build. Publishing writes the self-contained application to `artifacts/app/`; packaging writes the ZIP under `artifacts/`. Do not overwrite a running executable. Initial MCP/runtime package restore needs internet, and downloads stay inside the workspace.
+
+Optional full browser and installed-game probes:
 
 ```powershell
 . ./scripts/WorkspaceEnv.ps1
 npm install --prefix work/qa --no-audit --no-fund --ignore-scripts playwright
 node work/qa/node_modules/playwright/cli.js install chromium --only-shell
-# При запущенном сервере:
+# Keep the application running for browser/MCP checks.
 node scripts/verify-browser.mjs
-node scripts/verify-review.mjs
-node scripts/verify-pilna.mjs
 node scripts/verify-building-workshop.mjs
-node scripts/verify-building-review.mjs
-node scripts/verify-basements.mjs
-node scripts/verify-assets.mjs
-node scripts/verify-appearance.mjs
+node scripts/verify-world-workshop.mjs
+node scripts/verify-environment-workshop.mjs
+dotnet run --project tools/McpSmoke
+# Independent archive reader; no game needed.
 node scripts/verify-native-map.mjs
-# Необязательная проверка через установленную игру и её Java:
+# Installed-game/JRE probes do not launch a play session.
 ./scripts/verify-game-runtime.ps1
 ./scripts/verify-game-runtime.ps1 -MapArchive examples/Basements/Basements-B42.zip -Basements
-node scripts/verify-native-map.mjs examples/Assets/Resources-B42.zip ./game-installation/media
-./scripts/verify-game-runtime.ps1 -MapArchive examples/Assets/Resources-B42.zip
+./scripts/verify-static-model-runtime.ps1
 ```
 
-Регрессионные тесты записывают скачанные проекты, ZIP и снимки только в `work/qa-results/`. Исходники на ветке `develop` в публичном [GitHub-репозитории](https://github.com/DinLemon/SimplePZMapmaker). Лицензия GPL-2.0-or-later, происхождение форматов и данных — `docs/PROVENANCE.md`.
+QA downloads/screenshots/logs stay in `work/qa-results/` or `work/logs/`. Development uses `develop`.
 
-## Готовые деревенские, поселковые и городские дома
+## Run it in GitHub Actions
 
-Нажмите **«Готовые дома: деревня, посёлок, город»** в библиотеке слева. Этот вход доступен и при выбранном здании на карте. Карточки показывают игровой вид, размеры, этажность и ссылки на архитектурные образцы. Откройте карточку, измените ресурсы/планировку и сохраните шаблон; затем выберите его в библиотеке и поставьте на карту.
+**Build and verify** builds the editor and launches the published application on runner loopback without a game or shared runtime. An HTTP check generates, validates and exports a native mod, which an independent reader verifies. A Chromium check saves a project, changes its name, reopens the saved file and verifies that its original state is restored. The workflow uploads **SimplePZMapmaker-win-x64** and **Application-startup-check** artifacts.
 
-В каталоге шесть самостоятельных планов: деревянная изба с сенями и погребом, сельский дом с верандой, двухэтажный поселковый дом, кирпичная пятиэтажка, панельная пятиэтажка и девятиэтажная башня. У многоподъездных домов отдельные лестничные ядра, квартиры и балконы. Это авторские игровые адаптации, а не строительные чертежи конкретной серии; лифт не моделируется. Образцы и ограничения описаны в [HOUSING-REFERENCES.md](docs/HOUSING-REFERENCES.md).
+1. Open **Actions** in the GitHub repository and select **Build and verify**.
+2. Choose **Run workflow**, select `develop` or the branch to verify, then start.
+3. Inspect build/startup/browser steps in the run.
+4. Download the completed application artifact for local use. Extract GitHub's outer artifact archive, then extract the contained `SimplePZMapmaker-0.7.1-win-x64.zip` into the application folder and follow the installation steps above. The diagnostic artifact contains startup evidence and screenshots. GitHub may require sign-in for artifacts.
 
-В `examples/HousingTemplates/` находятся шесть отдельных JSON шаблонов, общий проект и `HousingTemplates-B42.zip`. Включайте готовые моды-примеры по отдельности: они используют одинаковые мировые координаты. Пильна открывается через обычную кнопку «Открыть» из `examples/Pilna/pilna.pzmap.json`; отдельная кнопка Пильны убрана.
+CI runs on pushes to `develop`, pull requests and manual dispatch. The Windows runner maps its checkout to G: and keeps task caches there. Its no-game fallback check does not replace local installed-game probes.
+
+**Actions runs are temporary, not permanent hosting.** The app process ends with the job; runner `127.0.0.1` cannot serve your local browser. Download and run the application locally for editing. See [build.yml](.github/workflows/build.yml).
+
+## Troubleshooting
+
+- **Launcher asks for an SDK:** use the `win-x64` asset and extract it completely; a source archive or missing executable triggers the development build path. The complete release needs no SDK.
+- **Port 48765 occupied / stale server:** stop the corresponding `SimplePZMapmaker.Web.exe` and restart the desired workspace. Do not stop unrelated .NET processes.
+- **Blank browser / startup timeout:** inspect `work/logs/server.log` and `server-errors.log`, check extraction, and open the loopback address manually.
+- **Missing game images:** verify game path and refresh the catalog. Basic editing/saving work without the game; resource-aware operations need the owning catalog.
+- **Mod activation failed:** follow the missing dependency chain, add its G: root/install it or select the right version. The previous catalog remains active.
+- **OSM 504 / timeout:** retry later, use the Smolensk regional source when applicable, or import saved geography. Failed/cancelled imports retain the project.
+- **Building cannot apply/export:** inspect disconnected rooms, entrances, stairs/landings, furniture/model overlap, water and section coverage. Drafts remain editable.
+- **Agent conflict:** read the current revision and generate a new review; only the reviewed revision can be received.
+- **Example map conflict:** examples can share origin 100,100. Enable one or relocate/re-export them.
+- **No hills from DEM:** elevation is an overlay/data sidecar; native terrain stays flat.
+
+## Validation and limits
+
+Independent native readers and selected installed-game loaders check archives, upstairs/basement rooms and stairs. Static-model probes exercise actual game collision approaches and container capacity. Browser checks cover editing, imports, world assembly, recovery and agent review. These do **not** establish a complete character playthrough, exact visuals for every mod model/roof, loot balance or multiplayer/save-reload correctness. Dated evidence: [STATUS.md](docs/STATUS.md).
+
+Unofficial and unaffiliated with The Indie Stone. Code/original plans: **GPL-2.0-or-later**; OSM geography: separate **ODbL** obligations. Game/mod resources and reference images retain their owners' rights. Read [PROVENANCE.md](docs/PROVENANCE.md), [RUNTIME.md](docs/RUNTIME.md) and bundled licenses.
