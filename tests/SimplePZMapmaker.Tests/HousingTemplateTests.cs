@@ -8,7 +8,7 @@ public static class HousingTemplateTests
 {
  public static IEnumerable<(string,Action)> Cases(){
   yield return ("authored housing and public building templates have independent fresh deterministic plans",()=>{
-   if(HousingTemplates.Catalog.Count<12||HousingTemplates.Catalog.Select(d=>d.Id).Distinct().Count()!=HousingTemplates.Catalog.Count)throw new Exception("Housing catalog incomplete");
+   if(HousingTemplates.Catalog.Count<24||HousingTemplates.Catalog.Select(d=>d.Id).Distinct().Count()!=HousingTemplates.Catalog.Count)throw new Exception("Housing catalog incomplete");
    var layouts=new HashSet<string>();
    foreach(var descriptor in HousingTemplates.Catalog){
     var a=HousingTemplates.Create(descriptor.Id);var b=HousingTemplates.Create(descriptor.Id);BuildingDesigner.Validate(a);
@@ -76,7 +76,7 @@ public static class HousingTemplateTests
    using var credit=new StreamReader(zip.Entries.Single(e=>e.FullName.EndsWith("ATTRIBUTION.txt")).Open());var text=credit.ReadToEnd();if(HousingTemplates.Catalog.SelectMany(d=>d.References).Distinct().Any(url=>!text.Contains(url)))throw new Exception("Native reference attribution missing");
   });
  }
- public static MapProject Example(){var p=MapGenerator.Generate(new(){Kind="blank",Name="Жилые и общественные шаблоны",Seed=20261012});p.Version=5;p.WorldX=100;p.WorldY=100;var positions=new[]{(16,16),(56,16),(96,16),(16,72),(80,72),(144,72),(16,128),(64,128),(112,128),(16,184),(64,184),(112,184)};foreach(var (descriptor,i) in HousingTemplates.Catalog.Select((d,i)=>(d,i))){var b=HousingTemplates.Create(descriptor.Id);b.X=positions[i].Item1;b.Y=positions[i].Item2;p.Buildings.Add(b);}p.Spawns=[new(){X=12,Y=12}];p.Attribution=["Original housing and public building adaptations; see docs/HOUSING-REFERENCES.md for architectural references."];ProjectValidator.Validate(p);return p;}
+ public static MapProject Example(){var p=MapGenerator.Generate(new(){Kind="blank",Name="Жилые и общественные шаблоны",Seed=20261012});p.Version=5;p.WorldX=100;p.WorldY=100;var x=8;var y=8;var rowHeight=0;foreach(var descriptor in HousingTemplates.Catalog){var b=HousingTemplates.Create(descriptor.Id);if(x+b.Width>=248){x=8;y+=rowHeight+6;rowHeight=0;}if(y+b.Height>=248)throw new Exception("Housing shelf layout exceeded native cell");b.X=x;b.Y=y;x+=b.Width+6;rowHeight=Math.Max(rowHeight,b.Height);p.Buildings.Add(b);}p.Spawns=[new(){X=4,Y=4}];p.Attribution=["Original housing and public building adaptations; see docs/HOUSING-REFERENCES.md for architectural references."];ProjectValidator.Validate(p);return p;}
  static string ReadLine(BinaryReader r){var result=new StringBuilder();for(byte b;(b=r.ReadByte())!=10;)result.Append((char)b);return result.ToString();}
  static int ExteriorEntrances(Building b,BuildingFloor f)=>f.Edges.Count(e=>e.Kind is "door" or "open"&&(BuildingDesigner.Cell(b,f,e.X,e.Y)=='.'||(e.Edge=="n"?BuildingDesigner.Cell(b,f,e.X,e.Y-1):BuildingDesigner.Cell(b,f,e.X-1,e.Y))=='.'));
  static Dictionary<char,HashSet<char>> RoomLinks(Building b,BuildingFloor f){var links=f.Rooms.Keys.ToDictionary(k=>k[0],_=>new HashSet<char>());foreach(var edge in f.Edges.Where(e=>e.Kind is "door" or "open")){var a=BuildingDesigner.Cell(b,f,edge.X,edge.Y);var c=edge.Edge=="n"?BuildingDesigner.Cell(b,f,edge.X,edge.Y-1):BuildingDesigner.Cell(b,f,edge.X-1,edge.Y);if(a!='.'&&c!='.'){links[a].Add(c);links[c].Add(a);}}return links;}

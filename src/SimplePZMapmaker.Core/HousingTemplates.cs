@@ -17,7 +17,7 @@ public static partial class HousingTemplates
   new("urban-brick-five","Кирпичная пятиэтажка","urban","Два независимых подъезда, по четыре двухкомнатные квартиры на площадке, регулярные окна и балконы. Авторская адаптация кирпичного секционного жилья.",48,26,5,0,Array.AsReadOnly(new[]{BrickReference})),
   new("urban-panel-five","Панельная пятиэтажка","urban","Два независимых подъезда, компактные однокомнатные квартиры с прихожими, серые фасады, балконы и плоская крыша. Другая планировка секций.",48,24,5,0,Array.AsReadOnly(new[]{PanelReference})),
   new("urban-panel-nine","Панельная девятиэтажная башня","urban","Один лестничный узел, четыре квартиры на этаже, подсобное помещение, балконы и плоская крыша. Лифт не моделируется.",32,30,9,0,Array.AsReadOnly(new[]{TowerReference,PanelReference}))
- }.Concat(AdditionalDescriptors()).ToArray());
+ }.Concat(AdditionalDescriptors()).Concat(RegionalDescriptors()).ToArray());
 
  public static Building Create(string id)
  {
@@ -122,8 +122,8 @@ public static partial class HousingTemplates
  }
  private static void GreyFacade(BuildingFloor f)
  {
-  // Vanilla grey rendered wall palette; style "modern" supplies the matching interior furniture.
-  foreach(var e in f.Edges){var offset=e.Kind=="door"?10:e.Kind=="window"?8:0;e.WallTile="walls_exterior_house_02_"+(64+offset+(e.Edge=="n"?1:0));}
+  // Vanilla grey masonry visually approximates concrete panels; it is not an exact panel construction.
+  foreach(var e in f.Edges){var offset=e.Kind=="door"?10:e.Kind=="window"?8:0;e.WallTile="walls_exterior_house_01_"+(offset+(e.Edge=="n"?1:0));}
  }
  private static void AddCombinedLivingBeds(Building b,int z)
  {

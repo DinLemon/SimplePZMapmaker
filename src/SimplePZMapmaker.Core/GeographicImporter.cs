@@ -6,7 +6,7 @@ public sealed record ImportResult(MapProject Project,int ImportedFeatures,int Sk
     public int SourceFeatures {get;init;}
     public Dictionary<string,int> SkipReasons {get;init;}=[];
 }
-public static class GeographicImporter {
+public static partial class GeographicImporter {
     private sealed record Feature(Dictionary<string,string> Tags,List<List<(double X,double Y)>> Rings,bool Polygon);
     public static ImportResult Import(string json,MapProject project,GeoBounds? bounds=null,CancellationToken cancellationToken=default,bool preserveEdits=false,GeographicProjection? projection=null)
     {

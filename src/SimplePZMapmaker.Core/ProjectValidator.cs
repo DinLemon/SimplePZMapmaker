@@ -4,7 +4,7 @@ public static class ProjectValidator
     public static void Validate(MapProject p)
     {
         ArgumentNullException.ThrowIfNull(p);
-        if(p.Version is not(1 or 2 or 3 or 4 or 5 or 6)) Fail("Версия проекта не поддерживается.");
+        if(p.Version is not(1 or 2 or 3 or 4 or 5 or 6 or 7)) Fail("Версия проекта не поддерживается.");
         ResourceDependencies.Validate(p.RequiredMods,p.AssetSources);
         if(p.StaticModels is null||p.StaticModels.Count>10000)Fail("Слой статичных моделей повреждён.");
         if(p.Version<6&&(p.RequiredMods.Count>0||p.AssetSources.Count>0||p.StaticModels.Count>0||p.Buildings.Concat(p.BuildingLibrary).Any(b=>b?.RequiredMods.Count>0||b?.AssetSources.Count>0||b?.Design?.Floors.Any(f=>f.StaticModels.Count>0)==true)))Fail("Моды и статичные модели требуют формат проекта версии6.");

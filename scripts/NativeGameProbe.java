@@ -40,7 +40,9 @@ public class NativeGameProbe {
    }
   }
   boolean requireBasements=args.length>3&&args[3].equals("--basements");
-  if(stairTiles==0||(!requireBasements&&upperRooms==0)||(requireBasements&&(minLoadedLevel!=-16||basementRooms==0||basementStairs==0)))throw new AssertionError("Expected signed rooms/stair sprites not loaded");
+  int expectedMin=args.length>4?Integer.parseInt(args[4]):-16;
+  if(expectedMin < -16 || expectedMin > -1)throw new AssertionError("Basement minimum outside supported range");
+  if(stairTiles==0||(!requireBasements&&upperRooms==0)||(requireBasements&&(minLoadedLevel!=expectedMin||basementRooms==0||basementStairs==0)))throw new AssertionError("Expected signed rooms/stair sprites not loaded");
   System.out.printf("NATIVE_GAME_PROBE cells=%d chunks=%d rooms=%d upperRooms=%d basementRooms=%d minLevel=%d stairTiles=%d basementStairs=%d status=passed%n",cellCount,chunkCount,roomCount,upperRooms,basementRooms,minLoadedLevel,stairTiles,basementStairs);
  }
 }

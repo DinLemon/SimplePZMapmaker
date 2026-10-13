@@ -1,0 +1,8 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {blank} from '../src/SimplePZMapmaker.Web/wwwroot/editor.js';
+import {History} from '../src/SimplePZMapmaker.Web/wwwroot/editor.js';
+test('native model behavior advances saved project format and keeps undo reversible',()=>{const p=blank(),next=structuredClone(p);next.version=6;next.staticModels.push({id:'a'.repeat(32),modelId:'Base.BeerBottle',sourceId:'game',x:20,y:20,z:0,offsetX:.5,offsetY:.5,offsetZ:0,rotation:0,scale:1,requiredMods:[],profile:'obstacle',health:500,capacity:50});const history=new History();history.checkpoint(p,next);assert.equal(p.version,7);history.undo(p);assert.equal(p.version,4);assert.equal(p.staticModels.length,0);history.redo(p);assert.equal(p.version,7);});
+import {changeSummary} from '../src/SimplePZMapmaker.Web/wwwroot/agent-review.js';
+test('agent comparison counts existing manual terrain and does not mutate either project',()=>{const before=blank(),after=structuredClone(before);after.terrain[9]=3;after.buildings.push({id:'one',x:20,y:20,width:12,height:10});const original=structuredClone(before);const result=changeSummary(before,after);assert.equal(result.terrainChanged,1);assert.equal(result.buildingsBefore,0);assert.equal(result.buildingsAfter,1);assert.deepEqual(before,original);});
+test('world comparison includes global buildings and sparse section moves without city raster',()=>{const p=blank(),before={maps:[{id:'section',project:p}],buildings:[]},after=structuredClone(before);after.maps[0].project.worldX++;after.buildings.push({id:'world-building'});const result=changeSummary(before,after,true);assert.equal(result.changedSections,1);assert.equal(result.buildingsAfter,1);assert.equal(result.terrainChanged,0);});

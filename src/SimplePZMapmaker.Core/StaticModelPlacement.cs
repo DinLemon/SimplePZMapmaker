@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 namespace SimplePZMapmaker.Core;
-/// <summary>A registered game model represented by a world inventory item, without structural collision.</summary>
+/// <summary>A registered model placed as a pickup item or a persistent native scenery object.</summary>
 public sealed class StaticModelPlacement
 {
  public string Id {get;set;}=Guid.NewGuid().ToString("N");
@@ -11,6 +11,12 @@ public sealed class StaticModelPlacement
  public double OffsetX {get;set;}=.5; public double OffsetY {get;set;}=.5;
  public double OffsetZ {get;set;}
  public double Rotation {get;set;} public double Scale {get;set;}=1;
+ public string Profile {get;set;}="pickup";
+ public int Health {get;set;}=500;
+ public int Capacity {get;set;}=50;
+ /// <summary>Canonical world attachment from the registered model, stamped by the resource catalog.</summary>
+ public double[] WorldRotation {get;set;}=[0,0,0];
+ public double WorldScale {get;set;}=1;
  public List<string> RequiredMods {get;set;}=[];
  public static void Validate(StaticModelPlacement p,int width,int height,int minZ=-16,int maxZ=15)
  {
@@ -19,5 +25,7 @@ public sealed class StaticModelPlacement
   if(p.SourceId is null||p.SourceId.Length>180||p.SourceId.Any(char.IsControl)||p.X<0||p.Y<0||p.X>=width||p.Y>=height||p.Z<minZ||p.Z>maxZ)throw new ArgumentException("Модель находится вне карты или этажа.");
   if(!double.IsFinite(p.OffsetX)||!double.IsFinite(p.OffsetY)||!double.IsFinite(p.OffsetZ)||p.OffsetX is <0 or >1||p.OffsetY is <0 or >1||p.OffsetZ is <0 or >1||!double.IsFinite(p.Rotation)||p.Rotation is <0 or >=360||!double.IsFinite(p.Scale)||p.Scale is <.01 or >20)throw new ArgumentException("Проверьте смещение, поворот и масштаб модели.");
   ResourceDependencies.Validate(p.RequiredMods,[]);
+  if(p.Profile is not ("pickup" or "scenery" or "obstacle" or "destructible" or "container")||p.Health is <1 or >100000||p.Capacity is <1 or >1000)throw new ArgumentException("Проверьте поведение модели, прочность (1–100000) и вместимость (1–1000).");
+  if(p.WorldRotation is null||p.WorldRotation.Length!=3||p.WorldRotation.Any(v=>!double.IsFinite(v)||Math.Abs(v)>36000)||!double.IsFinite(p.WorldScale)||p.WorldScale is <=0 or >100)throw new ArgumentException("Некорректное world attachment модели.");
  }
 }

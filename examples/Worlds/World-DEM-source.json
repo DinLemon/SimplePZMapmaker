@@ -1,0 +1,23 @@
+{
+  "description": "Original authored house/roads/river demo. Only the DEM values are real surveyed dataset samples; this is not an OSM reconstruction.",
+  "importedUtc": "2026-10-13T14:42:37.3355340+00:00",
+  "source": "Terrain Tiles (Tilezen/Joerd), AWS Open Data, Terrarium zoom12; https://registry.opendata.aws/terrain-tiles/",
+  "license": "Terrain Tiles / Tilezen Joerd. USGS SRTM/GMTED2010/3DEP; NOAA ETOPO1; Copernicus EU-DEM (European Union); ArcticDEM (NSF awards1043681/1559691/1542736, DigitalGlobe); Australia Geoscience Australia/Commonwealth2017; Austria offene Daten Österreichs DGM; Canada Open Government Licence; Mexico INEGI2016; New Zealand LINZ/Crown2011; Norway Kartverket; UK Environment Agency2015. Source terms: https://github.com/tilezen/joerd/blob/master/docs/attribution.md",
+  "coordinateSystem": "EPSG:3857",
+  "columns": 256,
+  "rows": 256,
+  "minimum": 161,
+  "maximum": 269,
+  "geoReference": {
+    "bounds": {
+      "south": 54.7777,
+      "west": 32.045,
+      "north": 54.78,
+      "east": 32.053
+    },
+    "metresPerTile": 1,
+    "originCellX": 100,
+    "originCellY": 100
+  },
+  "nativeGround": "flat; elevation is survey overlay and elevation.asc sidecar"
+}

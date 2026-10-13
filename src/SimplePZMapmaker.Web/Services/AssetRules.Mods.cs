@@ -11,7 +11,7 @@ public static partial class AssetRules
  }
  public static void StampDependencies(Building b,GameAssetCatalog assets)
  {
-  if(!assets.HasActiveMods&&b.AssetSources.Count==0&&b.RequiredMods.Count==0)return;
+  if(!assets.HasActiveMods&&b.AssetSources.Count==0&&b.RequiredMods.Count==0&&b.Design?.Floors.Any(f=>f.StaticModels.Any(m=>m.Profile!="pickup"))!=true)return;
   var explicitTiles=b.Design?.Floors.SelectMany(f=>f.FloorTiles.Values.Concat(f.FloorTile is null?[]:new[]{f.FloorTile}).Concat(f.Edges.SelectMany(e=>new[]{e.WallTile,e.OpeningTile}.OfType<string>())).Concat(f.Objects.SelectMany(o=>o.Kind=="asset"?o.Parts.Select(p=>p.Tile):[])))??[];
   // Compose through the native implementation, so generated walls, roofs and furniture
   // carry the same provider as the actual exported building.
@@ -20,7 +20,7 @@ public static partial class AssetRules
  }
  public static void StampDependencies(MapProject p,GameAssetCatalog assets)
  {
-  if(!assets.HasActiveMods&&p.AssetSources.Count==0&&p.RequiredMods.Count==0&&p.Buildings.Concat(p.BuildingLibrary).All(b=>b.AssetSources.Count==0&&b.RequiredMods.Count==0))return;
+  if(!assets.HasActiveMods&&p.AssetSources.Count==0&&p.RequiredMods.Count==0&&p.StaticModels.All(m=>m.Profile=="pickup")&&p.Buildings.Concat(p.BuildingLibrary).All(b=>b.AssetSources.Count==0&&b.RequiredMods.Count==0&&b.Design?.Floors.Any(f=>f.StaticModels.Any(m=>m.Profile!="pickup"))!=true))return;
   foreach(var b in p.Buildings.Concat(p.BuildingLibrary))StampDependencies(b,assets);
   var ids=NativeScene.ResourceIds(p).Concat(p.SurfaceTiles.Values).Concat(p.Decorations.SelectMany(d=>d.Parts.Select(part=>part.Tile).Append(d.Asset))).Distinct().ToArray();p.AssetSources=StampSources(ids,p.AssetSources,assets);
   p.RequiredMods=assets.ResolveRequirements(ids).Select(m=>m.ModId).Concat(p.Buildings.SelectMany(b=>b.RequiredMods)).Concat(p.StaticModels.SelectMany(m=>m.RequiredMods)).Distinct(StringComparer.Ordinal).ToList();if(p.RequiredMods.Count>0||p.AssetSources.Count>0)p.Version=Math.Max(p.Version,6);

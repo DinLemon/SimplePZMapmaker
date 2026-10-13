@@ -1,4 +1,4 @@
-import {blank,paint,line,canPlace,History,validateProject,boundsFromSearchResult,geographicBase} from './editor.js';
+import {blank,paint,line,canPlace as canPlaceLocal,History,validateProject as validateLocalProject,boundsFromSearchResult,geographicBase} from './editor.js';
 import {kinds,containsPoint,cell,shapeCells,validateDesign,combineAttribution,minLevel,aboveLevels,visibleFloors,containsVisiblePoint,usesAssets,normalizeBuilding} from './building.js';
 import {BuildingWorkshop} from './workshop.js';
 import {ResourcePicker,GamePreview} from './resources.js';
@@ -10,6 +10,9 @@ import {openStaticModelPicker} from './static-models.js';
 import {StaticModelSprites} from './static-model-sprites.js';
 import {EnvironmentWorkshop} from './environment-workshop.js';
 import {OsmWorldImport} from './osm-world-import.js';
+import {RecoveryVersions} from './recovery-versions.js';
+import {TerrainRasterCache,buildingVisible} from './terrain-raster.js';
+import {globalBuildingMask,overlapsGlobalBuilding,validateGlobalProtection} from './world-protection.js';
 
 const $=id=>document.getElementById(id);
 const colors=['#8b9768','#526b4b','#787975','#507b85','#c6b58d','#8e765e','#a5a395'];
@@ -26,6 +29,7 @@ let selectedPlaceBounds=null;
 let zoom=1,pan={x:0,y:0},space=false,busy=false,controller=null,saveTimer,toastTimer,frame=0,dirty=true;
 const canvas=$('map-canvas'),ctx=canvas.getContext('2d'),mini=$('minimap'),mctx=mini.getContext('2d');
 const raster=document.createElement('canvas'),rctx=raster.getContext('2d');
+const rasterCache=new TerrainRasterCache(raster);
 let viewport={width:800,height:600};
 let worldAsset=null,surfaceAsset=null,standaloneId=null,staticModel=null,agentSession=null;
 const gamePreview=new GamePreview();
@@ -49,12 +53,19 @@ $('open-resources').onclick=()=>resources.open();$('pick-world-resource').onclic
 $('erase-world-resource').onclick=()=>setTool('erase-decor');
 const appearance=new AppearancePanel({project:()=>project,selectArea:()=>{if(isometric)$('view-top').click();$('map-level').value='0';setTool('appearance-area');toast('Протяните прямоугольник на карте. Затем выберите оформление.');},apply:options=>task('Применяем оформление выбранной области…',async signal=>{const result=await api('/api/styles/apply',{project,...options},signal);history.begin(project);project.version=result.project.version;project.surfaceTheme=result.project.surfaceTheme;project.surfaceRegions=result.project.surfaceRegions;project.buildings=result.project.buildings;history.commit(project);appearance.done();changed();toast(`Оформление применено: ${options.region?'выбранный участок':'вся карта'}. Оформлено зданий: ${result.changed}.`);}),preview:options=>{const r=options.region,center=r?{x:r.x+Math.floor(r.width/2),y:r.y+Math.floor(r.height/2)}:cursor||{x:Math.floor(project.width/2),y:Math.floor(project.height/2)},cellX=Math.max(0,Math.min(project.width/256-1,Math.floor(center.x/256))),cellY=Math.max(0,Math.min(project.height/256-1,Math.floor(center.y/256))),x=Math.min(208,Math.max(0,center.x-cellX*256-24)),y=Math.min(208,Math.max(0,center.y-cellY*256-24));gamePreview.open('Предпросмотр выбранного оформления',level=>api('/api/preview/appearance',{project,...options,cellX,cellY,x,y,level}),-16,15,'0');}});
 const worldWorkshop=new WorldWorkshop({current:()=>project,adopt:p=>adopt(p,{worldManaged:true}),finish:()=>{finish();history.commit(project);},download,api,task,message:toast,recoveryId});
-agentSession=new AgentSession({project:()=>project,busy:()=>busy,apply:p=>{finish();for(const b of [...p.buildings,...(p.buildingLibrary||[])])normalizeBuilding(b);history.checkpoint(project,p);selectedId=null;selectedSpawn=-1;appearance.reset();changed();},message:toast});
+let protectionCache=null;const emptyWorldMask=new Set();
+function worldMask(p=project){if(!worldWorkshop.editedId)return emptyWorldMask;const world=worldWorkshop.world,key=p.worldX+':'+p.worldY+':'+p.width+':'+p.height;if(!protectionCache||protectionCache.world!==world||protectionCache.key!==key)protectionCache={world,key,mask:globalBuildingMask(world,p)};return protectionCache.mask;}
+function canPlace(p,b){return canPlaceLocal(p,b)&&!overlapsGlobalBuilding(p,b,worldMask(p));}
+function validateProject(p){validateLocalProject(p);validateGlobalProtection(p,worldMask(p));}
+history.extraBlockedWater=index=>worldMask().has(index);
+worldWorkshop.setBuildingEditor((building,apply)=>{const oldApply=workshop.apply;workshop.apply=apply;$('building-dialog').addEventListener('close',()=>{workshop.apply=oldApply;},{once:true});workshop.open(building);});
+agentSession=new AgentSession({project:()=>project,changeVersion:()=>autosaveRevision+":"+worldWorkshop.revision,world:()=>{finish();history.commit(project);worldWorkshop.flush();return worldWorkshop.world;},applyWorld:w=>worldWorkshop.acceptWorld(w),busy:()=>busy,apply:p=>{finish();for(const b of [...p.buildings,...(p.buildingLibrary||[])])normalizeBuilding(b);history.checkpoint(project,p);selectedId=null;selectedSpawn=-1;appearance.reset();changed();},message:toast});
+new RecoveryVersions({id:recoveryId,message:toast,apply:p=>{finish();history.checkpoint(project,p);changed();},applyWorld:w=>worldWorkshop.acceptWorld(w)});
 const modelButton=document.createElement('button');modelButton.id='pick-static-model';modelButton.textContent='Статичные модели из игры и модов';$('pick-world-resource').after(modelButton);modelButton.onclick=()=>openStaticModelPicker({onPlace:m=>{staticModel=m;modelSprites.load(m).then(()=>requestDraw());setTool('static-model');$('world-resource-name').textContent=m.modelId+' · размещение модели';}});
 const environmentWorkshop=new EnvironmentWorkshop({project:()=>project,busy:()=>busy,center:()=>cursor||{x:project.width/2,y:project.height/2},apply:p=>{finish();history.checkpoint(project,p);selectedId=null;selectedSpawn=-1;appearance.reset();for(const m of (p.staticModels||[]).slice(0,200))modelSprites.load(m).then(()=>requestDraw());changed();},message:toast});
 const osmWorldImport=new OsmWorldImport({getWorld:()=>{finish();history.commit(project);worldWorkshop.flush();return worldWorkshop.world;},acceptWorld:w=>worldWorkshop.acceptWorld(w)});
 $('open-appearance').onclick=()=>appearance.open();$('apply-visual-style').onclick=()=>appearance.open();
-$('preview-region').onclick=()=>{const b=project.buildings.find(b=>b.id===selectedId),center=b?{x:b.x+Math.floor(b.width/2),y:b.y+Math.floor(b.height/2)}:cursor||{x:Math.floor(project.width/2),y:Math.floor(project.height/2)},cellX=Math.min(project.width/256-1,Math.max(0,Math.floor(center.x/256))),cellY=Math.min(project.height/256-1,Math.max(0,Math.floor(center.y/256))),x=Math.min(208,Math.max(0,Math.floor(center.x-cellX*256)-24)),y=Math.min(208,Math.max(0,Math.floor(center.y-cellY*256)-24));gamePreview.open('Участок карты · 48 × 48',level=>api('/api/preview/cell',{project,cellX,cellY,x,y,level}),-16,15,$('map-level').value==='all'?'0':$('map-level').value);};
+$('preview-region').onclick=()=>{const b=project.buildings.find(b=>b.id===selectedId),center=b?{x:b.x+Math.floor(b.width/2),y:b.y+Math.floor(b.height/2)}:cursor||{x:Math.floor(project.width/2),y:Math.floor(project.height/2)},cellX=Math.min(project.width/256-1,Math.max(0,Math.floor(center.x/256))),cellY=Math.min(project.height/256-1,Math.max(0,Math.floor(center.y/256))),x=Math.min(208,Math.max(0,Math.floor(center.x-cellX*256)-24)),y=Math.min(208,Math.max(0,Math.floor(center.y-cellY*256)-24));gamePreview.open('Участок карты · 48 × 48',level=>worldWorkshop.editedId?api('/api/world/preview',{world:worldWorkshop.world,memberId:worldWorkshop.editedId,cellX,cellY,x,y,level}):api('/api/preview/cell',{project,cellX,cellY,x,y,level}),-16,15,$('map-level').value==='all'?'0':$('map-level').value);};
 
 function toast(message,error=false){$('toast').textContent=message;$('toast').classList.toggle('error',error);$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,error?10000:5500);}
 function status(message){$('status').textContent=message;}
@@ -101,7 +112,7 @@ function update(){
  $('tool-help').textContent=help[tool];requestDraw();
 }
 function changed(){dirty=true;worldWorkshop.currentChanged(project);agentSession?.localChanged();autosave();update();}
-function adopt(p,options={}){validateProject(p);if(!options.worldManaged)worldWorkshop.beforeAdopt(p,options);p.version=Math.max(4,p.version);p.surfaceTheme??='legacy';p.surfaceRegions??=[];p.surfaceTiles??={};p.decorations??=[];p.staticModels??=[];p.requiredMods??=[];p.assetSources??={};for(const b of [...p.buildings,...(p.buildingLibrary||[])])normalizeBuilding(b);project=p;for(const m of (p.staticModels||[]).slice(0,200))modelSprites.load(m).then(()=>requestDraw());appearance.reset();history=new History();selectedId=null;selectedSpawn=-1;gesture=null;dirty=true;fit();changed();}
+function adopt(p,options={}){validateProject(p);if(!options.worldManaged)worldWorkshop.beforeAdopt(p,options);p.version=Math.max(4,p.version);p.surfaceTheme??='legacy';p.surfaceRegions??=[];p.surfaceTiles??={};p.decorations??=[];p.staticModels??=[];p.requiredMods??=[];p.assetSources??={};for(const b of [...p.buildings,...(p.buildingLibrary||[])])normalizeBuilding(b);project=p;for(const m of (p.staticModels||[]).slice(0,200))modelSprites.load(m).then(()=>requestDraw());appearance.reset();history=new History();history.extraBlockedWater=index=>worldMask().has(index);selectedId=null;selectedSpawn=-1;gesture=null;dirty=true;fit();changed();}
 function setTool(value){if(gesture)finish();tool=value;document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool));if(value==='zombies')$('show-zombies').checked=true;update();}
 function fit(){
  const w=viewport.width,h=viewport.height;
@@ -118,10 +129,7 @@ function scaleAt(factor,x=viewport.width/2,y=viewport.height/2){
 }
 function requestDraw(){if(!frame)frame=requestAnimationFrame(()=>{frame=0;draw();});}
 function rebuildRaster(){
- if(!dirty)return;raster.width=project.width;raster.height=project.height;
- const image=rctx.createImageData(project.width,project.height),styles=environmentIndices(project),rgb=environmentPresets.map(s=>s.colors.map(c=>[parseInt(c.slice(1,3),16),parseInt(c.slice(3,5),16),parseInt(c.slice(5,7),16)]));
- for(let i=0;i<project.terrain.length;i++){const c=rgb[styles[i]][project.terrain[i]],shade=project.terrain[i]===1?((i*31+project.seed)>>>0)%7-3:0;image.data[i*4]=c[0]+shade;image.data[i*4+1]=c[1]+shade;image.data[i*4+2]=c[2]+shade;image.data[i*4+3]=255;}
- rctx.putImageData(image,0,0);dirty=false;
+ if(!dirty)return;const blocks=history.pending?[...history.pending.changes.values()].filter(c=>c.layer==='terrain').map(c=>c.start):null;rasterCache.update(project,blocks);dirty=false;
 }
 function polygon(points,fill,stroke){ctx.beginPath();for(let i=0;i<points.length;i++){const p=points[i];i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y);}ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.stroke();}}
 function draw(){
@@ -135,8 +143,10 @@ function draw(){
  }
  ctx.restore();
  if($('show-buildings').checked){
-  const buildings=isometric?[...project.buildings].sort((a,b)=>(a.x+a.y)-(b.x+b.y)):project.buildings;
-  for(const b of buildings){const fill=b.kind==='house'?'#d5c8a4':b.kind==='shop'?'#ba9465':'#a3aaa0';
+  const global=worldWorkshop.editedId?(worldWorkshop.world.buildings||[]).filter(b=>b.x+b.width>=project.worldX*256&&b.y+b.height>=project.worldY*256&&b.x<project.worldX*256+project.width&&b.y<project.worldY*256+project.height).map(b=>({...b,x:b.x-project.worldX*256,y:b.y-project.worldY*256})):[];
+  const buildings=isometric?[...project.buildings,...global].sort((a,b)=>(a.x+a.y)-(b.x+b.y)):[...project.buildings,...global];
+  ctx.save();polygon([[0,0],[project.width,0],[project.width,project.height],[0,project.height]].map(([x,y])=>screen(x,y)));ctx.clip();
+  for(const b of buildings){if(!buildingVisible(b,screen,viewport.width,viewport.height,isometric))continue;const fill=b.kind==='house'?'#d5c8a4':b.kind==='shop'?'#ba9465':'#a3aaa0';
    if(b.design){drawDesignedBuilding(b);continue;}if($('map-level').value!=='all'&&+$('map-level').value!==0)continue;
    if(isometric){const points=[[b.x,b.y],[b.x+b.width,b.y],[b.x+b.width,b.y+b.height],[b.x,b.y+b.height]].map(([x,y])=>screen(x,y)),lift=Math.max(3,zoom*7);const roof=points.map(p=>({x:p.x,y:p.y-lift}));polygon([roof[1],roof[2],points[2],points[1]],'#8b8169');polygon([roof[2],roof[3],points[3],points[2]],'#a49776');polygon(roof,fill,b.id===selectedId?'#f5ce84':'#4b4e3d');}
    else{const point=screen(b.x,b.y);ctx.fillStyle=fill;ctx.fillRect(point.x,point.y,b.width*zoom,b.height*zoom);ctx.strokeStyle=b.id===selectedId?'#fff0be':'#555644';ctx.lineWidth=b.id===selectedId?2:1;ctx.strokeRect(point.x,point.y,b.width*zoom,b.height*zoom);
@@ -144,6 +154,7 @@ function draw(){
     if(zoom>1){ctx.fillStyle='#425443';ctx.fillRect(point.x+3*zoom,point.y-1,zoom*1.5,Math.max(2,zoom));}
    }
   }
+  ctx.restore();
  }
  if(['all','0'].includes($('map-level').value))for(const d of project.decorations){for(const part of d.parts){const p=screen(d.x+part.dx,d.y+part.dy);ctx.fillStyle='#d5b575';ctx.strokeStyle='#28382d';ctx.lineWidth=1;ctx.fillRect(p.x,p.y,Math.max(3,zoom),Math.max(3,zoom));ctx.strokeRect(p.x,p.y,Math.max(3,zoom),Math.max(3,zoom));}}
  if(['all','0'].includes($('map-level').value))for(const m of project.staticModels||[]){const point=screen(m.x+.5,m.y+.5);modelSprites.draw(ctx,m,point.x,point.y,Math.max(12,zoom*4));}
@@ -215,7 +226,7 @@ document.querySelectorAll('[data-terrain]').forEach(b=>b.onclick=()=>{terrain=+b
 document.querySelectorAll('[data-building]').forEach(b=>b.onclick=()=>{buildingKind=b.dataset.building;$('building-preset').value=buildingKind;document.querySelectorAll('[data-building]').forEach(a=>a.classList.toggle('active',a===b));setTool('building');});
 $('building-preset').onchange=()=>{if(kinds[$('building-preset').value])buildingKind=$('building-preset').value;setTool('building');};
 $('import-building-template').onclick=()=>$('building-template-file').click();
-$('building-template-file').onchange=e=>{const file=e.target.files[0];if(!file)return;task('Читаем шаблон здания…',async signal=>{if(file.size>4_000_000)throw Error('Шаблон превышает 4 МБ.');const value=JSON.parse(await file.text());if(value.format!=='SimplePZBuilding'||![1,2,3,4].includes(value.version))throw Error('Это не шаблон SimplePZMapmaker.');const b=value.building;if(value.version<4&&(b.requiredMods?.length||Object.keys(b.assetSources||{}).length||b.design?.floors.some(f=>f.staticModels?.length)))throw Error('Моды и модели требуют версию шаблона4.');if(value.version<3&&usesAssets(b))throw Error('Оформление требует формат шаблона версии 3.');if(value.version===1&&minLevel(b)!==0)throw Error('Подвалы требуют формат шаблона версии 2.');b.attribution=combineAttribution(value.attribution??[],b.attribution??[]);validateDesign(b);await api('/api/building/validate',b,signal);project.buildingLibrary??=[];if(project.buildingLibrary.length>=64)throw Error('Библиотека заполнена.');const source=combineAttribution(project.attribution,b.attribution);if(source.length>30)throw Error('Слишком много источников географии.');history.begin(project);b.id=crypto.randomUUID();b.sourceId=null;b.sourceKind=null;b.modified=false;project.attribution=source;project.version=Math.max(project.version,value.version===4?6:4);project.buildingLibrary.push(b);history.commit(project);changed();toast('Шаблон добавлен в библиотеку.');}).finally(()=>e.target.value='');};
+$('building-template-file').onchange=e=>{const file=e.target.files[0];if(!file)return;task('Читаем шаблон здания…',async signal=>{if(file.size>4_000_000)throw Error('Шаблон превышает 4 МБ.');const value=JSON.parse(await file.text());if(value.format!=='SimplePZBuilding'||![1,2,3,4,5].includes(value.version))throw Error('Это не шаблон SimplePZMapmaker.');const b=value.building;if(value.version<4&&(b.requiredMods?.length||Object.keys(b.assetSources||{}).length||b.design?.floors.some(f=>f.staticModels?.length)))throw Error('Моды и модели требуют версию шаблона4.');if(value.version<3&&usesAssets(b))throw Error('Оформление требует формат шаблона версии 3.');if(value.version===1&&minLevel(b)!==0)throw Error('Подвалы требуют формат шаблона версии 2.');b.attribution=combineAttribution(value.attribution??[],b.attribution??[]);validateDesign(b);await api('/api/building/validate',b,signal);project.buildingLibrary??=[];if(project.buildingLibrary.length>=64)throw Error('Библиотека заполнена.');const source=combineAttribution(project.attribution,b.attribution);if(source.length>30)throw Error('Слишком много источников географии.');history.begin(project);b.id=crypto.randomUUID();b.sourceId=null;b.sourceKind=null;b.modified=false;project.attribution=source;project.version=Math.max(project.version,value.version===5?7:value.version===4?6:4);project.buildingLibrary.push(b);history.commit(project);changed();toast('Шаблон добавлен в библиотеку.');}).finally(()=>e.target.value='');};
 $('edit-building').onclick=()=>{const b=project.buildings.find(b=>b.id===selectedId);if(!b)return;if(b.design)workshop.open(b);else task('Подготавливаем план здания…',async signal=>workshop.open(await api('/api/building/design',{building:structuredClone(b),levels:1,seed:project.seed,shape:'rect'},signal)));};
 $('regenerate-building').onclick=()=>regenerate(selectedId);$('regenerate-buildings').onclick=()=>regenerate(null);
 function regenerate(id){if(id===null&&!project.buildings.length)return;task('Создаём новые варианты зданий…',async signal=>{const result=await api('/api/buildings/regenerate',{project,id},signal);validateProject(result.project);history.begin(project);project.buildings=result.project.buildings;history.commit(project);changed();toast(`Обновлено: ${result.changed}; сохранено без изменений: ${result.skipped}.`);});}

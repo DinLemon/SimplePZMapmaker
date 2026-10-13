@@ -1,0 +1,12 @@
+export class RecoveryVersions {
+ constructor({id,message,apply,applyWorld}){
+  this.id=id;this.message=message;this.apply=apply;this.applyWorld=applyWorld;this.running=false;
+  this.dialog=document.createElement('dialog');this.dialog.id='recovery-versions-dialog';this.dialog.className='agent-session-dialog';this.dialog.innerHTML='<header><h2>Версии автосохранения</h2><button data-close>Закрыть</button></header><p>Хранятся текущее сохранение и три предыдущих. Повреждённое последнее сохранение при запуске автоматически пропускается. Полученную версию можно отменить в редакторе.</p><label>Проект<select data-scope><option value="map">Текущая карта</option><option value="world">Мир</option></select></label><div data-versions></div><p data-state role="status"></p>';document.body.append(this.dialog);
+  this.node=name=>this.dialog.querySelector('[data-'+name+']');this.node('close').onclick=()=>this.dialog.close();this.node('scope').onchange=()=>this.load();
+  const button=document.createElement('button');button.id='open-recovery-versions';button.textContent='Версии автосохранения';document.querySelector('.topbar nav').append(button);button.onclick=()=>{this.dialog.showModal();this.load();};
+ }
+ base(){return (this.node('scope').value==='world'?'/api/world/recovery/':'/api/recovery/')+this.id+'/versions';}
+ async request(url){const r=await fetch(url);const value=await r.json();if(!r.ok)throw Error(value.error||'Сохранение не найдено.');return value;}
+ async load(){if(this.running)return;this.running=true;this.node('versions').replaceChildren();try{const versions=await this.request(this.base());this.node('state').textContent=versions.length?'Выберите нужную версию.':'Сохранений ещё нет.';for(const v of versions){const button=document.createElement('button');button.textContent=`${v.version===0?'Последняя':'Предыдущая '+v.version} · ${new Date(v.updated).toLocaleString('ru')} · ${(v.bytes/1024/1024).toFixed(1)} МБ`;button.onclick=async()=>{if(this.running)return;this.running=true;try{const project=await this.request(this.base()+'/'+v.version);await (this.node('scope').value==='world'?this.applyWorld(project):this.apply(project));this.dialog.close();this.message('Версия восстановлена. Отмена вернёт предыдущий проект.');}catch(e){this.node('state').textContent=e.message;}finally{this.running=false;}};this.node('versions').append(button);}}catch(e){this.node('state').textContent=e.message;}finally{this.running=false;}
+ }
+}

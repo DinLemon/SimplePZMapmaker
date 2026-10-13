@@ -47,7 +47,7 @@ jobs:
       - name: Verify Smolensk regional example
         shell: pwsh
         run: node scripts/verify-native-map.mjs examples/Smolensk/Smolensk-B42.zip
-      - name: Verify twelve housing templates example
+      - name: Verify twenty-four housing templates example
         shell: pwsh
         run: node scripts/verify-native-map.mjs examples/HousingTemplates/HousingTemplates-B42.zip
       - name: Verify stitched world and live OSM examples
@@ -55,3 +55,4 @@ jobs:
         run: |
           node scripts/verify-native-map.mjs examples/Worlds/Worlds-B42.zip
           node scripts/verify-native-map.mjs examples/Worlds/Smolensk-small-B42.zip
+          node scripts/verify-native-map.mjs examples/Worlds/World-DEM-B42.zip

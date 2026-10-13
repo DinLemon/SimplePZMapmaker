@@ -1,4 +1,5 @@
 import {validateProject} from './editor.js';
+import {WorldGeography,validateWorldExtras} from './world-geography.js';
 const $=id=>document.getElementById(id),cellSize=256,maxFile=128*1024*1024;
 const safeId=id=>typeof id==='string'&&/^[0-9a-fA-F]{32}$/.test(id);
 const newId=()=>crypto.randomUUID().replaceAll('-','');
@@ -15,15 +16,15 @@ export function placementIssue(world,p,x,y,skipId=null){
  return null;
 }
 export function validateWorld(world,allowEmpty=false){
- if(!world||world.format!=='SimplePZWorld'||world.version!==1||!safeId(world.id))throw Error('Формат или идентификатор мира повреждён.');
+ if(!world||world.format!=='SimplePZWorld'||![1,2].includes(world.version)||!safeId(world.id))throw Error('Формат или идентификатор мира повреждён.');
  if(typeof world.name!=='string'||!world.name.trim()||world.name.length>80||/[\x00-\x1f\x7f]/.test(world.name))throw Error('Введите название мира до80 символов.');
  if(!Array.isArray(world.maps)||world.maps.length>(128)||(!allowEmpty&&!world.maps.length))throw Error('Мир должен содержать1–128 участков.');
  const ids=new Set();for(const m of world.maps){if(!m||!safeId(m.id)||ids.has(m.id))throw Error('Идентификатор участка мира повреждён или повторяется.');ids.add(m.id);validateProject(m.project);const issue=placementIssue(world,m.project,m.project.worldX,m.project.worldY,m.id);if(issue)throw Error(issue);}
  if(world.maps.length&&world.maps.every(m=>m.project.spawns.length===0))throw Error('В мире нужна хотя бы одна точка появления на суше.');
- if(worldBounds(world).cells>8192)throw Error('Мир содержит больше8192 нативных ячеек.');return world;
+ if(worldBounds(world).cells>8192)throw Error('Мир содержит больше8192 нативных ячеек.');validateWorldExtras(world);return world;
 }
 const projectBytes=p=>{const {terrain,zombies,...metadata}=p;return terrain.length*8+zombies.length*8+JSON.stringify(metadata).length*2;};
-const operationBytes=o=>o.kind==='replace'?[o.before,o.after].reduce((sum,w)=>sum+w.maps.reduce((n,m)=>n+projectBytes(m.project),0),0):o.member?projectBytes(o.member.project):512;
+const operationBytes=o=>o.kind==='replace'?[o.before,o.after].reduce((sum,w)=>sum+w.maps.reduce((n,m)=>n+projectBytes(m.project),0)+JSON.stringify({buildings:w.buildings||[],elevation:w.elevation||null}).length*2,0):o.member?projectBytes(o.member.project):512;
 class WorldHistory{
  constructor(){this.past=[];this.future=[];this.budget=128*1024*1024;}
  push(operation){if(operationBytes(operation)>512*1024*1024)throw Error('Замена мира требует больше512МБ истории. Сохраните прежний мир, затем откройте новый пустой мир перед заменой. Текущий мир сохранён.');this.past.push(operation);this.future=[];while(this.past.length>1&&(this.past.length>30||this.past.reduce((n,o)=>n+operationBytes(o),0)>this.budget))this.past.shift();}
@@ -31,9 +32,9 @@ class WorldHistory{
 // World operations retain section data; moving a section records coordinates only.
 export class WorldSession{
  constructor(world={format:'SimplePZWorld',version:1,id:newId(),name:'Новый мир',maps:[]}){validateWorld(world,true);this.world=world;this.history=new WorldHistory();}
- move(id,x,y,record=true){const m=this.world.maps.find(m=>m.id===id);if(!m)throw Error('Участок не найден.');const issue=placementIssue(this.world,m.project,x,y,id);if(issue)throw Error(issue);const before={worldX:m.project.worldX,worldY:m.project.worldY};if(x===before.worldX&&y===before.worldY)return false;m.project={...m.project,worldX:x,worldY:y};if(record)this.history.push({kind:'move',id,before,after:{worldX:x,worldY:y}});return true;}
+ move(id,x,y,record=true){const m=this.world.maps.find(m=>m.id===id);if(!m)throw Error('Участок не найден.');const issue=placementIssue(this.world,m.project,x,y,id);if(issue)throw Error(issue);const before={worldX:m.project.worldX,worldY:m.project.worldY};if(x===before.worldX&&y===before.worldY)return false;const project={...m.project,worldX:x,worldY:y};validateWorldExtras({...this.world,maps:this.world.maps.map(member=>member.id===id?{...member,project}:member)});if(record)this.history.push({kind:'move',id,before,after:{worldX:x,worldY:y}});m.project=project;return true;}
  add(project,id=newId()){validateProject(project);if(!safeId(id)||this.world.maps.some(m=>m.id===id))throw Error('Идентификатор участка повторяется.');if(this.world.maps.length>=128)throw Error('В мире может быть до128 участков.');const issue=placementIssue(this.world,project,project.worldX,project.worldY);if(issue)throw Error(issue);if(worldBounds(this.world).cells+project.width*project.height/(cellSize*cellSize)>8192)throw Error('Предел —8192 нативных ячеек.');const member={id,project};this.world.maps.push(member);this.history.push({kind:'add',member,index:this.world.maps.length-1});return member;}
- remove(id){const index=this.world.maps.findIndex(m=>m.id===id);if(index<0)throw Error('Участок не найден.');const [member]=this.world.maps.splice(index,1);this.history.push({kind:'remove',member,index});return member;}
+ remove(id){const index=this.world.maps.findIndex(m=>m.id===id);if(index<0)throw Error('Участок не найден.');validateWorldExtras({...this.world,maps:this.world.maps.filter(m=>m.id!==id)});const member=this.world.maps[index];this.history.push({kind:'remove',member,index});this.world.maps.splice(index,1);return member;}
  rename(name){if(typeof name!=='string'||!name.trim()||name.length>80||/[\x00-\x1f\x7f]/.test(name))throw Error('Введите название мира до80 символов.');name=name.trim();if(name===this.world.name)return;this.history.push({kind:'name',before:this.world.name,after:name});this.world.name=name;}
  replace(world){validateWorld(world);const before=this.world;this.history.push({kind:'replace',before,after:world});this.world=world;}
  clear(){const world={format:'SimplePZWorld',version:1,id:newId(),name:'Новый мир',maps:[]};this.history.push({kind:'replace',before:this.world,after:world});this.world=world;}
@@ -45,7 +46,7 @@ export class WorldSession{
 export class WorldWorkshop{
  constructor({current,adopt,finish,download,api,task,message,recoveryId}){
   Object.assign(this,{current,adopt,finish,download,api,task,message,recoveryId});this.session=new WorldSession();this.selectedId=null;this.editedId=null;this.transform={x:0,y:0,scale:80};this.thumbs=new Map();this.drag=null;this.pan=null;this.revision=0;this.saveTimer=null;this.queue=Promise.resolve();this.suppressAutosave=false;
-  this.canvas=$('world-canvas');new ResizeObserver(()=>{if($('world-dialog').open)this.fit();}).observe(this.canvas);
+  this.canvas=$('world-canvas');this.geography=new WorldGeography(this);new ResizeObserver(()=>{if($('world-dialog').open)this.fit();}).observe(this.canvas);
   $('open-world').onclick=()=>{this.flush();$('world-dialog').showModal();this.update();this.fit();};$('world-close').onclick=()=>$('world-dialog').close();
   const reset=document.createElement('button');reset.id='world-new';reset.textContent='Новый пустой мир';$('world-open').before(reset);reset.onclick=()=>this.run(()=>{this.flush();const detached=this.editedId?structuredClone(this.current()):null;this.session.clear();this.editedId=null;if(detached)this.adopt(detached);this.selectedId=null;this.changed();this.fit();});
   $('world-name').onchange=()=>this.run(()=>{this.session.rename($('world-name').value);this.changed();});
@@ -69,6 +70,7 @@ export class WorldWorkshop{
   $('world-dialog').addEventListener('keydown',e=>{if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName))return;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();$(e.shiftKey?'world-redo':'world-undo').click();}});
  }
  get world(){return this.session.world;}
+ setBuildingEditor(callback){this.geography.editBuilding=callback;}
  acceptWorld(world){this.flush();validateWorld(world);const detached=this.editedId?structuredClone(this.current()):null;this.session.replace(world);this.editedId=null;if(detached)this.adopt(detached);this.selectedId=world.maps[0]?.id||null;this.changed();this.fit();this.state('Импорт мира завершён. Все участки приняты одной операцией истории.');}
  fileName(){return this.world.name.replace(/[<>:"/\\|?*]/g,'_');}
  run(fn){try{fn();}catch(e){this.state(e.message,true);this.update(false);}}
@@ -90,7 +92,7 @@ export class WorldWorkshop{
  update(resetStatus=true){$('world-name').value=this.world.name;const bounds=worldBounds(this.world);$('world-summary').textContent=`${this.world.maps.length} участков · ${bounds.cells} ячеек · охват ${bounds.width} × ${bounds.height} клеток`;$('world-undo').disabled=!this.session.history.past.length;$('world-redo').disabled=!this.session.history.future.length;for(const id of ['world-save','world-export','world-validate'])$(id).disabled=!this.world.maps.length;
   $('world-section-list').replaceChildren();for(const m of this.world.maps){const button=document.createElement('button');button.dataset.memberId=m.id;button.classList.toggle('active',m.id===this.selectedId);button.textContent=`${m.project.name} · ${m.project.width/cellSize}×${m.project.height/cellSize} яч. · ${m.project.worldX},${m.project.worldY}`;button.onclick=()=>{this.selectedId=m.id;this.update();};$('world-section-list').append(button);}
   const m=this.world.maps.find(m=>m.id===this.selectedId);$('world-selection').hidden=!m;if(m){$('world-selection-name').textContent=m.project.name;$('world-cell-x').value=m.project.worldX;$('world-cell-y').value=m.project.worldY;$('world-section-details').textContent=`${m.project.width} × ${m.project.height} клеток · ${m.project.buildings.length} зданий · ${m.project.spawns.length} точек появления`;}
-  if(resetStatus)this.state(this.world.maps.length?'Перетащите участок для перемещения по ячейкам. Двойной щелчок открывает редактор участка.':'Добавьте текущую карту или сохранённые файлы .pzmap.json.');this.draw();
+  this.geography.update();if(resetStatus)this.state(this.world.maps.length?'Перетащите участок для перемещения по ячейкам. Двойной щелчок открывает редактор участка.':'Добавьте текущую карту или сохранённые файлы .pzmap.json.');this.draw();
  }
  zoom(factor,x=this.canvas.clientWidth/2,y=this.canvas.clientHeight/2){const old=this.transform.scale,scale=Math.max(1,Math.min(320,old*factor));this.transform={scale,x:x-(x-this.transform.x)*scale/old,y:y-(y-this.transform.y)*scale/old};this.draw();}
  fit(){const r=this.canvas.getBoundingClientRect();if(!r.width||!r.height)return;const bounds=worldBounds(this.world),w=Math.max(2,bounds.width/cellSize),h=Math.max(2,bounds.height/cellSize),scale=Math.max(1,Math.min(120,(r.width-64)/w,(r.height-64)/h));this.transform={scale,x:(r.width-w*scale)/2-bounds.x*scale,y:(r.height-h*scale)/2-bounds.y*scale};this.draw();}
@@ -98,6 +100,6 @@ export class WorldWorkshop{
  draw(){if(!$('world-dialog').open)return;const canvas=this.canvas,r=canvas.getBoundingClientRect();if(!r.width||!r.height)return;const dpr=window.devicePixelRatio||1;canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#17211b';ctx.fillRect(0,0,r.width,r.height);const t=this.transform;Object.assign(canvas.dataset,{originX:String(t.x),originY:String(t.y),scale:String(t.scale),sections:String(this.world.maps.length)});$('world-zoom').textContent=Math.round(t.scale)+' px/яч.';
   const step=t.scale<12?Math.ceil(24/t.scale):1;ctx.strokeStyle='#46504388';ctx.lineWidth=1;ctx.beginPath();for(let x=Math.floor(-t.x/t.scale/step)*step;x<(r.width-t.x)/t.scale;x+=step){ctx.moveTo(t.x+x*t.scale,0);ctx.lineTo(t.x+x*t.scale,r.height);}for(let y=Math.floor(-t.y/t.scale/step)*step;y<(r.height-t.y)/t.scale;y+=step){ctx.moveTo(0,t.y+y*t.scale);ctx.lineTo(r.width,t.y+y*t.scale);}ctx.stroke();
   for(const m of this.world.maps){const p=m.project,x=t.x+p.worldX*t.scale,y=t.y+p.worldY*t.scale,w=p.width/cellSize*t.scale,h=p.height/cellSize*t.scale;if(x+w<0||y+h<0||x>r.width||y>r.height)continue;ctx.drawImage(this.thumbnail(m),x,y,w,h);ctx.strokeStyle=m.id===this.selectedId?'#f0cb87':'#7f9667';ctx.lineWidth=m.id===this.selectedId?3:1;ctx.strokeRect(x,y,w,h);if(w>65){ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.fillStyle='#142119dd';ctx.fillRect(x,y,w,22);ctx.fillStyle='#f3dfb0';ctx.font='11px Segoe UI';ctx.fillText(p.name,x+6,y+15);ctx.restore();}}
-  if(this.drag){const m=this.world.maps.find(m=>m.id===this.drag.id),x=t.x+this.drag.x*t.scale,y=t.y+this.drag.y*t.scale,w=m.project.width/cellSize*t.scale,h=m.project.height/cellSize*t.scale;ctx.globalAlpha=.5;ctx.drawImage(this.thumbnail(m),x,y,w,h);ctx.globalAlpha=1;ctx.strokeStyle=this.drag.issue?'#ff9f82':'#f0cb87';ctx.lineWidth=3;ctx.strokeRect(x,y,w,h);canvas.dataset.dragValid=String(!this.drag.issue);}else delete canvas.dataset.dragValid;
+  this.geography.draw(ctx,t);if(this.drag){const m=this.world.maps.find(m=>m.id===this.drag.id),x=t.x+this.drag.x*t.scale,y=t.y+this.drag.y*t.scale,w=m.project.width/cellSize*t.scale,h=m.project.height/cellSize*t.scale;ctx.globalAlpha=.5;ctx.drawImage(this.thumbnail(m),x,y,w,h);ctx.globalAlpha=1;ctx.strokeStyle=this.drag.issue?'#ff9f82':'#f0cb87';ctx.lineWidth=3;ctx.strokeRect(x,y,w,h);canvas.dataset.dragValid=String(!this.drag.issue);}else delete canvas.dataset.dragValid;
  }
 }

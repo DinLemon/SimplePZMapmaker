@@ -5,7 +5,7 @@ const base=process.env.PZMAP_TEST_URL||'http://127.0.0.1:48765',output=new URL('
 await mkdir(output,{recursive:true});
 async function post(path,value,status=200){const response=await fetch(base+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});assert.equal(response.status,status,path+' '+await response.clone().text());checks.push({path,status});return response;}
 const blank=await (await post('/api/generate',{kind:'blank',name:'Section',size:256,seed:42,surfaceTheme:'legacy'})).json();
-const world={format:'SimplePZWorld',version:1,id:'a'.repeat(32),name:'Nine section city',geoReference:null,maps:Array.from({length:9},(_,i)=>({id:(i+1).toString(16).padStart(32,'0'),project:{...structuredClone(blank),name:'Section '+(i+1),worldX:100+i,worldY:100}}))};
+const world={format:'SimplePZWorld',version:1,id:'a'.repeat(32),name:'Nine section city',geoReference:null,buildings:[],elevation:null,maps:Array.from({length:9},(_,i)=>({id:(i+1).toString(16).padStart(32,'0'),project:{...structuredClone(blank),name:'Section '+(i+1),worldX:100+i,worldY:100}}))};
 let result=await (await post('/api/world/validate',world)).json();assert.equal(result.bounds.cells,9);assert.equal(result.bounds.width,2304);assert.deepEqual(result.warnings,[]);
 const original=JSON.stringify(world);await post('/api/world/move',{world,memberId:world.maps[1].id,cellX:100,cellY:100},400);assert.equal(JSON.stringify(world),original);
 result=await (await post('/api/world/move',{world,memberId:world.maps[1].id,cellX:110,cellY:100})).json();assert.equal(result.world.maps[1].project.worldX,110);assert.equal(world.maps[1].project.worldX,101);

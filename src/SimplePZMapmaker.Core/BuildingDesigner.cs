@@ -102,6 +102,9 @@ public static class BuildingDesigner
     var parts=BuildingObjects.Cells(o).ToHashSet();foreach(var point in parts)foreach(var (dx,dy,edge) in new[]{(1,0,"w"),(0,1,"n")})if(parts.Contains((point.X+dx,point.Y+dy))&&f.Edges.Any(e=>e.X==point.X+dx&&e.Y==point.Y+dy&&e.Edge==edge&&e.Kind!="open"))Fail("мебель пересекает стену или проём.");
     if(f.Edges.Any(e=>e.Kind is "door" or "open"&&(parts.Contains((e.X,e.Y))||parts.Contains(e.Edge=="n"?(e.X,e.Y-1):(e.X-1,e.Y)))))Fail("мебель перекрывает дверь или проход.");
    }
+   var blockingModels=new HashSet<int>();foreach(var model in f.StaticModels.Where(m=>m.Profile is "obstacle" or "destructible" or "container")){
+    if(!blockingModels.Add(model.Y*b.Width+model.X)||StairSpace(b,z,model.X,model.Y)||furnitureCells.Contains(model.Y*b.Width+model.X)||f.Edges.Any(e=>e.Kind is "door" or "open"&&(e.X==model.X&&e.Y==model.Y||(e.Edge=="n"?e.X==model.X&&e.Y-1==model.Y:e.X-1==model.X&&e.Y==model.Y))))Fail("блокирующая модель перекрывает другую модель, мебель, лестницу или проход.");
+   }
    if(requireAccess&&z<d.Floors.Count-1&&!f.Objects.Any(o=>o.Kind=="stairs"))Fail($"на этаже {z+1} нет лестницы.");
    foreach(var o in f.Objects.Where(o=>o.Kind!="stairs"))if(StairSpace(b,z,o.X,o.Y))Fail("мебель перекрывает лестницу.");
    var stairCells=new HashSet<int>();foreach(var stair in f.Objects.Where(o=>o.Kind=="stairs"))for(var i=0;i<5;i++){

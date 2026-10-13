@@ -1,4 +1,13 @@
-# Verification status — 0.6.0, 2026-10-13
+# Verification status — 0.7.0, 2026-10-13
+
+## Production expansion0.7.0
+
+- Core136/136 and Node75/75 pass; Release build has zero warnings/errors. Official SDK clients verify38 MCP tools under both supported protocol versions, constrained map/world proposals, balanced section budgets, revision conflicts, full templates/shared building reads and signed native previews.
+- Model profiles support pickup, scenery, obstacle, destructible and empty container. Installed IsoThumpable implementations block four directions, let scenery pass and create capacity75 containers; SpriteModel.Load and LuaCompiler accept exported declarations/glue. Blocking footprints are one tile, not mesh collision or structural wall support. Full graphical gameplay/persistence/multiplayer remain unverified.
+-24 authored housing plans validate/export; independent reader checks1cell/1024chunks/1073rooms, installed classes recognise781upperrooms/2basementrooms/180stairs. Browser checks actual gallery, façades, balcony rails, annex footprint changes, history and roof preview.
+- Shared buildings cross section borders without stored duplicates. Browser edits the shared basement house, imports/downloads DEM, displays height contrast, retains NODATA and undoes changes. Terrain Tiles example:256×256 measured samples,161…269m across the downloaded tile. Native ground remains flat; elevation is a survey overlay/ASCII sidecar. Native reader/game loader:2cells/2048chunks/13rooms/4basementrooms/3basement stairs.
+- Browser planning comparison requires explicit receive; shared house/DEM survive neighborhood edits and one-step world undo/redo. Collision sprite ownership is tracked; seam repair protects marked ground. Recovery streams bounded files, keeps three previous revisions and falls back from damaged current data. Large raster updates inspect4096 touched pixels instead of rebuilding4194304, with offscreen building culling.
+- Maps7/templates5 preserve native model behavior; worlds2 preserve shared buildings/DEM. Earlier formats stay readable. Self-contained Windows publication pins.NET10.0.12 with runtime/license notices; snapshot launches under nonexistent DOTNET_ROOT. Final extracted-package and GitHub evidence follows in PROGRESS.md.
 
 ## World, mods, models, MCP and environment0.6.0
 
@@ -22,7 +31,7 @@
 - Signed basement example:1 cell /1024 chunks /160 rooms; installed-game loading found80 basement rooms down to-16 and48 below-ground stair sprites. Browser verifies add/remove/history/depth cap/ground preservation/project4/template3 roundtrip and signed top/iso views. A32-floor generator test covers16 below plus16 above; native staircase holes through ground and remote terrain are read back independently.
 - Network search and initial real Overpass download succeeded; later requests returned504. Fixed source JSON makes regeneration reproducible offline. The offline OSM UI test does not claim fresh network success.
 - History retains changed building/library entries rather than full collections;20 small terrain edits with1000 rich buildings remain under4MiB. General history budget64MiB/30 actions; draft history16MiB/30.
-- Ready Windows package requires.NET10 ASP.NET Core Runtime, without SDK. Source/example/package publication is in the public [GitHub repository](https://github.com/DinLemon/SimplePZMapmaker), default branch develop. Distribution launch evidence is recorded in PROGRESS.md.
+- Ready Windows package0.7 includes the.NET runtime, without a separate installation. Source/example/package publication is in the public [GitHub repository](https://github.com/DinLemon/SimplePZMapmaker), default branch develop. Distribution launch evidence is recorded in PROGRESS.md.
 
 ## Installed resources0.4.0
 

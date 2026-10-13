@@ -20,7 +20,8 @@ class Reader{
  line(){const end=this.bytes.indexOf(10,this.offset);assert.ok(end>=this.offset&&end-this.offset<200);const text=this.bytes.subarray(this.offset,end).toString('ascii');this.offset=end+1;return text;}
 }
 const projectEntry=[...entries].find(([name])=>name.endsWith('/project.pzmap.json')),worldEntry=[...entries].find(([name])=>name.endsWith('/world.pzworld.json'));assert.ok(projectEntry||worldEntry);
-const projects=projectEntry?[JSON.parse(projectEntry[1].toString('utf8'))]:JSON.parse(worldEntry[1].toString('utf8')).maps.map(m=>m.project);
+const world=worldEntry?JSON.parse(worldEntry[1].toString('utf8')):null;
+const projects=projectEntry?[JSON.parse(projectEntry[1].toString('utf8'))]:world.maps.map(m=>{const p=m.project;return {...p,buildings:[...p.buildings,...(world.buildings||[]).filter(b=>b.x<p.worldX*256+p.width&&b.y<p.worldY*256+p.height&&b.x+b.width>=p.worldX*256&&b.y+b.height>=p.worldY*256).map(b=>({...b,x:b.x-p.worldX*256,y:b.y-p.worldY*256}))]};});
 const headers=[...entries].filter(([name])=>name.endsWith('.lotheader'));
 assert.equal(headers.length,projects.reduce((sum,p)=>sum+p.width*p.height/65536,0));
 const allTiles=new Set();let chunks=0,rooms=0,buildings=0;
@@ -42,7 +43,7 @@ for(const [name,bytes] of headers){
  for(let i=0;i<1024;i++){const kind=navigation[cursor++];assert.ok(kind<=5);if(kind===2){assert.ok(cursor+64<=navigation.length);for(let j=0;j<64;j++)assert.ok(navigation[cursor+j]<=63);cursor+=64;}}
  assert.equal(cursor,navigation.length);
 }
-const expectedBuildings=projects.reduce((sum,project)=>sum+project.buildings.reduce((n,b)=>{const cells=new Set();for(let y=0;y<b.height;y++)for(let x=0;x<b.width;x++)if(!b.design||b.design.floors.some(f=>f.cells[y*b.width+x]!=='.'))cells.add(`${Math.floor((b.x+x)/256)},${Math.floor((b.y+y)/256)}`);return n+cells.size;},0),0);assert.equal(buildings,expectedBuildings);
+const expectedBuildings=projects.reduce((sum,project)=>sum+project.buildings.reduce((n,b)=>{const cells=new Set();for(let y=0;y<b.height;y++)for(let x=0;x<b.width;x++)if(b.x+x>=0&&b.y+y>=0&&b.x+x<project.width&&b.y+y<project.height&&(!b.design||b.design.floors.some(f=>f.cells[y*b.width+x]!=='.')))cells.add(`${Math.floor((b.x+x)/256)},${Math.floor((b.y+y)/256)}`);return n+cells.size;},0),0);assert.equal(buildings,expectedBuildings);
 const worldmap=[...entries].find(([name])=>name.endsWith('/worldmap.xml'));assert.ok(worldmap[1].toString('utf8').includes('cellSize="256"'));
 const attribution=[...entries].find(([name])=>name.endsWith('/ATTRIBUTION.txt'));assert.ok(attribution);for(const project of projects)for(const item of [...project.attribution,...project.buildings.flatMap(b=>b.attribution||[]),...(project.buildingLibrary||[]).flatMap(b=>b.attribution||[])])assert.ok(attribution[1].toString('utf8').includes(item),'Attribution lost');
 if(process.argv[3]){const source=process.argv[3],directory=(await stat(source)).isDirectory(),definitions=directory?(await Promise.all(['newtiledefinitions.tiles.txt','tiledefinitions_erosion.tiles.txt','jumbo_trees.tiles.txt','jumbo_trees_big.tiles.txt'].map(file=>readFile(source+'/'+file,'utf8').catch(()=>'')))).join('\n'):await readFile(source,'utf8'),known=new Set([...definitions.matchAll(/\/\/ ([a-zA-Z0-9_]+_\d+)/g)].map(m=>m[1]));for(const name of allTiles)assert.ok(known.has(name),`Unknown installed game tile: ${name}`);

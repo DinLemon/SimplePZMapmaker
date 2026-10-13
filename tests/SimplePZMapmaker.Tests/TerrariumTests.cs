@@ -1,0 +1,10 @@
+using SimplePZMapmaker.Web.Services;
+using System.Buffers.Binary;
+using System.IO.Compression;
+public static class TerrariumTests
+{
+ public static IEnumerable<(string,Action)> Cases(){yield return("Terrarium PNG filters decode actual metre fractions and reject CRC changes",()=>{var png=Fixture();var values=TerrariumPng.Decode(png);if(values.Any(v=>v!=123.5))throw new Exception("PNG filters altered height precision");png[40]^=1;try{TerrariumPng.Decode(png);}catch(ArgumentException){return;}throw new Exception("Corrupt CRC accepted");});}
+ static byte[] Fixture(){var scan=new byte[(768+1)*256];var prior=new byte[768];for(var y=0;y<256;y++){var filter=y%5;scan[y*769]=(byte)filter;var row=Enumerable.Range(0,768).Select(i=>(byte)((i%3) switch{0=>128,1=>123,_=>128})).ToArray();for(var i=0;i<768;i++){var a=i>=3?row[i-3]:0;var b=y>0?prior[i]:0;var c=y>0&&i>=3?prior[i-3]:0;var p=a+b-c;var pa=Math.Abs(p-a);var pb=Math.Abs(p-b);var pc=Math.Abs(p-c);var predicted=filter switch{0=>0,1=>a,2=>b,3=>(a+b)/2,_=>pa<=pb&&pa<=pc?a:pb<=pc?b:c};scan[y*769+i+1]=unchecked((byte)(row[i]-predicted));}prior=row;}
+  using var packed=new MemoryStream();using(var z=new ZLibStream(packed,CompressionLevel.Fastest,true))z.Write(scan);using var output=new MemoryStream();output.Write(new byte[]{137,80,78,71,13,10,26,10});var header=new byte[13];BinaryPrimitives.WriteInt32BigEndian(header,256);BinaryPrimitives.WriteInt32BigEndian(header.AsSpan(4),256);header[8]=8;header[9]=2;Chunk("IHDR",header);Chunk("IDAT",packed.ToArray());Chunk("IEND",[]);return output.ToArray();void Chunk(string name,byte[] data){var length=new byte[4];BinaryPrimitives.WriteInt32BigEndian(length,data.Length);output.Write(length);var type=System.Text.Encoding.ASCII.GetBytes(name);output.Write(type);output.Write(data);uint crc=uint.MaxValue;foreach(var b in type.Concat(data)){crc^=b;for(var k=0;k<8;k++)crc=(crc&1)!=0?(crc>>1)^0xedb88320:crc>>1;}BinaryPrimitives.WriteUInt32BigEndian(length,crc^uint.MaxValue);output.Write(length);}
+ }
+}

@@ -18,7 +18,7 @@ public static partial class HousingTemplates
    case "village-barn":Barn(b);break;case "village-workshop":RuralWorkshop(b);break;
    case "settlement-shop":Shop(b);break;case "settlement-school":School(b);break;
    case "urban-classic-three":ClassicThree(b);break;case "urban-corner-four":CornerFour(b);break;
-   default:throw new ArgumentException("Неизвестная дополнительная планировка.");
+   default:RegionalPlan(b,id);break;
   }
  }
  private static void Barn(Building b)

@@ -1,0 +1,6 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {blank} from '../src/SimplePZMapmaker.Web/wwwroot/editor.js';
+import {TerrainRasterCache,buildingVisible} from '../src/SimplePZMapmaker.Web/wwwroot/terrain-raster.js';
+test('large raster caches theme/image and scans only touched brush blocks',()=>{let images=0,writes=0;const context={createImageData:(w,h)=>{images++;return {data:new Uint8ClampedArray(w*h*4)};},putImageData:()=>writes++},canvas={width:0,height:0,getContext:()=>context},cache=new TerrainRasterCache(canvas),p=blank(2048);cache.update(p);assert.equal(images,1);assert.equal(cache.visited,2048*2048);p.terrain[9000]=3;cache.update(p,[8192]);assert.equal(cache.visited,4096);assert.equal(images,1);assert.equal(cache.image.data[9000*4+3],255);cache.update(p,[]);assert.equal(cache.visited,0);assert.equal(writes,2);p.surfaceTheme='dry';cache.update(p,[]);assert.equal(images,2);assert.equal(cache.visited,2048*2048);assert.equal(writes,3);});
+test('viewport skips distant buildings but keeps visible raised and basement floors',()=>{const screen=(x,y)=>({x:x*10,y:y*5});assert.equal(buildingVisible({x:500,y:500,width:20,height:20},screen,800,600),false);assert.equal(buildingVisible({x:20,y:20,width:20,height:20,design:{minLevel:-16,floors:Array(32)}},screen,800,600,true),true);});

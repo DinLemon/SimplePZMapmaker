@@ -11,6 +11,12 @@ public static class NativeMapExporter {
     {
         ProjectValidator.Validate(p);
         if(!worldSection&&p.Spawns.Count==0)throw new ArgumentException("Участок без точки появления экспортируется в составе мира с сушей.");
+        return ExportValidatedWorldSection(p,token);
+    }
+    // Only the world exporter calls this after validating full buildings against sparse sections.
+    // Partial origins are intentional; TileComposer clips rooms and sprites to native cells.
+    internal static byte[] ExportValidatedWorldSection(MapProject p,CancellationToken token=default)
+    {
         using var output=new MemoryStream();using(var zip=new ZipArchive(output,ZipArchiveMode.Create,true)) {
             var slug=ModId(p);var root=$"{slug}/42/media/maps/{slug}/";
             void Text(string path,string text){var e=zip.CreateEntry(path,CompressionLevel.Fastest);using var w=new StreamWriter(e.Open(),new UTF8Encoding(false));w.Write(text);}

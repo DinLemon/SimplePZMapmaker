@@ -53,10 +53,7 @@ internal sealed partial class TileComposer
     AddAt(x0+x,y0+y,z+1,"floors_interior_tilesandwood_01_40");
     if(index==design.Floors.Count-1&&design.Roof!="flat"){
      // TileZed's 30-degree roof palette has six slope pieces per vertical level.
-     var rise=design.Roof=="shed"||x<b.Width/2;var depth=design.Roof=="shed"?x:Math.Min(x,b.Width-1-x);var roofLevel=z+1+depth/6;var tileIndex=rise?16+depth%6:13-depth%6;
-     if(design.Roof=="hipped"){
-      var distances=new[]{x,b.Width-1-x,y,b.Height-1-y};depth=distances.Min();var direction=Array.IndexOf(distances,depth);roofLevel=z+1+depth/6;tileIndex=direction switch{0=>16+depth%6,1=>13-depth%6,2=>29-depth%6,_=>depth%6};MaxLevel=Math.Max(MaxLevel,roofLevel);
-     }
+     var piece=RoofGeometry.Piece(b,f,x,y);var roofLevel=z+1+piece.Depth/6;var tileIndex=piece.TileIndex;
      MaxLevel=Math.Max(MaxLevel,roofLevel);AddAt(x0+x,y0+y,roofLevel,$"{design.RoofTileset??style?.Roof??"roofs_30_01"}_{tileIndex}");
     }
    }

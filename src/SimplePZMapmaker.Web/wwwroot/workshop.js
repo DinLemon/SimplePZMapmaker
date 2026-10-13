@@ -1,8 +1,9 @@
-import {kinds,roomNames,shapeNames,cell,shapeCells,refreshEdges,autoStairs,installStairLink,validateDesign,DraftHistory,objectCells,objectParts,combineAttribution,minLevel,aboveLevels,floorLabel,floorLevel,visualStyles,normalizeBuilding} from './building.js';
+import {kinds,roomNames,shapeNames,cell,shapeCells,refreshEdges,autoStairs,installStairLink,validateDesign,DraftHistory,objectCells,objectParts,combineAttribution,minLevel,aboveLevels,floorLabel,floorLevel,visualStyles,normalizeBuilding,usesNativeModelBehavior} from './building.js';
 import {openStaticModelPicker} from './static-models.js';
 import {StaticModelSprites} from './static-model-sprites.js';
 import {EmbeddedResourcePalette} from './resources.js';
 import {VisualWorkshop,nearestEdge,placementCheck} from './visual-workshop.js';
+import {installArchitectureControls} from './building-architecture.js';
 const $=id=>document.getElementById(id),colors=['#b6ac83','#6d877c','#9b815e','#ad8c7d','#858aaa','#938c68','#a59883'];
 export class BuildingWorkshop{
  constructor({api,apply,template,download,attribution,resources,preview}){
@@ -15,6 +16,7 @@ export class BuildingWorkshop{
   for(const role of ['floor','wall','door','window','object','roof'])$('be-'+role+'-resource').onclick=()=>this.palette.open(role);
   $('be-preview').onclick=()=>{try{this.readName();validateDesign(this.draft);this.preview.open(this.draft.name,level=>this.api('/api/preview/building',{building:this.draft,level}),minLevel(this.draft),aboveLevels(this.draft),String(floorLevel(this.draft,this.level)));}catch(e){this.message(e.message,true);}};
   for(const [id,items] of [['be-kind',kinds],['be-room-type',roomNames],['be-shape',shapeNames]])for(const [value,name] of Object.entries(items))$(id).add(new Option(name,value));
+  installArchitectureControls(this);
   for(const id of ['be-close','be-cancel'])$(id).onclick=()=>{if(!this.saving)$('building-dialog').close();};
   $('building-dialog').addEventListener('cancel',e=>{if(this.saving)e.preventDefault();});
   $('be-name').onfocus=()=>{if(this.draft)this.history.save(this.draft);};$('be-name').oninput=()=>{if(this.draft)this.draft.name=$('be-name').value;};
@@ -36,7 +38,7 @@ export class BuildingWorkshop{
   for(const button of document.querySelectorAll('[data-be-tool]'))button.onclick=()=>this.setTool(button.dataset.beTool);
   $('be-apply').onclick=async()=>{if(this.saving)return;try{this.saving=true;this.lock(true);await this.validateForSave();await this.apply(structuredClone(this.draft));$('building-dialog').close();}catch(e){this.message(e.message,true);}finally{this.saving=false;this.lock(false);}};
   $('be-template').onclick=async()=>{if(this.saving)return;try{this.saving=true;this.lock(true);await this.validateForSave();this.template(structuredClone(this.draft));this.message('Шаблон сохранён в библиотеке этого проекта.');}catch(e){this.message(e.message,true);}finally{this.saving=false;this.lock(false);}};
-  $('be-template-export').onclick=async()=>{if(this.saving)return;try{this.saving=true;this.lock(true);await this.validateForSave();const b=this.draft,version=b.requiredMods?.length||Object.keys(b.assetSources||{}).length||b.design.floors.some(f=>f.staticModels?.length)?4:3;this.download(new Blob([JSON.stringify({format:'SimplePZBuilding',version,building:b,attribution:combineAttribution(this.attribution(),b.attribution||[])})],{type:'application/json'}),'building.pzbuilding.json');}catch(e){this.message(e.message,true);}finally{this.saving=false;this.lock(false);}};
+  $('be-template-export').onclick=async()=>{if(this.saving)return;try{this.saving=true;this.lock(true);await this.validateForSave();const b=this.draft,version=usesNativeModelBehavior(b)?5:b.requiredMods?.length||Object.keys(b.assetSources||{}).length||b.design.floors.some(f=>f.staticModels?.length)?4:3;this.download(new Blob([JSON.stringify({format:'SimplePZBuilding',version,building:b,attribution:combineAttribution(this.attribution(),b.attribution||[])})],{type:'application/json'}),'building.pzbuilding.json');}catch(e){this.message(e.message,true);}finally{this.saving=false;this.lock(false);}};
   const canvas=$('building-canvas');new ResizeObserver(()=>this.draw()).observe(canvas);
   canvas.addEventListener('pointerdown',e=>{if(this.saving||this.visual.allLevels||e.button!==0)return;canvas.focus();const p=this.point(e);if(p.x<0||p.y<0||p.x>=this.draft.width||p.y>=this.draft.height)return;
    if(['room','footprint','erase','floor-tile'].includes(this.tool)){this.drag={start:p,end:p};canvas.setPointerCapture(e.pointerId);this.draw();}else this.change(()=>this.place(p));});
