@@ -1,6 +1,8 @@
 export const categories={floors:'Полы и покрытия',walls:'Стены и фасады',doors:'Двери',windows:'Окна',roofs:'Крыши',furniture:'Мебель',appliances:'Бытовая техника',lighting:'Светильники',vegetation:'Растительность',fences:'Заборы',decoration:'Уличный декор',stairs:'Лестницы',other:'Другие ресурсы'};
 const $=id=>document.getElementById(id);
 async function json(url,body){const r=await fetch(url,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw Error((await r.json()).error||'Не удалось прочитать игровые ресурсы.');return r.json();}
+export function resourceAllowed(a,role){if(!a.page)return false;if(role==='browse')return true;if(['object','world'].includes(role))return a.placeable;if(role==='surface')return a.floor;if(role==='floor')return a.floor&&!a.water;return a.roles?.includes(role)||false;}
+export async function resolveResource(a,role){if(['object','world'].includes(role))return {...a,...await json('/api/assets/placement/'+encodeURIComponent(a.id))};if(['wall','door','window','roof'].includes(role))return {...a,...await json('/api/assets/pair/'+encodeURIComponent(a.id)+'?role='+role)};const full=await json('/api/assets/item/'+encodeURIComponent(a.id));return {...a,properties:full.properties};}
 export class SpriteImages{
  constructor(){this.meta=new Map();this.pages=new Map();this.pending=new Map();this.bytes=0;this.budget=192*1024*1024;this.active=0;this.waiters=[];this.revision=0;this.sceneOwner=null;this.pinned=new Set();}
  clear(){this.revision++;this.meta.clear();this.pages.clear();this.pending.clear();this.bytes=0;this.endScene();}
@@ -29,9 +31,42 @@ export class ResourcePicker{
  async open(role='browse',callback=null){this.role=role;this.callback=callback;this.offset=0;$('asset-role').value=['browse','world','surface'].includes(role)?role:'browse';$('asset-role').disabled=!!callback;$('asset-category').value=({floor:'floors',surface:'floors',wall:'walls',door:'doors',window:'windows',roof:'roofs',object:'furniture'})[role]||'';$('asset-search').value='';$('asset-dialog').showModal();try{await this.source();await this.search();}catch(e){this.status(e.message,true);}}
  async source(){const s=await json('/api/assets/status');$('asset-source').value=s.gamePath;$('asset-source-state').textContent=s.ready?`${s.count.toLocaleString('ru-RU')} ресурсов · изображения читаются только с этого компьютера`:s.error||'Выберите установку игры.';return s;}
  status(text,error=false){$('asset-status').textContent=text;$('asset-status').classList.toggle('error',error);}
- allowed(a){if(!a.page)return false;if(this.role==='browse')return true;if(['object','world'].includes(this.role))return a.placeable;if(this.role==='surface')return a.floor;if(this.role==='floor')return a.floor&&!a.water;return a.roles.includes(this.role);}
+ allowed(a){return resourceAllowed(a,this.role);}
  async search(){const revision=++this.revision;this.status('Читаем каталог…');try{const data=await json('/api/assets/search?q='+encodeURIComponent($('asset-search').value)+'&category='+encodeURIComponent($('asset-category').value)+'&offset='+this.offset+'&limit=60');if(revision!==this.revision)return;$('asset-grid').replaceChildren();for(const a of data.items){const button=document.createElement('button');button.className='asset-card';button.title=[a.id,a.name,a.group,a.facing?`Направление ${a.facing}`:'',a.grid?`Часть ${a.grid}`:''].filter(Boolean).join('\n');const canvas=document.createElement('canvas');canvas.width=120;canvas.height=130;const label=document.createElement('strong');label.textContent=a.name===a.id?a.id:a.name;const id=document.createElement('small');id.textContent=a.id;button.append(canvas,label,id);button.disabled=!this.allowed(a);if(!a.page)id.textContent+=' · нет изображения';button.onclick=()=>this.choose(a);$('asset-grid').append(button);spriteImages.thumbnail(canvas,a);} $('asset-prev').disabled=this.offset===0;$('asset-next').disabled=this.offset+60>=data.total;this.status(`${this.offset+1}–${Math.min(this.offset+60,data.total)} из ${data.total.toLocaleString('ru-RU')} · ${this.role==='browse'?'Выберите назначение, чтобы использовать ресурс.':'Выберите ресурс. Цельные предметы собираются автоматически.'}`);}catch(e){if(revision===this.revision)this.status(e.message,true);}}
- async choose(a){try{if(this.role==='browse'){this.status(`${a.name} · ${a.id}${a.group?' · '+a.group:''}${a.facing?' · '+a.facing:''}. Выберите «Декор карты» или «Покрытие карты» для размещения.`);return;}let value=a;if(['object','world'].includes(this.role))value={...a,...await json('/api/assets/placement/'+a.id)};else if(['wall','door','window','roof'].includes(this.role))value={...a,...await json('/api/assets/pair/'+a.id+'?role='+this.role)};else{const full=await json('/api/assets/item/'+a.id);value={...a,properties:full.properties};}await this.callback?.(value);$('asset-dialog').close();}catch(e){this.status(e.message,true);}}
+ async choose(a){try{if(this.role==='browse'){this.status(`${a.name} · ${a.id}${a.group?' · '+a.group:''}${a.facing?' · '+a.facing:''}. Выберите «Декор карты» или «Покрытие карты» для размещения.`);return;}await this.callback?.(await resolveResource(a,this.role));$('asset-dialog').close();}catch(e){this.status(e.message,true);}}
+}
+// The workshop palette keeps the current scene visible while a brush is selected.
+export class EmbeddedResourcePalette{
+ constructor({choose,images}){
+  this.choose=choose;this.images=images;this.role='object';this.offset=0;this.revision=0;this.selectionRevision=0;this.recent=[];this.abort=null;this.timer=null;this.selected=null;
+  for(const [id,name] of Object.entries(categories))$('be-palette-category').add(new Option(name,id));
+  $('be-palette-role').onchange=()=>this.open($('be-palette-role').value);
+  $('be-palette-category').onchange=()=>{this.offset=0;this.search();};
+  $('be-palette-search').oninput=()=>{clearTimeout(this.timer);this.timer=setTimeout(()=>{this.offset=0;this.search();},220);};
+  $('be-palette-prev').onclick=()=>{this.offset=Math.max(0,this.offset-36);this.search();};$('be-palette-next').onclick=()=>{this.offset+=36;this.search();};
+  $('building-dialog').addEventListener('close',()=>{this.abort?.abort();clearTimeout(this.timer);this.revision++;this.selectionRevision++;});
+ }
+ open(role='object'){
+  this.role=role;this.offset=0;this.selectionRevision++;$('be-palette-role').value=role;$('be-palette-category').value=({floor:'floors',wall:'walls',door:'doors',window:'windows',roof:'roofs',object:'furniture'})[role]||'';$('be-palette-search').value='';this.search();
+ }
+ status(text,error=false){$('be-palette-status').textContent=text;$('be-palette-status').classList.toggle('error',error);}
+ async search(){
+  this.abort?.abort();const abort=this.abort=new AbortController(),revision=++this.revision;this.status('Читаем ресурсы установленной игры…');
+  try{const response=await fetch('/api/assets/search?q='+encodeURIComponent($('be-palette-search').value)+'&category='+encodeURIComponent($('be-palette-category').value)+'&offset='+this.offset+'&limit=36',{signal:abort.signal});if(!response.ok)throw Error('Каталог игры недоступен. Откройте «Ресурсы игры» и проверьте путь.');const data=await response.json();if(revision!==this.revision)return;
+   $('be-palette-grid').replaceChildren();for(const a of data.items)$('be-palette-grid').append(this.card(a,this.role));$('be-palette-prev').disabled=this.offset===0;$('be-palette-next').disabled=this.offset+36>=data.total;
+   this.status(data.total?`${this.offset+1}–${Math.min(this.offset+36,data.total)} / ${data.total.toLocaleString('ru-RU')} · серые ресурсы нельзя разместить этим инструментом`:'Ресурсы не найдены. Измените поиск или категорию.');this.renderRecent();
+  }catch(e){if(revision===this.revision&&e.name!=='AbortError')this.status(e.message,true);}
+ }
+ card(a,role,recent=false){
+  const button=document.createElement('button');button.className='asset-card';button.dataset.assetId=a.id;button.dataset.role=role;button.title=[a.name,a.id,a.facing?`Направление ${a.facing}`:'',a.grid?`Полная группа ${a.grid}`:''].filter(Boolean).join('\n');button.disabled=!resourceAllowed(a,role);button.classList.toggle('active',this.selected===a.id);
+  const canvas=document.createElement('canvas');canvas.width=100;canvas.height=94;const title=document.createElement('strong');title.textContent=a.name;const id=document.createElement('small');id.textContent=a.id;button.append(canvas,title,id);this.images.thumbnail(canvas,a);button.onclick=()=>this.select(a,role);return button;
+ }
+ async select(a,role){
+  const revision=++this.selectionRevision;this.status('Собираем цельный ресурс…');
+  try{const value=await resolveResource(a,role);if(revision!==this.selectionRevision||!$('building-dialog').open)return;if(await this.choose(role,value)===false){this.status('В режиме «Всё здание с крышей» размещение отключено.',true);return;}this.selected=a.id;this.recent=[{asset:a,role},...this.recent.filter(r=>r.asset.id!==a.id)].slice(0,8);for(const button of $('be-palette-grid').querySelectorAll('.asset-card'))button.classList.toggle('active',button.dataset.assetId===a.id);this.renderRecent();this.status(role==='object'?`Кисть: ${value.name} · ${value.parts.length} клеток, направление ${a.facing||'из ресурса'}`:`Кисть: ${value.id} · нажмите на здание`);
+  }catch(e){if(revision===this.selectionRevision)this.status(e.message,true);}
+ }
+ renderRecent(){$('be-palette-recent').replaceChildren();for(const r of this.recent)$('be-palette-recent').append(this.card(r.asset,r.role,true));$('be-recent-section').hidden=!this.recent.length;}
 }
 export class GamePreview{
  constructor(){this.scene=null;this.loader=null;this.revision=0;$('scene-close').onclick=()=>$('scene-dialog').close();$('scene-level').onchange=()=>this.reload();new ResizeObserver(()=>this.draw()).observe($('scene-canvas'));$('scene-dialog').addEventListener('close',()=>{this.revision++;this.scene=null;spriteImages.endScene();});}

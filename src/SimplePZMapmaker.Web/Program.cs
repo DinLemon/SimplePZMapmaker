@@ -40,10 +40,13 @@ app.MapPost("/api/assets/describe",(GameAssetCatalog assets,string[] ids)=>asset
 app.MapPost("/api/assets/refresh",(GameAssetCatalog assets,AssetSourceRequest source)=>{assets.Refresh(source.GamePath);return assets.Status();});
 app.MapGet("/api/styles",()=>new{buildings=VisualStyles.All,surfaces=EnvironmentStyles.Names});
 app.MapPost("/api/preview/building",(GameAssetCatalog assets,BuildingPreviewRequest request)=>{AssetRules.Building(request.Building,assets);return NativeScene.Building(request.Building,request.Level);});
+app.MapPost("/api/preview/building/draft",(GameAssetCatalog assets,BuildingPreviewRequest request)=>{AssetRules.Building(request.Building,assets,false);return NativeScene.DraftBuilding(request.Building,request.Level);});
+app.MapGet("/api/building/presets",()=>HousingTemplates.Catalog);
+app.MapPost("/api/building/presets/{id}",(string id,GameAssetCatalog assets)=>{var b=HousingTemplates.Create(id);AssetRules.Building(b,assets);return b;});
 app.MapPost("/api/preview/cell",(GameAssetCatalog assets,CellPreviewRequest request)=>{if(request.Project.Spawns.Count==0)request.Project.Spawns.Add(MapGenerator.FindSafeSpawn(request.Project));AssetRules.Project(request.Project,assets);return NativeScene.Cell(request.Project,request.X,request.Y,request.Width,request.Height,request.Level,request.X,request.Y,request.CellX,request.CellY);});
 app.MapPost("/api/preview/appearance",(GameAssetCatalog assets,AppearancePreviewRequest request)=>{AppearanceDesigner.Apply(request.Project,request.SurfaceTheme,request.Region,request.StyleBuildings);AssetRules.Project(request.Project,assets);return NativeScene.Cell(request.Project,request.X,request.Y,48,48,request.Level,request.X,request.Y,request.CellX,request.CellY);});
 app.MapPost("/api/styles/apply",(GameAssetCatalog assets,StyleApplyRequest request)=>{if(!assets.Ready)throw new ArgumentException("Для оформления найдите установку игры в разделе «Ресурсы игры».");var changed=AppearanceDesigner.Apply(request.Project,request.SurfaceTheme,request.Region,request.StyleBuildings);AssetRules.Project(request.Project,assets);return new{project=request.Project,changed};});
-app.MapGet("/api/environment",(GameAssetCatalog assets)=>new {version="0.4.1",target="Project Zomboid Build 42",gameFound=assets.Ready,gamePath=assets.GamePath,cellSize=256,chunkSize=8,workspace});
+app.MapGet("/api/environment",(GameAssetCatalog assets)=>new {version="0.5.0",target="Project Zomboid Build 42",gameFound=assets.Ready,gamePath=assets.GamePath,cellSize=256,chunkSize=8,workspace});
 app.MapGet("/api/examples/pilna",async(CancellationToken token)=>{
     var file=Path.Combine(workspace,"examples","Pilna","pilna.pzmap.json");
     if(!File.Exists(file))file=Path.Combine(AppContext.BaseDirectory,"examples","Pilna","pilna.pzmap.json");

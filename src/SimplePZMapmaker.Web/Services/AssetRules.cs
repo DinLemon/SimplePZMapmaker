@@ -2,7 +2,7 @@ using SimplePZMapmaker.Core;
 namespace SimplePZMapmaker.Web.Services;
 public static class AssetRules
 {
- public static void Building(Building b,GameAssetCatalog assets){BuildingDesigner.Validate(b);if(b.Design is null)return;var d=b.Design;
+ public static void Building(Building b,GameAssetCatalog assets,bool requireAccess=true){BuildingDesigner.Validate(b,requireAccess);if(b.Design is null)return;var d=b.Design;
   void Floor(string id){var a=assets.Get(id);if(!a.Floor||a.Properties.ContainsKey("water"))throw new ArgumentException("В помещении нужен полный сухой тайл пола.");}
   if(d.Style.Length>0){var s=VisualStyles.All[d.Style];Floor(s.Floor);Floor(s.WetFloor);foreach(var direction in new[]{"n","w"})foreach(var kind in new[]{"wall","door","window"})CheckEdge(assets,s.Wall+"_"+(s.WallBase+(kind=="door"?10:kind=="window"?8:0)+(direction=="n"?1:0)),null,direction,kind);}
   if(d.RoofTileset is not null)foreach(var i in Enumerable.Range(0,30).Where(i=>i%8<6))if(assets.Get(d.RoofTileset+"_"+i).Category!="roofs")throw new ArgumentException("Нужен полный набор крыши 30°.");

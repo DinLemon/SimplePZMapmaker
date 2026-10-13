@@ -1,0 +1,9 @@
+# Visual building workshop and housing references 0.5.0
+
+Authorized scope: direct building assembly from visible installed-game resources, researched village/settlement/urban templates, removal of the dedicated Pilna button. Source/releases continue in the existing public GitHub repository. All local task files/cache remain under the supplied G: workspace; installation is read-only.
+
+- Default editable isometric sprite canvas, embedded visual palette, complete object footprints/hover brush, exact floors/walls/openings/furniture, floor/basement selection, zoom/pan; retain an optional room-plan view and existing history/draft/apply semantics.
+- Separate draft preview validates structure and actual resources but permits unfinished access topology. Applying/exporting still require every occupied component to be reachable from a ground entrance, including separate entrance/stair sections across floors. Preview has no persistence side effects.
+- Six original architectural adaptations: izba/cellar, veranda house, two-storey settlement apartments, brick five-storey, panel five-storey and panel nine-storey. Distinct plans/facades/roofs/entrance cores; references linked, third-party photographs and game images excluded from distribution. Built-in gallery opens cloned editable drafts; saved library templates retain existing formats.
+- Root integrates APIs/gallery/versions/removes Pilna handler and changes its browser test to open examples through the standard file control. UI implementation, original templates and runtime QA use separate agents with file ownership.
+- Meaningful regressions, fresh published-browser cycles, independent native reader and installed-game classes, one frozen whole-delta review followed by a consolidated fix pass, extracted Windows package, exact-source CI and GitHub release verification.

@@ -1,4 +1,4 @@
-# Verification status — 0.4.1, 2026-10-12
+# Verification status — 0.5.0, 2026-10-12
 
 - Final 0.4.1 verification: core 72/72 and Node editor/model/resource/appearance 28/28 passed; Release build/publish zero errors/warnings. Eight isolated browser regression scenarios and the real Smolensk import/save/export flow passed.
 - Published app in isolated headless Chromium: map editing/history/save/reopen/GeoJSON/export, delayed-import cancellation, invalid input rejection, Pilna recovery/session isolation, and the complete three-floor and basement -16 workshop cycles pass without uncaught browser errors.
@@ -39,3 +39,10 @@
 
 All task files, QA, downloads and caches stay under the supplied G: workspace. The exporter references tile identifiers and distributes no game artwork. Code license is GPL-2.0-or-later; source/derived geography retain OpenStreetMap attribution and ODbL requirements.
 - Extracted final0.4.1 Windows package: version/workspace identity, NoBrowser launch, installed catalog and full appearance preview/apply/history/save/reopen/cancel scenario passed. Distribution contains no game artwork/PBF/cache; main workspace server restored.
+
+## Visual workshop 0.5.0 — 2026-10-13
+
+- Core83/83 and Node40/40 passed. The default native-sprite workshop, embedded palette, viewport/hit/ghost/readonly/draft/history/library/project/export flow and real edge-kind conversions pass in isolated Chromium, including the extracted ready Windows package.
+- One independent whole-delta review found an incompatible retained wall/opening frame. One consolidated fix and focused N/W and real-catalog conversion regressions pass; strict export validation was never bypassed.
+- Six housing templates use original distinct layouts and linked architectural references. Native game classes load 641 rooms,509 upper and2 below-ground,78 stairs across6 buildings. Edited resource QA also loads15 rooms and6 stairs. Dedicated Pilna button removed; normal example file loading/regression passes.
+- Main server restored to G: workspace. Ready payload excludes game artwork/mod downloads/caches. Character traversal and game lighting/loot/multiplayer remain unverified.

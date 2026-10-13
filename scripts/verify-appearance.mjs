@@ -4,7 +4,7 @@ import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 const root=process.env.PZMAP_QA_URL||'http://127.0.0.1:48765',output=new URL('../work/qa-results/',import.meta.url);await mkdir(output,{recursive:true});
 async function api(path,body,status=200){const r=await fetch(root+path,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});assert.equal(r.status,status,await r.clone().text());return r.json();}
-const environment=await api('/api/environment');assert.ok(/^0\.4\.[1-9]/.test(environment.version));
+const environment=await api('/api/environment');assert.ok(/^0\.(?:4\.[1-9]|[5-9]\.)/.test(environment.version));
 const fixture=await api('/api/generate',{size:256,kind:'blank',surfaceTheme:'temperate'});
 for(const [id,x,modified,style] of [['auto-in',40,false,'cottage'],['manual-in',80,true,'stone'],['auto-out',160,false,'brick']]){
  const b=await api('/api/building/design',{building:{id,name:id,kind:'house',x,y:40,width:12,height:10},levels:1,seed:42,style});b.modified=modified;fixture.buildings.push(b);

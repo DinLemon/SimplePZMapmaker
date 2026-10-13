@@ -1,3 +1,4 @@
+import {validateAccess} from './building-access.js';
 import objectCatalog from './building-objects.json' with {type:'json'};
 import visualStyles from './visual-styles.json' with {type:'json'};
 export {visualStyles};
@@ -57,7 +58,7 @@ export function installStairLink(b,lowerIndex,newIndex){
  for(const f of [lower,upper])f.edges=f.edges.filter(e=>e.kind==='open'||!matches(e,edges));
  lower.objects.push(found);
 }
-export function validateDesign(b){
+export function validateDesign(b,requireAccess=true){
  const fail=text=>{throw Error(text);};if(!b||!Object.hasOwn(kinds,b.kind)||![b.width,b.height].every(v=>Number.isInteger(v)&&v>=6&&v<=64))fail('Размер здания: 6–64 клетки.');if(b.attribution!==undefined&&(!Array.isArray(b.attribution)||b.attribution.length>30||b.attribution.some(s=>typeof s!=='string'||s.length>1000)))fail('Источник шаблона повреждён.');if(!b.design)return b;
  const d=b.design;if(!['wood','brick','plaster'].includes(d.material)||!['flat','gabled','shed','hipped'].includes(d.roof)||!Object.hasOwn(shapeNames,d.shape)||!Number.isInteger(d.variant)||d.variant< -2147483648||d.variant>2147483647||(d.minLevel!==undefined&&!Number.isInteger(d.minLevel))||!Number.isInteger(minLevel(b))||minLevel(b)<-16||minLevel(b)>0||!Array.isArray(d.floors)||d.floors.length<1||d.floors.length>32||aboveLevels(b)<1||aboveLevels(b)>16)fail('Проверьте материал, крышу и этажность: 1–16 этажей и 0–16 подвалов.');
  if(d.style!==undefined&&(typeof d.style!=='string'||d.style!==''&&!Object.hasOwn(visualStyles,d.style))||d.roofTileset!=null&&(typeof d.roofTileset!=='string'||!/^roofs_30_[0-9]{2}$/.test(d.roofTileset)))fail('Повреждён набор оформления или крыши.');
@@ -70,13 +71,10 @@ export function validateDesign(b){
    if(o.kind==='asset')validateParts(o.asset,o.parts);else if(o.asset!=null||o.parts!==undefined&&(!Array.isArray(o.parts)||o.parts.length))fail('Ресурс предмета не соответствует типу.');
    if(o.kind==='stairs'){if(z===d.floors.length-1)fail('Лестница должна вести на следующий этаж.');for(let i=0;i<5;i++){const x=o.x+(o.direction==='w'?i:0),y=o.y+(o.direction==='n'?i:0);if(cell(b,f,x,y)==='.'||cell(b,d.floors[z+1],x,y)==='.')fail('Лестнице нужны три ступени и две площадки.');}}else if(stairSpace(b,z,o.x,o.y))fail('Мебель перекрывает лестницу.');}
   const furnitureCells=new Set();for(const o of f.objects.filter(o=>o.kind!=='stairs')){const parts=objectCells(o),positions=new Set(parts.map(p=>`${p.x},${p.y}`));for(const p of parts){const index=p.y*b.width+p.x;if(cell(b,f,p.x,p.y)==='.'||stairSpace(b,z,p.x,p.y)||furnitureCells.has(index))fail('Мебель пересекается, перекрывает лестницу или выходит за контур.');furnitureCells.add(index);for(const [dx,dy,edge] of [[1,0,'w'],[0,1,'n']])if(positions.has(`${p.x+dx},${p.y+dy}`)&&f.edges.some(e=>e.x===p.x+dx&&e.y===p.y+dy&&e.edge===edge&&e.kind!=='open'))fail('Мебель пересекает стену или проём.');}if(f.edges.some(e=>['door','open'].includes(e.kind)&&(positions.has(`${e.x},${e.y}`)||positions.has(e.edge==='n'?`${e.x},${e.y-1}`:`${e.x-1},${e.y}`))))fail('Мебель перекрывает дверь или проход.');}
-  if(z<d.floors.length-1&&!f.objects.some(o=>o.kind==='stairs'))fail(`${floorLabel(b,z)}: добавьте лестницу.`);
+  if(requireAccess&&z<d.floors.length-1&&!f.objects.some(o=>o.kind==='stairs'))fail(`${floorLabel(b,z)}: добавьте лестницу.`);
   const stairCells=new Set();for(const stair of f.objects.filter(o=>o.kind==='stairs'))for(let i=0;i<5;i++){const x=stair.x+(stair.direction==='w'?i:0),y=stair.y+(stair.direction==='n'?i:0),index=y*b.width+x;if(stairCells.has(index))fail('Лестницы пересекаются.');stairCells.add(index);if(i>0&&[f,d.floors[z+1]].some(level=>level.edges.some(e=>e.x===x&&e.y===y&&e.edge===stair.direction&&e.kind!=='open')))fail('Лестница пересекает стену или проём.');}
-  const start=f.cells.search(/[0-9a-z]/);if(start<0)fail('Этаж не может быть пустым.');const walls=new Set(f.edges.filter(e=>['wall','window'].includes(e.kind)).map(e=>`${e.x},${e.y},${e.edge}`)),seen=new Set([start]),queue=[start];
-  for(let j=0;j<queue.length;j++){const i=queue[j],x=i%b.width,y=Math.floor(i/b.width);for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy;if(cell(b,f,nx,ny)==='.')continue;const edge=dx?`${Math.max(x,nx)},${y},w`:`${x},${Math.max(y,ny)},n`,next=ny*b.width+nx;if(!walls.has(edge)&&!seen.has(next)){seen.add(next);queue.push(next);}}}
-  if(seen.size!==[...f.cells].filter(c=>c!=='.').length)fail(`${floorLabel(b,z)}: есть изолированная комната. Добавьте проход.`);
-  if(floorLevel(b,z)===0&&!f.edges.some(e=>['door','open'].includes(e.kind)&&(cell(b,f,e.x,e.y)==='.'||(e.edge==='n'?cell(b,f,e.x,e.y-1):cell(b,f,e.x-1,e.y))==='.')))fail('На наземном этаже (z=0) нужен наружный вход.');
- }return b;
+  if(!/[0-9a-z]/.test(f.cells))fail('Этаж не может быть пустым.');
+ }if(requireAccess)validateAccess(b);return b;
 }
 export class DraftHistory{
  constructor(){this.past=[];this.future=[];}

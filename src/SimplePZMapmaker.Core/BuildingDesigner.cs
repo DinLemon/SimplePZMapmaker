@@ -75,7 +75,7 @@ public static class BuildingDesigner
    edges.Add(new(){X=x,Y=y,Edge=direction,Kind=kind});
   }return edges;
  }
- public static void Validate(Building b){
+ public static void Validate(Building b,bool requireAccess=true){
   if(b is null||b.Width is <6 or >64||b.Height is <6 or >64||!Kinds.Contains(b.Kind))throw new ArgumentException("Проверьте размеры и тип здания.");
   if(b.Attribution is null||b.Attribution.Count>30||b.Attribution.Any(s=>s is null||s.Length>1000))throw new ArgumentException("Источник шаблона здания повреждён.");
   if(b.Design is null)return;var d=b.Design;
@@ -100,19 +100,14 @@ public static class BuildingDesigner
     var parts=BuildingObjects.Cells(o).ToHashSet();foreach(var point in parts)foreach(var (dx,dy,edge) in new[]{(1,0,"w"),(0,1,"n")})if(parts.Contains((point.X+dx,point.Y+dy))&&f.Edges.Any(e=>e.X==point.X+dx&&e.Y==point.Y+dy&&e.Edge==edge&&e.Kind!="open"))Fail("мебель пересекает стену или проём.");
     if(f.Edges.Any(e=>e.Kind is "door" or "open"&&(parts.Contains((e.X,e.Y))||parts.Contains(e.Edge=="n"?(e.X,e.Y-1):(e.X-1,e.Y)))))Fail("мебель перекрывает дверь или проход.");
    }
-   if(z<d.Floors.Count-1&&!f.Objects.Any(o=>o.Kind=="stairs"))Fail($"на этаже {z+1} нет лестницы.");
+   if(requireAccess&&z<d.Floors.Count-1&&!f.Objects.Any(o=>o.Kind=="stairs"))Fail($"на этаже {z+1} нет лестницы.");
    foreach(var o in f.Objects.Where(o=>o.Kind!="stairs"))if(StairSpace(b,z,o.X,o.Y))Fail("мебель перекрывает лестницу.");
    var stairCells=new HashSet<int>();foreach(var stair in f.Objects.Where(o=>o.Kind=="stairs"))for(var i=0;i<5;i++){
     var x=stair.X+(stair.Direction=="w"?i:0);var y=stair.Y+(stair.Direction=="n"?i:0);if(!stairCells.Add(y*b.Width+x))Fail("лестницы пересекаются.");
     if(i>0)foreach(var level in new[]{z,z+1})if(d.Floors[level].Edges.Any(e=>e.X==x&&e.Y==y&&e.Edge==stair.Direction&&e.Kind!="open"))Fail("лестница пересекает стену или проём. Оставьте свободный проход вдоль ступеней.");
    }
-   // Walls/closed windows block; doors/open edges connect adjacent room cells.
-   var walls=f.Edges.Where(e=>e.Kind is "wall" or "window").Select(e=>$"{e.X},{e.Y},{e.Edge}").ToHashSet();
-   var start=f.Cells.IndexOfAny("0123456789abcdefghijklmnopqrstuvwxyz".ToCharArray());var seen=new HashSet<int>{start};var q=new Queue<int>();q.Enqueue(start);
-   while(q.TryDequeue(out var index)){var x=index%b.Width;var y=index/b.Width;foreach(var (dx,dy) in new[]{(1,0),(-1,0),(0,1),(0,-1)}){var nx=x+dx;var ny=y+dy;if(Cell(b,f,nx,ny)=='.')continue;var key=dx!=0?$"{Math.Max(x,nx)},{y},w":$"{x},{Math.Max(y,ny)},n";var next=ny*b.Width+nx;if(!walls.Contains(key)&&seen.Add(next))q.Enqueue(next);}}
-   if(seen.Count!=f.Cells.Count(c=>c!='.'))Fail($"на этаже {z+1} есть изолированная комната. Добавьте дверь или проход.");
-   if(z+d.MinLevel==0&&!f.Edges.Any(e=>e.Kind is "door" or "open"&&(Cell(b,f,e.X,e.Y)=='.'||(e.Edge=="n"?Cell(b,f,e.X,e.Y-1):Cell(b,f,e.X-1,e.Y))=='.')))Fail("на наземном этаже (z=0) нужен наружный вход.");
   }
+  if(requireAccess)BuildingAccess.Validate(b);
  }
  public static int Regenerate(MapProject project,string? id=null){
   ProjectValidator.Validate(project);project.Version=Math.Max(4,project.Version);var changed=0;

@@ -13,7 +13,7 @@ try{
  assert.equal(await page.evaluate(()=>localStorage.getItem('simple-pz-mapmaker:project:v1')),null);
  const response=await page.request.get('http://127.0.0.1:48765/api/examples/pilna');assert.equal(response.status(),200);
  const project=await response.json();assert.equal(project.width,2048);assert.equal(project.name,'Пильна');assert.ok(project.buildings.length>1300);assert.ok(project.terrain.includes(3));assert.ok(project.terrain.includes(2));
- await page.locator('#load-pilna').click();await page.waitForFunction(()=>document.querySelector('#size-stat')?.textContent==='2048 × 2048');
+ assert.equal(await page.locator('#load-pilna').count(),0);await page.locator('#project-file').setInputFiles(fileURLToPath(new URL('../examples/Pilna/pilna.pzmap.json',import.meta.url)));await page.waitForFunction(()=>!document.querySelector('#operation-dialog').open&&document.querySelector('#size-stat')?.textContent==='2048 × 2048');
  assert.equal(await page.locator('#building-count').textContent(),String(project.buildings.length));
  await page.waitForFunction(()=>document.querySelector('#save-state').textContent.includes('Автосохранено'),null,{timeout:10000});
  await page.reload();await page.waitForFunction(()=>document.querySelector('#size-stat').textContent==='2048 × 2048');
