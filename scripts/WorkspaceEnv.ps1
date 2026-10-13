@@ -12,3 +12,9 @@ $env:DOTNET_CLI_TELEMETRY_OPTOUT='1'
 $env:npm_config_cache=Join-Path $taskRoot 'work\npm-cache'
 $env:PLAYWRIGHT_BROWSERS_PATH=Join-Path $taskRoot 'work\browsers'
 New-Item -ItemType Directory -Path $env:TEMP,$env:DOTNET_CLI_HOME,$env:NUGET_PACKAGES -Force | Out-Null
+$localSettings=Join-Path $taskRoot 'work\local-settings.json'
+if(Test-Path -LiteralPath $localSettings){
+ $settings=Get-Content -LiteralPath $localSettings -Raw | ConvertFrom-Json
+ if(-not $env:PZMAP_GAME_PATH -and $settings.gamePath){$env:PZMAP_GAME_PATH=$settings.gamePath}
+ if(-not $env:PZMAP_WORKSHOP_ROOT -and $settings.workshopRoot){$env:PZMAP_WORKSHOP_ROOT=$settings.workshopRoot}
+}

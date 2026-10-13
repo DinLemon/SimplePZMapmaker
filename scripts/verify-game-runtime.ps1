@@ -1,6 +1,11 @@
-param([string]$MapArchive='examples/Pilna/Pilna-B42.zip',[string]$GamePath='./game-installation',[switch]$Basements,[ValidateRange(-16,-1)][int]$BasementMinLevel=-16)
+param([string]$MapArchive='examples/Pilna/Pilna-B42.zip',[string]$GamePath='',[switch]$Basements,[ValidateRange(-16,-1)][int]$BasementMinLevel=-16)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'WorkspaceEnv.ps1')
+if([string]::IsNullOrWhiteSpace($GamePath)){$GamePath=$env:PZMAP_GAME_PATH}
+if([string]::IsNullOrWhiteSpace($GamePath)){throw 'Specify -GamePath or set PZMAP_GAME_PATH to your Build 42 installation.'}
+$GamePath=[IO.Path]::GetFullPath($GamePath)
+if(-not $GamePath.StartsWith('G:\',[StringComparison]::OrdinalIgnoreCase)){throw 'Game resources must be located on drive G:.'}
+if(-not(Test-Path -LiteralPath (Join-Path $GamePath 'jre64\bin\java.exe')) -or -not(Test-Path -LiteralPath (Join-Path $GamePath 'projectzomboid.jar'))){throw 'Installed game JRE/JAR not found at the supplied game path.'}
 $probeRoot=Join-Path $taskRoot 'work\game-smoke'
 $classes=Join-Path $probeRoot 'classes'
 New-Item -ItemType Directory -Path $classes -Force | Out-Null

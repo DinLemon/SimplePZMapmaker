@@ -3,9 +3,13 @@ $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'WorkspaceEnv.ps1')
 Push-Location $taskRoot
 try {
- dotnet publish src/SimplePZMapmaker.Web -c Release -r win-x64 --self-contained true -p:RuntimeFrameworkVersion=10.0.12 -o $Output --nologo
+ dotnet publish src/SimplePZMapmaker.Web -c Release -r win-x64 --self-contained true -p:RuntimeFrameworkVersion=10.0.12 -p:DebugType=None -p:DebugSymbols=false -o $Output --nologo
  if($LASTEXITCODE -ne 0){throw 'dotnet publish failed.'}
  $publishRoot=[IO.Path]::GetFullPath((Join-Path $taskRoot $Output))
+ foreach($name in @('SimplePZMapmaker.Core.pdb','SimplePZMapmaker.Web.pdb')){
+  $symbols=Join-Path $publishRoot $name
+  if(Test-Path -LiteralPath $symbols){Remove-Item -LiteralPath $symbols}
+ }
  $licenseRoot=Join-Path $publishRoot 'licenses'
  New-Item -ItemType Directory -Path $licenseRoot -Force | Out-Null
  $config=Get-Content -LiteralPath (Join-Path $publishRoot 'SimplePZMapmaker.Web.runtimeconfig.json') -Raw | ConvertFrom-Json

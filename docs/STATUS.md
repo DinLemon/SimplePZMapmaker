@@ -1,4 +1,11 @@
-# Verification status — 0.7.1, 2026-10-13
+# Verification status — 0.7.2, 2026-10-13
+
+## Public installation-path correction — 0.7.2
+
+- Personal workspace and game/Workshop installation paths were removed from current public documentation, source defaults and instructions. Real screenshot path fields are masked; per-machine configuration is local and ignored by Git.
+- Core 137/137 and Node 75/75 pass, including a new empty-configuration/no-game export regression. Release build has zero warnings/errors. Project debug symbols are omitted from publication and compiler source paths use a neutral prefix; public source/package checks guard against local-path disclosure.
+- Earlier commits and release archives are preserved. These current-file corrections do not claim that past publication has been erased.
+
 
 ## English interface, installation and Actions startup — 0.7.1
 
@@ -65,7 +72,7 @@
 
 **Character traversal, graphical in-game roofs/furniture, loot and multiplayer remain unverified.** Native class parsing and isolated staircase recognition establish only those checked behaviours. The map overview is schematic; dedicated previews draw real local sprites from the exporter's layout, without the game's renderer/lighting. Roofs and source interiors are generated approximations. B41, heightfields and a separate railway layer are not implemented.
 
-All task files, QA, downloads and caches stay under the supplied G: workspace. The exporter references tile identifiers and distributes no game artwork. Code license is GPL-2.0-or-later; source/derived geography retain OpenStreetMap attribution and ODbL requirements.
+All task files, QA, downloads and caches stay under the project workspace. The exporter references tile identifiers and distributes no game artwork. Code license is GPL-2.0-or-later; source/derived geography retain OpenStreetMap attribution and ODbL requirements.
 - Extracted final0.4.1 Windows package: version/workspace identity, NoBrowser launch, installed catalog and full appearance preview/apply/history/save/reopen/cancel scenario passed. Distribution contains no game artwork/PBF/cache; main workspace server restored.
 
 ## Visual workshop 0.5.0 — 2026-10-13
@@ -73,4 +80,4 @@ All task files, QA, downloads and caches stay under the supplied G: workspace. T
 - Core83/83 and Node40/40 passed. The default native-sprite workshop, embedded palette, viewport/hit/ghost/readonly/draft/history/library/project/export flow and real edge-kind conversions pass in isolated Chromium, including the extracted ready Windows package.
 - One independent whole-delta review found an incompatible retained wall/opening frame. One consolidated fix and focused N/W and real-catalog conversion regressions pass; strict export validation was never bypassed.
 - Six housing templates use original distinct layouts and linked architectural references. Native game classes load 641 rooms, 509 upper and2 below-ground, 78 stairs across6 buildings. Edited resource QA also loads15 rooms and6 stairs. Dedicated Pilna button removed; normal example file loading/regression passes.
-- Main server restored to G: workspace. Ready payload excludes game artwork/mod downloads/caches. Character traversal and game lighting/loot/multiplayer remain unverified.
+- Main server restored to the project workspace. Ready payload excludes game artwork/mod downloads/caches. Character traversal and game lighting/loot/multiplayer remain unverified.

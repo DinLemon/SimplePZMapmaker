@@ -14,7 +14,7 @@ builder.Services.ConfigureHttpJsonOptions(o=>{o.SerializerOptions.MaxDepth=48;})
 var workspace=Environment.GetEnvironmentVariable("PZMAP_WORKSPACE") ?? Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath,"../.."));
 builder.Services.AddSingleton(new OsmClient(Path.Combine(workspace,"work","geodata-cache")));
 builder.Services.AddSingleton(new RecoveryStore(Path.Combine(workspace,"work","recovery")));
-builder.Services.AddSingleton(new GameAssetCatalog(workspace,Environment.GetEnvironmentVariable("PZMAP_GAME_PATH")??@"./game-installation"));
+builder.Services.AddSingleton(new GameAssetCatalog(workspace,Environment.GetEnvironmentVariable("PZMAP_GAME_PATH")??""));
 builder.Services.AddSingleton<StaticModelCatalog>();
 builder.Services.AddSingleton(new AgentProjectStore(Path.Combine(workspace,"work","agent-sessions")));
 builder.Services.AddSingleton(new AgentWorldStore(Path.Combine(workspace,"work","agent-world-sessions")));
@@ -61,7 +61,7 @@ app.MapPost("/api/building/presets/{id}",(string id,GameAssetCatalog assets)=>{v
 app.MapPost("/api/preview/cell",(GameAssetCatalog assets,StaticModelCatalog models,CellPreviewRequest request)=>{if(request.Project.Spawns.Count==0&&!request.Project.WorldSection)request.Project.Spawns.Add(MapGenerator.FindSafeSpawn(request.Project));AssetRules.Project(request.Project,assets);models.Validate(request.Project);return NativeScene.Cell(request.Project,request.X,request.Y,request.Width,request.Height,request.Level,request.X,request.Y,request.CellX,request.CellY);});
 app.MapPost("/api/preview/appearance",(GameAssetCatalog assets,AppearancePreviewRequest request)=>{AppearanceDesigner.Apply(request.Project,request.SurfaceTheme,request.Region,request.StyleBuildings);AssetRules.Project(request.Project,assets);return NativeScene.Cell(request.Project,request.X,request.Y,48,48,request.Level,request.X,request.Y,request.CellX,request.CellY);});
 app.MapPost("/api/styles/apply",(GameAssetCatalog assets,StyleApplyRequest request)=>{if(!assets.Ready)throw new ArgumentException("To apply appearance styles, locate the game installation under Game resources.");var changed=AppearanceDesigner.Apply(request.Project,request.SurfaceTheme,request.Region,request.StyleBuildings);AssetRules.Project(request.Project,assets);return new{project=request.Project,changed};});
-app.MapGet("/api/environment",(GameAssetCatalog assets)=>new {version="0.7.1",runtime=System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,selfContained=File.Exists(Path.Combine(AppContext.BaseDirectory,"coreclr.dll")),target="Project Zomboid Build 42",gameFound=assets.Ready,gamePath=assets.GamePath,cellSize=256,chunkSize=8,workspace});
+app.MapGet("/api/environment",(GameAssetCatalog assets)=>new {version="0.7.2",runtime=System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,selfContained=File.Exists(Path.Combine(AppContext.BaseDirectory,"coreclr.dll")),target="Project Zomboid Build 42",gameFound=assets.Ready,gamePath=assets.GamePath,cellSize=256,chunkSize=8,workspace});
 app.MapGet("/api/examples/pilna",async(CancellationToken token)=>{
     var file=Path.Combine(workspace,"examples","Pilna","pilna.pzmap.json");
     if(!File.Exists(file))file=Path.Combine(AppContext.BaseDirectory,"examples","Pilna","pilna.pzmap.json");

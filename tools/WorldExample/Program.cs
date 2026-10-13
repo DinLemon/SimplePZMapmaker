@@ -2,8 +2,8 @@ using System.Text.Json;
 using SimplePZMapmaker.Core;
 using SimplePZMapmaker.Core.Export;
 using SimplePZMapmaker.Web.Services;
-var root=Environment.GetEnvironmentVariable("PZMAP_WORKSPACE")??throw new Exception("Run WorkspaceEnv.ps1 first.");
-var assets=new GameAssetCatalog(Path.Combine(root,"work","world-example-catalog"),@"./game-installation");var models=new StaticModelCatalog(assets);
+var root=Environment.GetEnvironmentVariable("PZMAP_WORKSPACE")??Directory.GetCurrentDirectory();
+var assets=new GameAssetCatalog(Path.Combine(root,"work","world-example-catalog"),Environment.GetEnvironmentVariable("PZMAP_GAME_PATH")??"");if(!assets.Ready)throw new ArgumentException("Set PZMAP_GAME_PATH to your Build 42 installation before generating resource-based world examples.");var models=new StaticModelCatalog(assets);
 var world=new WorldProject{Id="0f000006000000000000000000000001",Name="Stitched world example"};
 for(var i=0;i<HousingTemplates.Catalog.Count;i++){
  var p=MapGenerator.Generate(new(){Kind="blank",Name="Section "+(i+1),Seed=42+i,SurfaceTheme="rural"});p.WorldSection=true;p.Version=6;p.WorldX=100+i;p.WorldY=100;

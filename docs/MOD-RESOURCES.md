@@ -1,6 +1,6 @@
 # Mod resources
 
-Open **Game resources** and its mod-resource controls. The G: Steam Workshop root is prefilled. Enter the installed game version, discover mods, select them and activate them. Additional roots are entered one per line; only G: roots are accepted. The verified installation reports **42.21**, so the initial compatibility value is `42.21.0`.
+Open **Game resources** and its mod-resource controls. Choose your Steam Workshop resource root. Enter the installed game version, discover mods, select them and activate them. Additional roots are entered one per line; only G: roots are accepted. The verified installation reports **42.21**, so the initial compatibility value is `42.21.0`.
 
 The catalog selects a compatible variant such as `42`, `42.0` or `42.20`; `common` resources load before that variant. Legacy mods with a root `mod.info` are also read. A legacy mod's actual game compatibility is determined by its author: absent `versionMin`/`versionMax` does not prove compatibility.
 
@@ -12,8 +12,10 @@ Projects retain required mod IDs and the source of chosen tiles. If another mod 
 
 ## Local API
 
+Replace `<Steam library>` with your actual Steam library on the supported G: drive before sending the sample request. The placeholder is illustrative, not a usable filesystem path.
+
 - `GET /api/assets/mods`: discovered mods, active IDs, layers and diagnostics.
-- `POST /api/assets/mods/discover`: `{ "roots": ["./workshop-content"], "gameVersion": "42.21.0" }`.
+- `POST /api/assets/mods/discover`: `{ "roots": ["<Steam library>\\steamapps\\workshop\\content\\108600"], "gameVersion": "42.21.0" }`.
 - `POST /api/assets/mods/activate`: `{ "ids": ["Erikas_Tiles"] }`; dependencies resolve automatically.
 - `GET /api/assets/search?source=Erikas_Tiles`: one mod; `source=game` and `source=mod` filter groups.
 - Search, descriptions and compound layouts return `source`, `modId` and `requirements`.

@@ -12,7 +12,7 @@ public sealed partial class GameAssetCatalog
  private IReadOnlyList<ModDescriptor> activeMods=[];
  private List<ModDiagnostic> discoveryDiagnostics=[];
  private List<ModDiagnostic> modDiagnostics=[];
- private string[] modRoots=[ModRegistry.WorkshopRoot];
+ private string[] modRoots=string.IsNullOrWhiteSpace(ModRegistry.WorkshopRoot)?[]:[ModRegistry.WorkshopRoot];
  private string gameVersion="42.21.0";
  public bool HasActiveMods {get {lock(sync)return activeMods.Count>0;}}
  private sealed record SavedMods(string[] Roots,string GameVersion,string[] Ids);

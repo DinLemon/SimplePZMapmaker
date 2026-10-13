@@ -11,7 +11,7 @@ Copy-Item -LiteralPath (Join-Path $taskRoot 'examples') -Destination $stage -Rec
 New-Item -ItemType Directory -Path (Join-Path $stage 'docs') -Force | Out-Null
 foreach($name in @('STATUS.md','PILNA-STATUS.md','PROVENANCE.md','PROGRESS.md','BUILDINGS-REVIEW.md','HOUSING-REFERENCES.md','MOD-RESOURCES.md','STATIC-MODELS.md','MCP.md','WORLD-AND-ENVIRONMENT.md','RUNTIME.md')){Copy-Item -LiteralPath (Join-Path $taskRoot ('docs\'+$name)) -Destination (Join-Path $stage 'docs')}
 Copy-Item -LiteralPath (Join-Path $taskRoot 'docs\screenshots') -Destination (Join-Path $stage 'docs') -Recurse
-$archive=Join-Path $taskRoot 'artifacts\SimplePZMapmaker-0.7.1-win-x64.zip'
+$archive=Join-Path $taskRoot 'artifacts\SimplePZMapmaker-0.7.2-win-x64.zip'
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $archive -CompressionLevel Optimal -Force
 Write-Host "Package: $archive"
 Write-Host 'Includes the .NET runtime; extract and run Start.cmd.'

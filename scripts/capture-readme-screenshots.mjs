@@ -7,7 +7,7 @@ const output=new URL('../docs/screenshots/',import.meta.url);await mkdir(output,
 const browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1800,height:1200},deviceScaleFactor:1});const errors=[];page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(60000);let token;
 await page.route('**/api/recovery/**',r=>r.request().method()==='GET'?r.fulfill({status:404}):r.fulfill({json:{saved:true}}));
 await page.route('**/api/world/recovery/**',r=>r.request().method()==='GET'?r.fulfill({status:404}):r.fulfill({json:{saved:true}}));
-const shot=async name=>page.screenshot({path:fileURLToPath(new URL(name,output)),fullPage:true});
+const shot=async name=>page.screenshot({path:fileURLToPath(new URL(name,output)),fullPage:true,mask:[page.locator('#asset-source')],maskColor:'#20262d'});
 try{
  await page.goto(base);await page.waitForFunction(()=>document.querySelector('#game-status')?.textContent.includes('found'));
  await page.locator('#project-file').setInputFiles(fileURLToPath(new URL('../examples/HousingTemplates/housing-templates.pzmap.json',import.meta.url)));await page.waitForFunction(()=>document.querySelector('#building-count').textContent==='24');

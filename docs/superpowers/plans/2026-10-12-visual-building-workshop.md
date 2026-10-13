@@ -1,6 +1,6 @@
 # Visual building workshop and housing references 0.5.0
 
-Authorized scope: direct building assembly from visible installed-game resources, researched village/settlement/urban templates, removal of the dedicated Pilna button. Source/releases continue in the existing public GitHub repository. All local task files/cache remain under the supplied G: workspace; installation is read-only.
+Authorized scope: direct building assembly from visible installed-game resources, researched village/settlement/urban templates, removal of the dedicated Pilna button. Source/releases continue in the existing public GitHub repository. All local task files/cache remain under the project workspace; installation is read-only.
 
 - Default editable isometric sprite canvas, embedded visual palette, complete object footprints/hover brush, exact floors/walls/openings/furniture, floor/basement selection, zoom/pan; retain an optional room-plan view and existing history/draft/apply semantics.
 - Separate draft preview validates structure and actual resources but permits unfinished access topology. Applying/exporting still require every occupied component to be reachable from a ground entrance, including separate entrance/stair sections across floors. Preview has no persistence side effects.

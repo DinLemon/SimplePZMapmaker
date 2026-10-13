@@ -2,7 +2,7 @@
 
 A local visual map and building editor for **Project Zomboid Build 42**, written in C#/.NET 10 with a browser interface. Create maps without programming, assemble rooms from your installed game's resources, import OpenStreetMap geography, and join adjacent sections into one world.
 
-**Current release: 0.7.1.** The Windows x64 download includes the .NET Runtime. The editor supports 24 original editable building plans, up to 16 above-ground levels and basements **−1 to −16**, game/mod sprites and static models, shared buildings across section boundaries, measured DEM elevation, and MCP planning with a review before changes enter your project.
+**Current release: 0.7.2.** The Windows x64 download includes the .NET Runtime. The editor supports 24 original editable building plans, up to 16 above-ground levels and basements **−1 to −16**, game/mod sprites and static models, shared buildings across section boundaries, measured DEM elevation, and MCP planning with a review before changes enter your project.
 
 [Download releases](https://github.com/DinLemon/SimplePZMapmaker/releases) · [Verification status](docs/STATUS.md) · [Code and data provenance](docs/PROVENANCE.md)
 
@@ -13,8 +13,8 @@ A local visual map and building editor for **Project Zomboid Build 42**, written
 ### 1. Check the requirements
 
 - Windows 64-bit and a current browser such as Edge, Chrome or Firefox.
-- A writable application folder on **G:**. Temporary files, caches, recovery snapshots and logs stay beside the application, inside `work/`.
-- **Project Zomboid Build 42** for real game-resource previews and resource-aware export. The development installation is `./game-installation`; choose your own installation in the resource catalog.
+- A writable application folder. Temporary files, caches, recovery snapshots and logs stay beside the application, inside `work/`.
+- **Project Zomboid Build 42** for real game-resource previews and resource-aware export. Choose your installation in the resource catalog; a typical folder is `<Steam library>\steamapps\common\ProjectZomboid`.
 - Internet access for downloading the application, searching/importing online geography and downloading elevation. Local projects and saved geography open offline.
 
 **Release users do not need Visual Studio, a .NET SDK, Node.js, TileZed or WorldEd.** The package is self-contained. Game files and Workshop resources are read from your installation and are not included. Build 41 is not supported.
@@ -22,22 +22,22 @@ A local visual map and building editor for **Project Zomboid Build 42**, written
 ### 2. Download the application ZIP
 
 1. Open [GitHub Releases](https://github.com/DinLemon/SimplePZMapmaker/releases).
-2. Select **v0.7.1**, or a newer published release. The project publishes prereleases, so use the release list rather than assuming GitHub's `/latest` page shows the newest build.
-3. Expand **Assets** and download **`SimplePZMapmaker-0.7.1-win-x64.zip`**. Example map ZIPs contain game mods, not the editor. GitHub's automatic **Source code** archives are development sources, not the ready-to-run application.
-4. Optionally download the release checksum file and compare the archive's SHA-256 before extracting it:
+2. Select **v0.7.2**, or a newer published release. The project publishes prereleases, so use the release list rather than assuming GitHub's `/latest` page shows the newest build.
+3. Expand **Assets** and download **`SimplePZMapmaker-0.7.2-win-x64.zip`**. Example map ZIPs contain game mods, not the editor. GitHub's automatic **Source code** archives are development sources, not the ready-to-run application.
+4. Optionally download the release checksum file and compare the archive's SHA-256 before extracting it. Run this command from the folder containing the downloaded archive:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath 'G:\Downloads\SimplePZMapmaker-0.7.1-win-x64.zip'
+Get-FileHash -Algorithm SHA256 -LiteralPath './SimplePZMapmaker-0.7.2-win-x64.zip'
 ```
 
 ### 3. Extract the entire archive
 
-1. Create or choose `./SimplePZMapmaker` for the application.
+1. Create or choose a folder for the application.
 2. Extract **all** files from the application ZIP into that folder. Do not launch from inside the ZIP viewer or copy only the executable.
 3. Confirm that it contains `Start.cmd`, `scripts/`, `artifacts/app/`, `examples/`, `docs/`, and `LICENSE`.
 4. Keep `artifacts/app/SimplePZMapmaker.Web.exe`, its bundled runtime DLLs and its `licenses/` directory together.
 
-The launcher creates `work/` as needed. You can move the entire application folder on G: while the server is stopped. Keep explicit saved projects separately when replacing an installation.
+The launcher creates `work/` as needed. You can move the entire application folder while the server is stopped. Keep explicit saved projects separately when replacing an installation.
 
 ### 4. Start the editor
 
@@ -57,6 +57,8 @@ The server listens only on your computer's loopback interface. Another workspace
 
 The tested installation supplied 30,256 resources; this varies with the game version and mods. Catalog reads do not modify the game. Extracted atlas caches stay in `work/assets/` and are excluded from releases and exported mods.
 
+No installation path is built into the application. Catalog selections are saved locally under `work/`. For development or test runs, you can set `PZMAP_GAME_PATH` and `PZMAP_WORKSHOP_ROOT` in your shell, or create `work/local-settings.json` with `gamePath` and `workshopRoot` fields containing your own paths. This file is ignored by Git and excluded from release packages; do not copy it into public documentation.
+
 ![The visual building editor with installed game resources](docs/screenshots/02-building-editor.png)
 
 ![The game-resource catalog used to verify the installation](docs/screenshots/05-game-resources.png)
@@ -64,7 +66,7 @@ The tested installation supplied 30,256 resources; this varies with the game ver
 ### 6. Enable optional Workshop resources
 
 1. In **Game resources**, open the mod-resource controls.
-2. Set the Workshop root to `./workshop-content` or the corresponding installation folder. Additional roots are entered one per line; the current build accepts mod roots on G:.
+2. Set the Workshop root to `<Steam library>\steamapps\workshop\content\108600` or the corresponding installation folder. Additional roots are entered one per line; the current build accepts mod roots on G:.
 3. Enter the installed game version and discover mods. The verified installation reports 42.21, represented by `42.21.0` in the compatibility field.
 4. Select and activate the desired mods. Dependencies load first. A missing/incompatible dependency produces an actionable diagnostic and retains the working catalog.
 5. Filter resources by game, all active mods or a particular mod. Static models have a textured 3D viewer.
@@ -176,8 +178,8 @@ Exports include Build 42 `mod.info`, `common/`, native `.lotheader/.lotpack/chun
 Release users can skip this section.
 
 1. Download **.NET 10 SDK** from the [official .NET download page](https://dotnet.microsoft.com/en-us/download/dotnet/10.0), **Node.js 24** from [nodejs.org](https://nodejs.org/en/download), and **Git for Windows** from [git-scm.com](https://git-scm.com/install/windows). Choose Windows x64 packages; an ASP.NET/.NET runtime alone cannot compile sources.
-2. To keep tool installations off the system drive, use the SDK's **Binaries → x64 ZIP**, Node's Windows **ZIP** distribution, and portable Git. Extract them under a G: tools directory and add their executable directories to the current PowerShell session's `PATH`. Existing installations can be used instead. Confirm `dotnet --version` starts with `10.`, `node --version` starts with `v24.`, and `git --version` returns a Git version before continuing.
-3. Clone into a G: workspace. If the folder is an existing checkout, update it instead of cloning over it.
+2. To keep tool installations off the system drive, use the SDK's **Binaries → x64 ZIP**, Node's Windows **ZIP** distribution, and portable Git. Extract them under your chosen tools directory and add their executable directories to the current PowerShell session's `PATH`. Existing installations can be used instead. Confirm `dotnet --version` starts with `10.`, `node --version` starts with `v24.`, and `git --version` returns a Git version before continuing.
+3. Clone into your chosen workspace. If the folder is an existing checkout, update it instead of cloning over it.
 4. Run from the repository root and load `WorkspaceEnv.ps1`; it directs task temporary files, .NET/NuGet/npm caches and Chromium data into `work/`.
 
 ```powershell
@@ -229,9 +231,9 @@ QA downloads/screenshots/logs stay in `work/qa-results/` or `work/logs/`. Develo
 1. Open **Actions** in the GitHub repository and select **Build and verify**.
 2. Choose **Run workflow**, select `develop` or the branch to verify, then start.
 3. Inspect build/startup/browser steps in the run.
-4. Download the completed application artifact for local use. Extract GitHub's outer artifact archive, then extract the contained `SimplePZMapmaker-0.7.1-win-x64.zip` into the application folder and follow the installation steps above. The diagnostic artifact contains startup evidence and screenshots. GitHub may require sign-in for artifacts.
+4. Download the completed application artifact for local use. Extract GitHub's outer artifact archive, then extract the contained `SimplePZMapmaker-0.7.2-win-x64.zip` into the application folder and follow the installation steps above. The diagnostic artifact contains startup evidence and screenshots. GitHub may require sign-in for artifacts.
 
-CI runs on pushes to `develop`, pull requests and manual dispatch. The Windows runner maps its checkout to G: and keeps task caches there. Its no-game fallback check does not replace local installed-game probes.
+CI runs on pushes to `develop`, pull requests and manual dispatch. The Windows runner uses its mapped checkout as the workspace and keeps task caches there. Its no-game fallback check does not replace local installed-game probes.
 
 **Actions runs are temporary, not permanent hosting.** The app process ends with the job; runner `127.0.0.1` cannot serve your local browser. Download and run the application locally for editing. See [build.yml](.github/workflows/build.yml).
 
@@ -241,7 +243,7 @@ CI runs on pushes to `develop`, pull requests and manual dispatch. The Windows r
 - **Port 48765 occupied / stale server:** stop the corresponding `SimplePZMapmaker.Web.exe` and restart the desired workspace. Do not stop unrelated .NET processes.
 - **Blank browser / startup timeout:** inspect `work/logs/server.log` and `server-errors.log`, check extraction, and open the loopback address manually.
 - **Missing game images:** verify game path and refresh the catalog. Basic editing/saving work without the game; resource-aware operations need the owning catalog.
-- **Mod activation failed:** follow the missing dependency chain, add its G: root/install it or select the right version. The previous catalog remains active.
+- **Mod activation failed:** follow the missing dependency chain, add its root on the supported G: drive/install it or select the right version. The previous catalog remains active.
 - **OSM 504 / timeout:** retry later, use the Smolensk regional source when applicable, or import saved geography. Failed/cancelled imports retain the project.
 - **Building cannot apply/export:** inspect disconnected rooms, entrances, stairs/landings, furniture/model overlap, water and section coverage. Drafts remain editable.
 - **Agent conflict:** read the current revision and generate a new review; only the reviewed revision can be received.

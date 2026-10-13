@@ -35,6 +35,7 @@ public sealed partial class GameAssetCatalog
  }
  private bool CanPlace(string id){try{PlacementFor(id);return true;}catch(Exception e) when(e is ArgumentException or FormatException or InvalidOperationException){return false;}}
  public void Refresh(string path,bool save=true){lock(sync){
+  if(string.IsNullOrWhiteSpace(path))throw new ArgumentException("Choose your Project Zomboid Build 42 installation in Game resources.");
   var root=ModRegistry.SafePath(path);if(!Directory.Exists(Path.Combine(root,"media","texturepacks")))throw new ArgumentException("Specify the Project Zomboid folder containing media/texturepacks.");
   var definitions=Path.Combine(root,"media","newtiledefinitions.tiles.txt");if(!File.Exists(definitions)||new FileInfo(definitions).Length>16*1024*1024)throw new ArgumentException("Build 42 tile definitions were not found.");
   var next=new Dictionary<string,Asset>(StringComparer.Ordinal);var nextAtlases=new Dictionary<string,Atlas>();var files=new[]{definitions,"tiledefinitions_erosion.tiles.txt","jumbo_trees.tiles.txt","jumbo_trees_big.tiles.txt"}.Select(file=>Path.IsPathRooted(file)?file:Path.Combine(root,"media",file)).Where(File.Exists);var inputs=files.ToArray();if(inputs.Any(file=>new FileInfo(file).Length>16*1024*1024))throw new ArgumentException("The tile definition file is too large.");var text=string.Join('\n',inputs.Select(File.ReadAllText));

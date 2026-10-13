@@ -1,6 +1,6 @@
 # Production expansion0.7
 
-All work, packages and caches remain in ./SimplePZMapmaker. Game and Workshop installations are read-only. Existing0.6 projects/templates remain readable. Full implementation, verification and GitHub publication are authorized.
+All work, packages and caches remain in the project workspace. Game and Workshop installations are read-only. Existing0.6 projects/templates remain readable. Full implementation, verification and GitHub publication are authorized.
 
 1. Model behavior: verified game-supported collision footprints and scenery/container properties, editor controls, backward-compatible default world-item behavior, persistent native placement.
 2. Geography: absolute-coordinate world buildings spanning sections; clipping during coherent native export; road/water seam diagnostics and deliberate repair preserving occupied/manual terrain. Import actual elevation grids with source/projection/missing-data metadata and truthful handling of game's flat ground constraints.

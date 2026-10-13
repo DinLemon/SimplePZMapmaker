@@ -50,6 +50,12 @@ jobs:
       - name: Package application
         shell: pwsh
         run: ./scripts/package.ps1
+      - name: Check public source and package for local path disclosure
+        shell: pwsh
+        run: |
+          . ./scripts/WorkspaceEnv.ps1
+          node scripts/verify-public-paths.mjs artifacts/SimplePZMapmaker-0.7.2-win-x64.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Public package path check failed.' }
       - name: Verify signed basement example
         shell: pwsh
         run: node scripts/verify-native-map.mjs examples/Basements/Basements-B42.zip

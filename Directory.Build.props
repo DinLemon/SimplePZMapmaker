@@ -1,0 +1,5 @@
+<Project>
+  <PropertyGroup>
+    <PathMap>$(MSBuildThisFileDirectory)=/_/SimplePZMapmaker/</PathMap>
+  </PropertyGroup>
+</Project>

@@ -1,6 +1,6 @@
 # Building workshop implementation
 
-Inline executing-plans workflow; full scope authorized. One fresh whole-change reviewer and consolidated fix pass. No task files on C:.
+Inline executing-plans workflow; full scope authorized. One fresh whole-change reviewer and consolidated fix pass. Keep task files inside the workspace.
 
 - [x]1. Tests first, optional design contract, mask/edge/stair geometry, bounds/connectivity validation and archetype generators.
 - [x]2. Native multilevel rooms/chunks/stair holes/roof/material export; independent reader and installed tile audit.
