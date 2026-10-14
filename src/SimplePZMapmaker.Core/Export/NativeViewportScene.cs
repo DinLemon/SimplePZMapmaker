@@ -10,11 +10,12 @@ public sealed class NativeViewportScene
  private readonly Dictionary<(int,int),TileComposer> cells=[];
  private readonly Queue<(int,int)> order=[];
  private readonly Model[] models;
+ private readonly InfrastructureGeometry.Geometry infrastructure;
  public int Width=>project.Width;
  public int Height=>project.Height;
- public long EstimatedBytes=>project.Terrain.Length+project.Zombies.Length*4L+project.Buildings.Sum(b=>b.Design?.Floors.Sum(f=>f.Cells.Length*2L+f.Objects.Count*256L+f.Edges.Count*192L)??1024L)+project.Decorations.Count*256L+models.Length*512L;
+ public long EstimatedBytes=>project.Terrain.Length+project.Zombies.Length*4L+project.Buildings.Sum(b=>b.Design?.Floors.Sum(f=>f.Cells.Length*2L+f.Objects.Count*256L+f.Edges.Count*192L)??1024L)+project.Decorations.Count*256L+models.Length*512L+infrastructure.Tiles.Count*96L+infrastructure.Holes.Count*32L;
  public int CachedCells=>cells.Count;
- private NativeViewportScene(MapProject project){this.project=project;models=StaticModelExporter.Gather(project).Select(m=>new Model(m.Placement,m.X-project.WorldX*256,m.Y-project.WorldY*256,m.Z)).Where(m=>m.X>=0&&m.Y>=0&&m.X<project.Width&&m.Y<project.Height).ToArray();}
+ private NativeViewportScene(MapProject project){this.project=project;infrastructure=InfrastructureGeometry.Build(project);models=StaticModelExporter.Gather(project).Select(m=>new Model(m.Placement,m.X-project.WorldX*256,m.Y-project.WorldY*256,m.Z)).Where(m=>m.X>=0&&m.Y>=0&&m.X<project.Width&&m.Y<project.Height).ToArray();}
  public static NativeViewportScene FromProject(MapProject project){ArgumentNullException.ThrowIfNull(project);ProjectValidator.Validate(project);return new(project);}
  public static NativeViewportScene FromWorld(WorldProject world,string memberId){ArgumentNullException.ThrowIfNull(world);WorldAssembler.Validate(world);var member=world.Maps.SingleOrDefault(m=>m.Id==memberId)??throw new ArgumentException("World section not found.");return new(WorldAssembler.ProjectSection(world,member));}
  public Chunk Read(int x,int y,int size=32,int stride=1,int? level=null,CancellationToken cancellation=default){
@@ -28,6 +29,8 @@ public sealed class NativeViewportScene
    var authored=new bool[size*size];
    foreach(var b in project.Buildings){cancellation.ThrowIfCancellationRequested();var left=Math.Max(x,b.X);var right=Math.Min(x+size,b.X+b.Width+1);var top=Math.Max(y,b.Y);var bottom=Math.Min(y+size,b.Y+b.Height+1);if(right<=left||bottom<=top)continue;for(var yy=top;yy<bottom;yy++)Array.Fill(authored,true,(yy-y)*size+left-x,right-left);}
    foreach(var d in project.Decorations)foreach(var part in d.Parts){var xx=d.X+part.Dx-x;var yy=d.Y+part.Dy-y;if(xx>=0&&yy>=0&&xx<size&&yy<size)authored[yy*size+xx]=true;}
+   foreach(var tile in infrastructure.Tiles){var xx=tile.X-x;var yy=tile.Y-y;if(xx>=0&&yy>=0&&xx<size&&yy<size)authored[yy*size+xx]=true;}
+   foreach(var hole in infrastructure.Holes){var xx=hole.X-x;var yy=hole.Y-y;if(xx>=0&&yy>=0&&xx<size&&yy<size)authored[yy*size+xx]=true;}
    void Add(int xx,int yy,int z,int span,int layer){var first=true;foreach(var tile in composer.At(xx-ox,yy-oy,z)){if(sprites.Count>=250000)throw new ArgumentException("Too many visible sprites. Select a single floor.");sprites.Add(new(xx,yy,z,tile,first?span:1,first?layer:1));first=false;}}
    if(min<=0&&max>=0)for(var yy=y;yy<y+size;yy+=stride){cancellation.ThrowIfCancellationRequested();for(var xx=x;xx<x+size;xx+=stride){
     if(stride==1){if(!authored[(yy-y)*size+xx-x])Add(xx,yy,0,1,0);continue;}

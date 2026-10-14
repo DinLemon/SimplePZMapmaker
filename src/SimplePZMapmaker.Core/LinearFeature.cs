@@ -4,6 +4,11 @@ public sealed class LinearFeature {
  public string Id {get;set;}=Guid.NewGuid().ToString("N");
  public string Kind {get;set;}="road";
  public double Width {get;set;}=4;
+ public int Level {get;set;}
+ public string Access {get;set;}="none";
+ public bool GuardRails {get;set;}
+ public int SupportSpacing {get;set;}
+ public string? GroupId {get;set;}
  public string Interpolation {get;set;}="polyline";
  public List<LinearPoint> Points {get;set;}=[];
  public List<SourceOutlinePoint> SourcePath {get;set;}=[];

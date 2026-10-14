@@ -14,7 +14,7 @@ export class NativeModelSprites{
     const box=new THREE.Box3().setFromObject(object),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3()),extent=Math.max(size.x,size.y,size.z,.001);object.position.sub(center);object.scale.multiplyScalar(2/extent);object.position.multiplyScalar(2/extent);
     const camera=new THREE.Camera();camera.projectionMatrix.set(.4,0,-.4,0,-.2,.4,-.2,0,.1,.1,.1,0,0,0,0,1);camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();viewer.scene.background=null;viewer.renderer.setClearColor(0,0);viewer.renderer.setSize(128,128,false);viewer.renderer.render(viewer.scene,camera);
     const image=new Image();image.src=canvas.toDataURL();await image.decode();if(epoch!==this.epoch)return null;const value={image,extent,center:center.toArray()};this.images.set(key,value);while(this.images.size>128)this.images.delete(this.images.keys().next().value);return value;
-   }catch{if(epoch===this.epoch)this.failed.add(key);return null;}finally{viewer?.dispose();if(this.activeViewer===viewer)this.activeViewer=null;if(this.pending.get(key)===task)this.pending.delete(key);}
+   }catch{if(epoch===this.epoch)this.failed.add(key);while(this.failed.size>128)this.failed.delete(this.failed.values().next().value);return null;}finally{viewer?.dispose();if(this.activeViewer===viewer)this.activeViewer=null;if(this.pending.get(key)===task)this.pending.delete(key);}
   });this.queue=task.then(()=>{},()=>{});this.pending.set(key,task);return task;
  }
 }

@@ -17,14 +17,19 @@ public static class NativeMapExporter {
     // Partial origins are intentional; TileComposer clips rooms and sprites to native cells.
     internal static byte[] ExportValidatedWorldSection(MapProject p,CancellationToken token=default)
     {
-        using var output=new MemoryStream();using(var zip=new ZipArchive(output,ZipArchiveMode.Create,true)) {
-            var slug=ModId(p);var root=$"{slug}/42/media/maps/{slug}/";
+        using var output=new MemoryStream();WriteValidatedWorldSection(p,output,token);return output.ToArray();
+    }
+    public static void ExportToStream(MapProject p,Stream output,CancellationToken token=default){ProjectValidator.Validate(p);if(p.Spawns.Count==0)throw new ArgumentException("Export this section as part of a world with dry-land spawn points.");WriteValidatedWorldSection(p,output,token);}
+    internal static void WriteValidatedWorldSection(MapProject p,Stream output,CancellationToken token=default,MapProject? authoredSource=null,object? sharedContext=null,string? sectionModId=null)
+    {
+        using(var zip=new ZipArchive(output,ZipArchiveMode.Create,true)) {
+            var slug=sectionModId??ModId(p);var root=$"{slug}/42/media/maps/{slug}/";
             void Text(string path,string text){var e=zip.CreateEntry(path,CompressionLevel.Fastest);using var w=new StreamWriter(e.Open(),new UTF8Encoding(false));w.Write(text);}
             void Bytes(string path,byte[] bytes){var e=zip.CreateEntry(path,CompressionLevel.Fastest);using var s=e.Open();s.Write(bytes);}
             zip.CreateEntry($"{slug}/common/");
             var dependencies=ResourceDependencies.ForProject(p);var require=dependencies.Length>0?"require="+string.Join(',',dependencies)+"\n":"";
             Text($"{slug}/42/mod.info",$"name={p.Name}\nid={slug}\ndescription=Map created with SimplePZMapmaker. Build 42; new world.\nversionMin=42.0\n{require}");
-            StaticModelExporter.Write(zip,slug,StaticModelExporter.Gather(p));
+            StaticModelExporter.Write(zip,slug,StaticModelExporter.Gather(p).Where(m=>m.X>=p.WorldX*256&&m.Y>=p.WorldY*256&&m.X<p.WorldX*256+p.Width&&m.Y<p.WorldY*256+p.Height));
             Text(root+"map.info",$"title={p.Name}\nfixed2x=true\ndescription=Map {p.Width} x {p.Height}, SimplePZMapmaker\nzoomX={p.WorldX*256+p.Width/2}\nzoomY={p.WorldY*256+p.Height/2}\nzoomS=8\n");
             var spawns=string.Join(",\n",p.Spawns.Select(s=>$"        {{ posX = {p.WorldX*256+s.X}, posY = {p.WorldY*256+s.Y}, posZ = 0 }}"));
             Text(root+"spawnpoints.lua",$"function SpawnPoints()\n    local points = {{\n{spawns}\n    }}\n    return {{ unemployed = points }}\nend\n");
@@ -39,12 +44,20 @@ public static class NativeMapExporter {
             zones.Append("}\n");Text(root+"objects.lua",p.GameZones.Count>0?GameZonesExporter.ObjectsLua(p,token):zones.ToString());
             var attribution=p.Attribution.Concat(p.Buildings.Concat(p.BuildingLibrary).SelectMany(b=>b.Attribution)).Distinct();
             Text($"{slug}/ATTRIBUTION.txt",string.Join('\n',attribution.Prepend("Created with SimplePZMapmaker. Native export format: Build 42 (256-cell / 8-chunk)."))+"\n");
-            Text($"{slug}/project.pzmap.json",JsonSerializer.Serialize(p,JsonOptions));
+            using(var source=zip.CreateEntry($"{slug}/project.pzmap.json",CompressionLevel.Fastest).Open())JsonSerializer.Serialize(source,authoredSource??p,JsonOptions);
+            if(sharedContext is not null)using(var context=zip.CreateEntry($"{slug}/section-world-context.json",CompressionLevel.Fastest).Open())JsonSerializer.Serialize(context,sharedContext,JsonOptions);
             Text($"{slug}/INSTALL.txt",$"Extract {slug} into Zomboid/mods. Enable the mod, create a NEW game, and choose the {p.Name} map. Do not add it to an important existing world. The generator does not install the mod automatically. Other maps occupying the same coordinates may conflict. For a server, set Map={slug} and Mods={slug}. This is a B42 export; check compatibility in a separate new save. The identifier depends on the name and seed; changing either creates a different mod.\n");
             var atlas=WorldMap(p);Text(root+"worldmap.xml",new XDocument(new XDeclaration("1.0","UTF-8",null),atlas).ToString());Bytes(root+"worldmap.xml.bin",NativeWorldMapBinary.Write(atlas));
+            WriteCells(p,zip,root,token);
+        }
+    }
+    internal static void WriteCells(MapProject p,ZipArchive zip,string root,CancellationToken token)
+    {
+            var infrastructure=p.LinearFeatures.Any(f=>f.Level!=0)?InfrastructureGeometry.Build(p):null;
+            void Bytes(string path,byte[] bytes){var e=zip.CreateEntry(path,CompressionLevel.Fastest);using var s=e.Open();s.Write(bytes);}
             for(var cellY=0;cellY<p.Height/256;cellY++)for(var cellX=0;cellX<p.Width/256;cellX++) {
                 token.ThrowIfCancellationRequested();
-                var composer=new TileComposer(p,cellX,cellY);
+                var composer=new TileComposer(p,cellX,cellY,infrastructure);
                 var names=new HashSet<string>(StringComparer.Ordinal);
                 for(var z=composer.MinLevel;z<=composer.MaxLevel;z++)for(var y=0;y<256;y++)for(var x=0;x<256;x++) foreach(var name in composer.At(x,y,z))names.Add(name);
                 var tiles=names.Order(StringComparer.Ordinal).ToArray();var ids=tiles.Select((name,id)=>(name,id)).ToDictionary(t=>t.name,t=>t.id);
@@ -52,8 +65,6 @@ public static class NativeMapExporter {
                 Bytes(root+$"world_{p.WorldX+cellX}_{p.WorldY+cellY}.lotpack",Pack(composer,ids));
                 Bytes(root+$"chunkdata_{p.WorldX+cellX}_{p.WorldY+cellY}.bin",Navigation(composer));
             }
-        }
-        return output.ToArray();
     }
     private static string Culture(FormattableString s)=>s.ToString(System.Globalization.CultureInfo.InvariantCulture);
     private static void Line(BinaryWriter w,string text){w.Write(Encoding.ASCII.GetBytes(text));w.Write((byte)10);}
@@ -86,7 +97,7 @@ public static class NativeMapExporter {
         }
         return s.ToArray();
     }
-    private static XElement WorldMap(MapProject p) {
+    internal static XElement WorldMap(MapProject p) {
         var world=new XElement("world",new XAttribute("version","1.0"),new XAttribute("cellSize",256));
         for(var cy=0;cy<p.Height/256;cy++)for(var cx=0;cx<p.Width/256;cx++) {
             var cell=new XElement("cell",new XAttribute("x",p.WorldX+cx),new XAttribute("y",p.WorldY+cy));

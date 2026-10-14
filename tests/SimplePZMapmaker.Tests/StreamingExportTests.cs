@@ -1,0 +1,12 @@
+using System.IO.Compression;
+using System.Reflection;
+using SimplePZMapmaker.Core.Export;
+public static class StreamingExportTests {
+ public static IEnumerable<(string,Action)> Cases(){
+  yield return ("archive write budgets reject before growing a seekable destination",()=>{using var s=new MemoryStream();using var bounded=new SimplePZMapmaker.Web.Services.BoundedArchiveStream(s,16);bounded.Write(new byte[16]);try{bounded.WriteByte(1);throw new Exception("Archive budget overflow accepted");}catch(ArgumentException){}if(s.Length!=16)throw new Exception("Oversized bytes reached the archive");bounded.Position=0;bounded.Write(new byte[4]);if(s.Length!=16)throw new Exception("ZIP header backfill was not supported");});
+  yield return ("selected native export preserves a readable local project plus shared context",()=>{var w=WorldTests.Fixture(2);var b=SimplePZMapmaker.Core.HousingTemplates.Create("village-izba");b.X=100*256+250;b.Y=100*256+40;w.Buildings.Add(b);using var stream=new MemoryStream();NativeWorldExporter.ExportSectionToStream(w,w.Maps[1].Id,stream);stream.Position=0;using var zip=new ZipArchive(stream,ZipArchiveMode.Read,true);if(zip.Entries.Count(e=>e.Name.EndsWith(".lotheader"))!=1||!zip.Entries.Any(e=>e.Name=="section-world-context.json"))throw new Exception("Selection did not preserve its bounded native cell/context");using var source=zip.Entries.Single(e=>e.Name=="project.pzmap.json").Open();var p=System.Text.Json.JsonSerializer.Deserialize<SimplePZMapmaker.Core.MapProject>(source,NativeMapExporter.JsonOptions)!;SimplePZMapmaker.Core.ProjectValidator.Validate(p);if(p.Buildings.Count!=0)throw new Exception("Partial shared building was written as an invalid standalone section");});
+  yield return ("streamed world export preserves native cells and editable source without section ZIPs",()=>{
+   var method=typeof(NativeWorldExporter).GetMethod("ExportToStream");if(method is null)throw new Exception("World export still requires a complete byte array and temporary section ZIPs");var world=WorldTests.Fixture(2);using var stream=new MemoryStream();method.Invoke(null,[world,stream,CancellationToken.None]);stream.Position=0;using var zip=new ZipArchive(stream,ZipArchiveMode.Read,true);if(zip.Entries.Count(e=>e.Name.EndsWith(".lotheader"))!=2||!zip.Entries.Any(e=>e.Name=="world.pzworld.json")||!zip.Entries.Any(e=>e.Name=="worldmap.xml.bin"))throw new Exception("Streaming export lost world entries");
+  });
+ }
+}

@@ -124,3 +124,11 @@ Exact imported footprint masks preserve concavity and courtyards. Editable linea
 ## 0.9.1 — 2026-10-14
 
 Expanded vertical authoring to the installed Build 42 range Z=-32..31: 32 basement and 32 above-ground floors. Generation, OSM level inference, model validation, room access, native export, scene/viewport previews, native lighting and MCP share these bounds. Roof headroom uses actual slope geometry; an explicit roofless cap preserves the highest authored floor without exporting invalid z=32. Extended data uses formats10/7/4. English controls and guides include the verified 64-level screenshot. Template import uses a common bounded 16 MB budget so valid tall templates remain portable.
+
+## Editor expansion — 0.10.0
+
+Implemented the authorized material/mesh-shadow view, reusable compound-building modules, signed elevated infrastructure/junctions, native-lighting and gameplay-zone MCP tools, immutable section workspaces and streamed native exports. Independent feature agents supplied module/material/infrastructure implementations; root integrated storage, MCP, schemas and publication checks. Guide and screenshots 12–16 are in README.md and EDITOR-EXPANSION.md; local configuration and session keys are hidden in documentation captures.
+
+Verification: 226 core checks, 150 JavaScript checks, 23 installed-library lighting cases; actual new-feature browser workflows plus world, main editing, lighting, signed-range and X/FBX regressions. Official SDK clients verify47tools under both protocols, with authentic map/world/draft light calculations and isolated/revision-protected zones. Installed game reader verifies tunnel floor/stair geometry; no character game session is started. Recovery and selected export cover a seam-crossing shared building; source remains independently readable and context is preserved separately.
+
+Final artifact: the self-contained 0.10.0 ZIP was extracted, launched with no installed game/shared runtime, exercised in a fresh browser and independently exported/read back. Public source/package path and PDB audits pass. The primary local editor now runs0.10.0; GitHub exact-source CI and release digests are checked before publishing.

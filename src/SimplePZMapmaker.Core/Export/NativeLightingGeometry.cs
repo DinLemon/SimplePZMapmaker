@@ -45,7 +45,7 @@ public static class NativeLightingGeometry
   }
   var min=Math.Min(level,cells.Values.Select(c=>c.Composer.MinLevel).DefaultIfEmpty(0).Min());var max=Math.Max(level,cells.Values.Select(c=>c.Composer.MaxLevel).DefaultIfEmpty(0).Max());
   if(min<ZLevels.Min||max>ZLevels.Max)throw new ArgumentException("Exported lighting geometry exceeds the native signed floor range.");
-  var warnings=new HashSet<string>(StringComparer.Ordinal){"Native light values are visualized by the editor; the game's FBO, material shaders and model mesh shadows are not rendered.","Sky RGB, ambient strength and room power are controlled inputs. Game time, weather, erosion and live switches are not simulated."};
+  var warnings=new HashSet<string>(StringComparer.Ordinal){"Native light values are visualized by the editor. Browser materials and geometry shadows are previews; the game's FBO and material shaders are not reproduced.","Sky RGB, ambient strength and room power are controlled inputs. Game time, weather, erosion and live switches are not simulated."};
   var propertyCache=new Dictionary<string,IReadOnlyDictionary<string,string>>(StringComparer.Ordinal);
   IReadOnlyDictionary<string,string> Props(string tile){if(propertyCache.TryGetValue(tile,out var cached))return cached;if(propertyCache.Count>=5000)throw new ArgumentException("The lighting area contains too many distinct tile definitions.");var value=properties(tile)??EmptyProperties;propertyCache.Add(tile,value);return value;}
   var squares=new Dictionary<(int X,int Y,int Z),Square>();

@@ -17,7 +17,8 @@ public static partial class WorldAssembler
     var member=MemberAt(world,point.X,point.Y)??throw new ArgumentException($"'{b.Name}': the building extends into an empty part of the world ({point.X},{point.Y}). Add an adjacent section.");var p=member.Project;var x=point.X-p.WorldX*256;var y=point.Y-p.WorldY*256;
     if(!occupied.Add(point))throw new ArgumentException($"'{b.Name}': walls or rooms overlap another building.");
     if(BuildingDesigner.Occupies(b,point.X-b.X,point.Y-b.Y)&&p.Terrain[y*p.Width+x]==Terrain.Water)throw new ArgumentException($"'{b.Name}': part of the building stands on water.");
-    if(p.Spawns.Any(s=>s.X==x&&s.Y==y)||p.StaticModels.Any(s=>s.X==x&&s.Y==y)||p.Decorations.Any(d=>d.Parts.Any(part=>d.X+part.Dx==x&&d.Y+part.Dy==y)))throw new ArgumentException($"'{b.Name}': the building overlaps a spawn point or an environment object.");
+    if(p.Spawns.Any(s=>s.X==x&&s.Y==y)||p.StaticModels.Any(s=>StaticModelPlacement.FootprintCells(s).Any(c=>s.X+c.Dx==x&&s.Y+c.Dy==y))||p.Decorations.Any(d=>d.Parts.Any(part=>d.X+part.Dx==x&&d.Y+part.Dy==y)))throw new ArgumentException($"'{b.Name}': the building overlaps a spawn point or an environment object.");
+    if(BuildingDesigner.OccupiesAbove(b,point.X-b.X,point.Y-b.Y)&&p.GameZones.Any(z=>z.Vehicle&&x>=z.X&&x<z.X+z.Width&&y>=z.Y&&y<z.Y+z.Height))throw new ArgumentException($"'{b.Name}': a vehicle zone overlaps a shared building.");
    }
   }
  }

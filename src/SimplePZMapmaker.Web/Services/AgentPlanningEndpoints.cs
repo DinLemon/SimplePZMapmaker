@@ -11,13 +11,13 @@ public static class AgentPlanningEndpoints {
   app.MapGet("/api/agent/world/session/{token}",(string token,AgentWorldStore store)=>store.Read(token));
   app.MapGet("/api/agent/world/session/{token}/status",(string token,AgentWorldStore store)=>store.Status(token));
   app.MapPost("/api/agent/world/session/{token}/publish",(string token,WorldPublish request,AgentWorldStore store,McpPlanningTools tools)=>{tools.ValidateWorld(request.World);return store.Publish(token,request.Revision,request.World);});
-  app.MapPost("/api/agent/world/session/{token}/close",(string token,AgentWorldStore store,AgentPlanningStore plans)=>{store.Close(token);plans.Close(token);return new{closed=true};});
+  app.MapPost("/api/agent/world/session/{token}/close",(string token,AgentWorldStore store,AgentPlanningStore plans,AgentZoneStore zones)=>{store.Close(token);plans.Close(token);zones.Close(token);return new{closed=true};});
   app.MapPost("/api/agent/session/{token}/plan",(string token,PlanRequest request,McpPlanningTools tools)=>tools.CreateMapPlan(token,request.Revision,request.Constraints));
   app.MapPost("/api/agent/world/session/{token}/plan",(string token,PlanRequest request,McpPlanningTools tools)=>tools.CreateWorldPlan(token,request.Revision,request.Constraints));
   app.MapGet("/api/agent/plan/{token}/{id}",(string token,string id,AgentPlanningStore plans)=>plans.Read(token,id));
   app.MapPost("/api/agent/session/{token}/plan/{id}/commit",(string token,string id,Revision request,McpPlanningTools tools)=>tools.CommitMapPlan(token,id,request.Value));
   app.MapPost("/api/agent/world/session/{token}/plan/{id}/commit",(string token,string id,Revision request,McpPlanningTools tools)=>tools.CommitWorldPlan(token,id,request.Value));
-  app.MapGet("/api/agent/world/export/{token}/{revision:long}",(string token,long revision,AgentWorldStore store,McpPlanningTools tools,CancellationToken cancellation)=>{var s=store.Read(token);if(s.Revision!=revision)throw new AgentRevisionConflict(s.Revision);tools.ValidateWorld(s.World);return Results.File(NativeWorldExporter.Export(s.World,cancellation),"application/zip","AgentWorld.zip");});
+  app.MapGet("/api/agent/world/export/{token}/{revision:long}",async(string token,long revision,AgentWorldStore store,McpPlanningTools tools,NativeExportService exporter,CancellationToken cancellation)=>{var s=store.Read(token);if(s.Revision!=revision)throw new AgentRevisionConflict(s.Revision);tools.ValidateWorld(s.World);return await exporter.World(s.World,cancellation);});
  }
  public sealed record Revision(long Value);
 }

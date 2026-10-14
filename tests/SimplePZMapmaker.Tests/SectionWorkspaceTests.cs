@@ -1,0 +1,21 @@
+using SimplePZMapmaker.Core;
+using SimplePZMapmaker.Web.Services;
+public static class SectionWorkspaceTests
+{
+ public static IEnumerable<(string,Action)> Cases(){
+  yield return ("malformed null manifest metadata falls back to a complete previous index",()=>InStore((dir,store,w)=>{store.SaveAsync(w.Id,w).GetAwaiter().GetResult();store.SaveAsync(w.Id,w).GetAwaiter().GetResult();var path=Path.Combine(dir,w.Id+".pzworld.index.json");var json=File.ReadAllText(path);File.WriteAllText(path,json.Replace("\"storageId\":\""+w.Id+"\"","\"storageId\":null"));Check(store.LoadAsync(w.Id).GetAwaiter().GetResult()!.Maps.Count==2,"Null manifest field prevented recovery fallback");}));
+  yield return ("section saves validate only changed terrain and keep immutable unrelated sections isolated",()=>InStore((dir,store,w)=>{
+   store.SaveAsync(w.Id,w).GetAwaiter().GetResult();var index=store.ManifestAsync(w.Id).GetAwaiter().GetResult()!;var unrelated=index.Sections[1];var file=Path.Combine(dir,w.Id+".sections",unrelated.Hash+".section.json");File.WriteAllText(file,"damaged unrelated section");var one=store.LoadSectionAsync(w.Id,w.Maps[0].Id).GetAwaiter().GetResult();Check(one.Member.Project.Name==w.Maps[0].Project.Name,"Independent read loaded unrelated data");one.Member.Project.Name="Changed alone";store.SaveSectionAsync(w.Id,one.Member.Id,index.Revision,one.Member.Project).GetAwaiter().GetResult();Check(store.LoadSectionAsync(w.Id,one.Member.Id).GetAwaiter().GetResult().Member.Project.Name=="Changed alone","Independent write read unrelated damaged terrain");
+  }));
+  yield return ("section revisions reject stale layouts and restore complete previous snapshots after corruption",()=>InStore((dir,store,w)=>{
+   store.SaveAsync(w.Id,w).GetAwaiter().GetResult();var s=store.LoadSectionAsync(w.Id,w.Maps[0].Id).GetAwaiter().GetResult();s.Member.Project.Name="Second revision";var m=store.SaveSectionAsync(w.Id,s.Member.Id,s.Revision,s.Member.Project).GetAwaiter().GetResult();try{store.SaveSectionAsync(w.Id,s.Member.Id,s.Revision,s.Member.Project).GetAwaiter().GetResult();throw new Exception("Stale write accepted");}catch(AgentRevisionConflict){}s.Member.Project.WorldX++;try{store.SaveSectionAsync(w.Id,s.Member.Id,m.Revision,s.Member.Project).GetAwaiter().GetResult();throw new Exception("Section-only save moved the layout");}catch(ArgumentException){}var file=Path.Combine(dir,w.Id+".sections",m.Sections[0].Hash+".section.json");File.WriteAllText(file,"broken revision");var restored=store.LoadAsync(w.Id).GetAwaiter().GetResult()!;Check(restored.Maps[0].Project.Name==w.Maps[0].Project.Name,"Recovery mixed sections from different revisions");
+  }));
+  yield return ("world recovery stores immutable sections and does not rewrite unchanged data",()=>{
+   var dir=Path.Combine(Environment.GetEnvironmentVariable("PZMAP_WORKSPACE")!,"work","section-tests",Guid.NewGuid().ToString("N"));Directory.CreateDirectory(dir);
+   try{using var store=new WorldStore(dir);var world=WorldTests.Fixture(2);store.SaveAsync(world.Id,world).GetAwaiter().GetResult();var files=Directory.GetFiles(dir,"*.section.json",SearchOption.AllDirectories);Check(files.Length==3,"Recovery must store two sections and their shared metadata separately");var stamps=files.ToDictionary(f=>f,f=>File.GetLastWriteTimeUtc(f));store.SaveAsync(world.Id,world).GetAwaiter().GetResult();Check(files.All(f=>File.GetLastWriteTimeUtc(f)==stamps[f]),"An unchanged section was rewritten");world.Maps[0].Project.Name="Edited first section";store.SaveAsync(world.Id,world).GetAwaiter().GetResult();Check(Directory.GetFiles(dir,"*.section.json",SearchOption.AllDirectories).Length==4,"Only the changed section should get a new immutable blob");Check(store.LoadAsync(world.Id).GetAwaiter().GetResult()!.Maps[0].Project.Name=="Edited first section","Incremental world was not restored");}
+   finally{Directory.Delete(dir,true);}
+  });
+ }
+ static void InStore(Action<string,WorldStore,WorldProject> run){var dir=Path.Combine(Environment.GetEnvironmentVariable("PZMAP_WORKSPACE")!,"work","section-tests",Guid.NewGuid().ToString("N"));Directory.CreateDirectory(dir);try{using var store=new WorldStore(dir);run(dir,store,WorldTests.Fixture(2));}finally{Directory.Delete(dir,true);}}
+ static void Check(bool value,string message){if(!value)throw new Exception(message);}
+}

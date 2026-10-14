@@ -22,10 +22,13 @@ builder.Services.AddSingleton(new AgentProjectStore(Path.Combine(workspace,"work
 builder.Services.AddSingleton(new AgentWorldStore(Path.Combine(workspace,"work","agent-world-sessions")));
 builder.Services.AddSingleton(new AgentPlanningStore(Path.Combine(workspace,"work","agent-plans")));
 builder.Services.AddSingleton<McpPlanningTools>();
+builder.Services.AddSingleton<McpGameplayTools>();
+builder.Services.AddSingleton(new AgentZoneStore(Path.Combine(workspace,"work","agent-zone-plans")));
+builder.Services.AddSingleton(new NativeExportService(workspace));
 builder.Services.AddSingleton(new WorldStore(Path.Combine(workspace,"work","world-recovery")));
 builder.Services.AddSingleton(new TerrainElevationClient(Path.Combine(workspace,"work","elevation-cache")));
 builder.Services.AddSingleton(service=>new OsmWorldImportService(service.GetRequiredService<OsmClient>(),service.GetRequiredService<GameAssetCatalog>(),Path.Combine(workspace,"work","osm-jobs")));
-builder.Services.AddMcpServer().WithHttpTransport(o=>o.SessionMode=HttpServerSessionMode.Stateless).WithTools<McpBuildingTools>().WithTools<McpPlanningTools>();
+builder.Services.AddMcpServer().WithHttpTransport(o=>o.SessionMode=HttpServerSessionMode.Stateless).WithTools<McpBuildingTools>().WithTools<McpPlanningTools>().WithTools<McpGameplayTools>();
 var app=builder.Build();
 app.Use(async(context,next)=> {
     var host=context.Request.Host.Host;
@@ -46,7 +49,7 @@ app.Use(async(context,next)=> {
     }
 });
 app.UseDefaultFiles();app.UseStaticFiles();
-app.MapNativeLightingEndpoints();app.MapGameplayAuthoringEndpoints();app.MapLinearEditingEndpoints();app.MapMapSceneEndpoints();app.MapAgentEndpoints();app.MapAgentPlanningEndpoints();app.MapRecoveryVersionEndpoints();app.MapAssetsModEndpoints();app.MapStaticModelEndpoints();app.MapWorldEndpoints();app.MapOsmWorldImportEndpoints();
+app.MapWorldWorkspaceEndpoints();app.MapAgentGameplayEndpoints();app.MapBuildingModuleEndpoints();app.MapNativeLightingEndpoints();app.MapGameplayAuthoringEndpoints();app.MapLinearEditingEndpoints();app.MapMapSceneEndpoints();app.MapAgentEndpoints();app.MapAgentPlanningEndpoints();app.MapRecoveryVersionEndpoints();app.MapAssetsModEndpoints();app.MapStaticModelEndpoints();app.MapWorldEndpoints();app.MapOsmWorldImportEndpoints();
 app.MapGet("/api/assets/status",(GameAssetCatalog assets)=>assets.Status());
 app.MapGet("/api/assets/search",(GameAssetCatalog assets,string? q,string? category,string? source,int? offset,int? limit)=>assets.Search(q,category,offset??0,limit??72,source));
 app.MapGet("/api/assets/item/{id}",(GameAssetCatalog assets,string id)=>{var a=assets.Get(id);return new{a.Id,a.Category,a.Name,a.Group,a.Facing,a.Grid,a.Blocking,a.Floor,a.Page,a.Sprite,a.Properties,a.Source,a.ModId,a.Requirements};});
@@ -63,7 +66,7 @@ app.MapPost("/api/building/presets/{id}",(string id,GameAssetCatalog assets)=>{v
 app.MapPost("/api/preview/cell",(GameAssetCatalog assets,StaticModelCatalog models,CellPreviewRequest request)=>{if(request.Project.Spawns.Count==0&&!request.Project.WorldSection)request.Project.Spawns.Add(MapGenerator.FindSafeSpawn(request.Project));AssetRules.Project(request.Project,assets);models.Validate(request.Project);return NativeScene.Cell(request.Project,request.X,request.Y,request.Width,request.Height,request.Level,request.X,request.Y,request.CellX,request.CellY);});
 app.MapPost("/api/preview/appearance",(GameAssetCatalog assets,AppearancePreviewRequest request)=>{AppearanceDesigner.Apply(request.Project,request.SurfaceTheme,request.Region,request.StyleBuildings);AssetRules.Project(request.Project,assets);return NativeScene.Cell(request.Project,request.X,request.Y,48,48,request.Level,request.X,request.Y,request.CellX,request.CellY);});
 app.MapPost("/api/styles/apply",(GameAssetCatalog assets,StyleApplyRequest request)=>{if(!assets.Ready)throw new ArgumentException("To apply appearance styles, locate the game installation under Game resources.");var changed=AppearanceDesigner.Apply(request.Project,request.SurfaceTheme,request.Region,request.StyleBuildings);AssetRules.Project(request.Project,assets);return new{project=request.Project,changed};});
-app.MapGet("/api/environment",(GameAssetCatalog assets)=>new {version="0.9.1",runtime=System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,selfContained=File.Exists(Path.Combine(AppContext.BaseDirectory,"coreclr.dll")),target="Project Zomboid Build 42",gameFound=assets.Ready,gamePath=assets.GamePath,cellSize=256,chunkSize=8,minLevel=ZLevels.Min,maxLevel=ZLevels.Max,maximumAboveGroundFloors=ZLevels.AboveGroundCount,maximumBasements=ZLevels.BasementCount,workspace});
+app.MapGet("/api/environment",(GameAssetCatalog assets)=>new {version="0.10.0",runtime=System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,selfContained=File.Exists(Path.Combine(AppContext.BaseDirectory,"coreclr.dll")),target="Project Zomboid Build 42",gameFound=assets.Ready,gamePath=assets.GamePath,cellSize=256,chunkSize=8,minLevel=ZLevels.Min,maxLevel=ZLevels.Max,maximumAboveGroundFloors=ZLevels.AboveGroundCount,maximumBasements=ZLevels.BasementCount,workspace});
 app.MapGet("/api/examples/pilna",async(CancellationToken token)=>{
     var file=Path.Combine(workspace,"examples","Pilna","pilna.pzmap.json");
     if(!File.Exists(file))file=Path.Combine(AppContext.BaseDirectory,"examples","Pilna","pilna.pzmap.json");
@@ -79,7 +82,7 @@ app.MapPost("/api/building/design",(GameAssetCatalog assets,BuildingDesignReques
 app.MapPost("/api/building/validate",(GameAssetCatalog assets,StaticModelCatalog models,Building b)=>{AssetRules.Building(b,assets);foreach(var m in b.Design?.Floors.SelectMany(f=>f.StaticModels)??[])models.Validate(m);return Results.Ok(new{valid=true,building=b});});
 app.MapPost("/api/buildings/regenerate",(BuildingRegenerateRequest request)=>{var changed=BuildingDesigner.Regenerate(request.Project,request.Id);return Results.Ok(new{project=request.Project,changed,skipped=request.Project.Buildings.Count-changed});});
 app.MapPost("/api/search",async(SearchRequest request,OsmClient client,CancellationToken token)=>await client.Search(request.Query,token));
-app.MapPost("/api/export",(GameAssetCatalog assets,StaticModelCatalog models,MapProject project,CancellationToken token)=>{AssetRules.Project(project,assets);models.Validate(project);return Results.File(NativeMapExporter.Export(project,false,token),"application/zip","SimplePZMap.zip");});
+app.MapPost("/api/export",async(GameAssetCatalog assets,StaticModelCatalog models,NativeExportService exporter,MapProject project,CancellationToken token)=>{AssetRules.Project(project,assets);models.Validate(project);return await exporter.Map(project,token);});
 app.MapPost("/api/validate",(GameAssetCatalog assets,StaticModelCatalog models,MapProject project)=>{AssetRules.Project(project,assets);models.Validate(project);return Results.Ok(new{valid=true,project});});
 app.MapGet("/api/recovery/{id}",async(string id,RecoveryStore store,CancellationToken token)=>{var project=await store.LoadAsync(id,token);return project is null?Results.NotFound():Results.Ok(project);});
 app.MapPost("/api/recovery/{id}",async(string id,MapProject project,RecoveryStore store,GameAssetCatalog assets,StaticModelCatalog models,CancellationToken token)=>{AssetRules.Project(project,assets);models.Validate(project);await store.SaveAsync(id,project,token);return Results.Ok(new{saved=true});});

@@ -1,6 +1,6 @@
 export function changeSummary(before,after,world=false){
  const count=p=>(p.buildings?.length||0)+(world?p.maps.reduce((n,m)=>n+m.project.buildings.length,0):0);
- const objects=value=>{const projects=world?value.maps.map(m=>m.project):[value];return [...(world?value.buildings||[]:[]),...projects.flatMap(p=>[...p.buildings,...p.staticModels||[],...p.decorations||[]]),...projects.flatMap(p=>p.buildings.flatMap(b=>b.design?.floors?.flatMap(f=>f.staticModels||[])||[]))];};
+ const objects=value=>{const projects=world?value.maps.map(m=>m.project):[value];return [...(world?value.buildings||[]:[]),...projects.flatMap(p=>[...p.buildings,...p.staticModels||[],...p.decorations||[],...p.gameZones||[]]),...projects.flatMap(p=>p.buildings.flatMap(b=>b.design?.floors?.flatMap(f=>f.staticModels||[])||[]))];};
  const oldObjects=new Map(objects(before).map(o=>[o.id,o])),newObjects=new Map(objects(after).map(o=>[o.id,o]));
  const changes=[];for(const id of new Set([...oldObjects.keys(),...newObjects.keys()])){const old=oldObjects.get(id),next=newObjects.get(id);if(JSON.stringify(old)!==JSON.stringify(next))changes.push((!old?'Added: ':!next?'Removed: ':'Changed: ')+(next?.name||old?.name||next?.modelId||old?.modelId||next?.asset||old?.asset||id));}
  const result={buildingsBefore:count(before),buildingsAfter:count(after),sectionsBefore:before.maps?.length||1,sectionsAfter:after.maps?.length||1,terrainChanged:0,changedSections:0,changes:changes.slice(0,12),changedObjects:changes.length};
@@ -19,6 +19,7 @@ export function drawAgentReview(canvas,before,after,world=false){
    const step=Math.max(1,Math.ceil(Math.max(p.width,p.height)/100));for(let yy=0;yy<p.height;yy+=step)for(let xx=0;xx<p.width;xx+=step){const t=p.terrain[yy*p.width+xx];if(t===2||t===3){ctx.fillStyle=t===2?'#ada78e':'#568ead';ctx.fillRect(offset+12+(x+xx)*scale,34+(y+yy)*scale,Math.max(1,step*scale),Math.max(1,step*scale));}}
    ctx.fillStyle='#eac48b';for(const b of p.buildings)ctx.fillRect(offset+12+(x+b.x)*scale,34+(y+b.y)*scale,Math.max(1,b.width*scale),Math.max(1,b.height*scale));
    ctx.fillStyle='#9bc5e2';for(const model of p.staticModels||[])ctx.fillRect(offset+12+(x+model.x)*scale,34+(y+model.y)*scale,3,3);for(const prop of p.decorations||[])ctx.fillRect(offset+12+(x+prop.x)*scale,34+(y+prop.y)*scale,2,2);
+   for(const zone of p.gameZones||[]){ctx.strokeStyle=['Vehicle','ParkingStall'].includes(zone.type)?'#e79db6':'#a6daf2';ctx.fillStyle=['Vehicle','ParkingStall'].includes(zone.type)?'#e79db633':'#a6daf233';ctx.lineWidth=1.5;const zx=offset+12+(x+zone.x)*scale,zy=34+(y+zone.y)*scale;ctx.fillRect(zx,zy,zone.width*scale,zone.height*scale);ctx.strokeRect(zx,zy,zone.width*scale,zone.height*scale);}
   }
   if(world){ctx.fillStyle='#e7a876';for(const b of value.buildings||[])ctx.fillRect(offset+12+(b.x-minX)*scale,34+(b.y-minY)*scale,Math.max(1,b.width*scale),Math.max(1,b.height*scale));}
  }

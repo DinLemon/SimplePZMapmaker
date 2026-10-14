@@ -1,3 +1,19 @@
+# Verification status — 0.10.0, 2026-10-14
+
+## Materials, modules, infrastructure, MCP and section workspaces
+
+- Core 226/226 and JavaScript 150/150 pass; the Release build has zero warnings/errors. The installed native-lighting regression covers 23 authentic scenarios without opening a game session.
+- Real browser checks verify native RGB applied to textured meshes, actual geometry shadow pixels, sun/material changes, authored-wall depth, cancellation, missing-asset fallbacks and asset/instance/memory budgets. Registered X and FBX previews remain usable.
+- Compound modules capture complete room/object/model footprints and signed stair transitions, compose ordinary exported designs, expand bounds safely, reject unsupported/reversed resource transforms, and roundtrip through the library/templates. Browser assembly, capture, undo/redo, native preview and atomic overlap rejection pass.
+- Six junction presets and signed decks preserve ground underlays, stairs, rails and support geometry; actual browser preview/export/history/group removal and negative underpasses pass. An independent LOT reader verifies cell-seam deck/underlay fixtures. Installed game classes load the tunnel fixture: 1024 chunks, 15 rooms, five basement rooms and nine recognized stair tiles (six below ground).
+- Both supported official MCP clients discover 47 tools. Authentic map/world/draft lighting retains revisions; isolated map/world gameplay-zone proposals reject overlaps/stale commits. Actual browser review lists and draws zone rectangles; receive/undo/redo roundtrips preserve them.
+- Section-only opening downloads one terrain section. Incremental saving retains the other section fingerprint; stale writes return409. Missing/corrupted data causes complete-revision recovery. Independent section save does not deserialize unrelated terrain. Selected native export preserves a valid standalone local source plus clipped shared-building context; independent readback verifies one cell, 1024 chunks and five shared rooms.
+- Native HTTP exports build bounded seekable workspace files, write cell entries directly without intermediate section ZIPs and delete completed temporary archives after response disposal. Roof/level constraints and earlier source formats remain supported; elevated/junction authoring uses map11/world5.
+- Browser mesh/material/shadow visualization is an editor preview of the authentic light field, not the game's FBO/material renderer. Infrastructure provides discrete native floors and pedestrian stairs, not continuous vehicle ramps. Paths cross native cells inside a section; separate world sections currently own separate path geometry. Section-only mode retains shared buildings in the workspace; load the complete world to view/edit them.
+- No character playthrough, gameplay save or multiplayer validation is claimed. Self-contained package/CI publication evidence is appended in PROGRESS.md after those checks complete.
+
+## Previous release evidence
+
 # Verification status — 0.9.1, 2026-10-14
 
 ## Full signed vertical range

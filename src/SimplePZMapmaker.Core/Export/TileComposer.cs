@@ -15,7 +15,7 @@ internal sealed partial class TileComposer
     internal byte[] Navigation {get;}=new byte[65536];
     internal List<Room> Rooms {get;}=[];
     internal List<List<int>> Buildings {get;}=[];
-    internal TileComposer(MapProject p,int cellX,int cellY)
+    internal TileComposer(MapProject p,int cellX,int cellY,InfrastructureGeometry.Geometry? infrastructure=null)
     {
         project=p;ox=cellX*256;oy=cellY*256;
         if(p.SurfaceRegions.Count>0){regionThemes=new string[65536];Array.Fill(regionThemes,p.SurfaceTheme);foreach(var r in p.SurfaceRegions){var left=Math.Max(0,r.X-ox);var right=Math.Min(256,r.X+r.Width-ox);if(right<=left)continue;for(var y=Math.Max(0,r.Y-oy);y<Math.Min(256,r.Y+r.Height-oy);y++)Array.Fill(regionThemes,r.Theme,y*256+left,right-left);}}
@@ -26,6 +26,7 @@ internal sealed partial class TileComposer
         }
         foreach(var b in p.Buildings.Where(b=>b.X<ox+256&&b.Y<oy+256&&b.X+b.Width>=ox&&b.Y+b.Height>=oy)){if(b.Design is null)Compose(b);else ComposeDesign(b);}
         foreach(var d in p.Decorations)foreach(var part in d.Parts){var x=d.X+part.Dx-ox;var y=d.Y+part.Dy-oy;if(x>=0&&y>=0&&x<256&&y<256)Add(x,y,part.Tile,part.Flags);}
+        ComposeInfrastructure(infrastructure);
     }
     private bool Tree(int x,int y) => !decorationCells.Contains(y*256+x)&&((uint)((ox+x)*73856093)^((uint)(oy+y)*19349663)^(uint)project.Seed)%19==0 && !project.Spawns.Any(s=>Math.Abs(s.X-ox-x)<=2&&Math.Abs(s.Y-oy-y)<=2);
     internal List<string> At(int x,int y,int z) {

@@ -25,7 +25,7 @@ In **Connect agent**, choose the current map or the entire world; add sections b
 
 Before receiving changes, inspect the before/after comparison and object list, then explicitly receive the reviewed changes. If the local project or remote revision changes after review, generate a fresh comparison. Undo restores the previous project in one action.
 
-The server exposes 38 tools. `building_template_read` returns the complete original plan. `world_buildings`, `world_building_read`, `world_building_replace` and `world_building_put` read/edit buildings, including shared buildings across sections. Shared positions use absolute game-tile coordinates; section origins use native cell coordinates (256×256 tiles per cell).
+The server exposes 47 tools. `building_template_read` returns the complete original plan. `world_buildings`, `world_building_read`, `world_building_replace` and `world_building_put` read/edit buildings, including shared buildings across sections. Shared positions use absolute game-tile coordinates; section origins use native cell coordinates (256×256 tiles per cell).
 
 `world_section_generate`, `world_section_move`, `world_remove_object`, `world_paint_terrain` and `world_section_preview` edit/inspect worlds; `world_export` produces one combined mod. Section previews include the native parts of shared buildings.
 
@@ -43,3 +43,7 @@ dotnet run --project tools/McpSmoke
 ```
 
 The check creates its own map/world sessions, commits a building draft and neighbourhood plans, verifies revision conflicts, a shared seam-crossing building and a native ZIP, then closes its sessions. It does not alter the user's editor project.
+
+## Native lighting and gameplay-zone proposals (0.10.0)
+
+Use `lighting_status`, `lighting_map_check`, `lighting_world_check` and `lighting_draft_check` for authentic installed LightingJNI results, signed levels -32..31, 8–64 tile crops and scene/library fingerprints. Checks are read-only, cancelable and revision-protected; no game session is started. `gameplay_catalog` supplies supported zones and literal registered vehicle/loot distributions. `gameplay_zones_read`, `gameplay_zones_plan`, `gameplay_zones_plan_read` and `gameplay_zones_plan_commit` separate exact 1–64 rectangle proposals from atomic revision-protected commits. World entries use a section memberId and local tile coordinates. Review the zone rectangles in Connect agent before receiving the updated session. See the [illustrated guide](EDITOR-EXPANSION.md#agent-lighting-and-gameplay-zones).

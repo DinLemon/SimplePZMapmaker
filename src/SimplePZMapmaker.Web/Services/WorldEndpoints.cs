@@ -12,8 +12,8 @@ public static class WorldEndpoints
    var world=WorldAssembler.Move(request.World,request.MemberId,request.CellX,request.CellY);var bounds=Validate(world,assets,models);
    return Results.Ok(new{world,bounds,warnings=WorldAssembler.SeamWarnings(world)});
   });
-  app.MapPost("/api/world/export",(WorldProject world,GameAssetCatalog assets,StaticModelCatalog models,CancellationToken token)=>{
-   Validate(world,assets,models);return Results.File(NativeWorldExporter.Export(world,token),"application/zip","SimplePZWorld.zip");
+  app.MapPost("/api/world/export",async(WorldProject world,GameAssetCatalog assets,StaticModelCatalog models,NativeExportService exporter,CancellationToken token)=>{
+   Validate(world,assets,models);return await exporter.World(world,token);
   });
   app.MapPost("/api/world/buildings",(WorldBuildingRequest request,GameAssetCatalog assets,StaticModelCatalog models)=>{
    var world=WorldAssembler.PutBuilding(request.World,request.Building);Validate(world,assets,models);return Results.Ok(new{world});

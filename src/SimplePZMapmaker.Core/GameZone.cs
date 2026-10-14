@@ -24,6 +24,10 @@ public sealed class GameZone
 }
 public static class GameZones
 {
+ public static MapProject ApplyProposal(MapProject project,GameZone[] zones){
+  if(zones is null||zones.Length is <1 or >64||zones.Any(z=>z is null)||zones.Select(z=>z.Id).Distinct().Count()!=zones.Length)throw new ArgumentException("A zone proposal needs 1–64 distinct zones.");
+  var copy=NeighborhoodPlanner.Copy(project);foreach(var z in zones){GameZone.Validate(z,copy.Width,copy.Height);var next=NeighborhoodPlanner.Copy(z);var index=copy.GameZones.FindIndex(old=>old.Id==next.Id);if(index<0)copy.GameZones.Add(next);else copy.GameZones[index]=next;}ProjectValidator.Validate(copy);return copy;
+ }
  public static void ValidateProject(MapProject p)
  {
   if(p.GameZones is null||p.GameZones.Count>4096||p.GameZones.Select(z=>z?.Id).Distinct().Count()!=p.GameZones.Count)throw new ArgumentException("A map can contain up to 4,096 distinct authored game zones.");

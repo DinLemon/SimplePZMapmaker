@@ -13,6 +13,7 @@ try{
   var tools=await client.ListToolsAsync();Check(tools.Any(t=>t.Name=="building_draft_commit")&&tools.Any(t=>t.Name=="models_search"),"MCP tools missing");
   var result=await client.CallToolAsync("project_summary",new Dictionary<string,object?>{{"sessionToken",token}});Check(result.IsError!=true,"Summary failed");
   Console.WriteLine($"PASS MCP {protocol}: discovery, schema and project summary ({tools.Count} tools)");
+  await VerifyGameplay(client,http);
   if(protocol!="2026-07-28")continue;
   var draft=Read(await client.CallToolAsync("building_draft_create",new Dictionary<string,object?>{{"sessionToken",token},{"templateId","village-izba"}}));var id=draft.GetProperty("id").GetString();
   var commit=await client.CallToolAsync("building_draft_commit",new Dictionary<string,object?>{{"sessionToken",token},{"draftId",id},{"expectedRevision",1},{"x",30},{"y",30}});Check(commit.IsError!=true,"Draft commit failed");
@@ -50,3 +51,29 @@ try{
 }finally{using var close=await http.PostAsJsonAsync("/api/agent/session/"+token+"/close",new{});close.EnsureSuccessStatusCode();}
 static JsonElement Read(CallToolResult result){Check(result.IsError!=true,"Tool returned error");var text=result.Content.OfType<TextContentBlock>().First().Text;return JsonSerializer.Deserialize<JsonElement>(text,NativeMapExporter.JsonOptions);}
 static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
+static async Task VerifyGameplay(McpClient client,HttpClient http){
+ var p=MapGenerator.Generate(new(){Kind="blank",Name="Agent lighting and zones"});var b=HousingTemplates.Create("village-izba");b.X=20;b.Y=20;p.Buildings.Add(b);
+ using var created=await http.PostAsJsonAsync("/api/agent/session",p);created.EnsureSuccessStatusCode();var session=JsonSerializer.Deserialize<JsonElement>(await created.Content.ReadAsStringAsync());var token=session.GetProperty("token").GetString()!;
+ try{
+  var catalog=Read(await client.CallToolAsync("gameplay_catalog",new Dictionary<string,object?>()));Check(catalog.GetProperty("zoneTypes").EnumerateArray().Any(x=>x.GetString()=="Farm"),"MCP zone catalog absent");
+  var zone=new GameZone{Name="Agent farm",Type="Farm",X=80,Y=80,Width=24,Height=24};var plan=Read(await client.CallToolAsync("gameplay_zones_plan",new Dictionary<string,object?>{{"sessionToken",token},{"expectedRevision",1},{"entries",new[]{new{zone}}}}));var id=plan.GetProperty("id").GetString();
+  Check(Read(await client.CallToolAsync("gameplay_zones_read",new Dictionary<string,object?>{{"sessionToken",token}})).GetProperty("zones").GetArrayLength()==0,"Zone proposal mutated source");
+  var overlap=await client.CallToolAsync("gameplay_zones_plan",new Dictionary<string,object?>{{"sessionToken",token},{"expectedRevision",1},{"entries",new[]{new{zone},new{zone=new GameZone{X=81,Y=81,Width=24,Height=24}}}}});Check(overlap.IsError==true,"Overlapping zone batch accepted");
+  Check((await client.CallToolAsync("gameplay_zones_plan_commit",new Dictionary<string,object?>{{"sessionToken",token},{"expectedRevision",1},{"proposalId",id}})).IsError!=true,"Zone commit failed");
+  Check((await client.CallToolAsync("gameplay_zones_plan_commit",new Dictionary<string,object?>{{"sessionToken",token},{"expectedRevision",1},{"proposalId",id}})).IsError==true,"Stale zone commit accepted");
+  var status=Read(await client.CallToolAsync("lighting_status",new Dictionary<string,object?>()));
+  if(status.GetProperty("available").GetBoolean()){
+   var field=Read(await client.CallToolAsync("lighting_map_check",new Dictionary<string,object?>{{"sessionToken",token},{"expectedRevision",2},{"x",16},{"y",16},{"size",16},{"level",0},{"skyRgb",new[]{.8,.7,.6}},{"ambient",.8}}));Check(field.GetProperty("provenance").GetProperty("engine").GetString()=="Project Zomboid LightingJNI"&&field.GetProperty("provenance").GetProperty("gameSession").GetBoolean()==false&&field.GetProperty("cells").GetArrayLength()>0,"MCP genuine lighting absent");
+   var draft=Read(await client.CallToolAsync("building_draft_create",new Dictionary<string,object?>{{"sessionToken",token},{"templateId","village-izba"}}));var df=Read(await client.CallToolAsync("lighting_draft_check",new Dictionary<string,object?>{{"sessionToken",token},{"draftId",draft.GetProperty("id").GetString()},{"size",16},{"level",-1}}));Check(df.GetProperty("cells").GetArrayLength()>0,"Draft basement lighting absent");
+   Check((await client.CallToolAsync("lighting_map_check",new Dictionary<string,object?>{{"sessionToken",token},{"expectedRevision",1},{"x",16},{"y",16},{"size",16}})).IsError==true,"Stale native lighting accepted");
+   Console.WriteLine("PASS MCP genuine map/draft LightingJNI, signed basement and stale lighting rejection");
+  }else Console.WriteLine("SKIP native MCP lighting: installed game library unavailable; tool discovery/status verified");
+  Check(Read(await client.CallToolAsync("project_summary",new Dictionary<string,object?>{{"sessionToken",token}})).GetProperty("revision").GetInt64()==2,"Lighting/draft reads mutated revision");
+  var world=WorldTestsForSmoke();using var wr=await http.PostAsJsonAsync("/api/agent/world/session",world);wr.EnsureSuccessStatusCode();var wt=JsonSerializer.Deserialize<JsonElement>(await wr.Content.ReadAsStringAsync()).GetProperty("token").GetString()!;
+  try{var entry=new{zone=new GameZone{Name="World farm",Type="Farm",X=80,Y=80,Width=24,Height=24},memberId=world.Maps[1].Id};var wp=Read(await client.CallToolAsync("gameplay_zones_plan",new Dictionary<string,object?>{{"sessionToken",wt},{"expectedRevision",1},{"scope","world"},{"entries",new[]{entry}}}));Check((await client.CallToolAsync("gameplay_zones_plan_commit",new Dictionary<string,object?>{{"sessionToken",wt},{"expectedRevision",1},{"proposalId",wp.GetProperty("id").GetString()}})).IsError!=true,"World zone commit failed");
+   if(status.GetProperty("available").GetBoolean()){var field=Read(await client.CallToolAsync("lighting_world_check",new Dictionary<string,object?>{{"sessionToken",wt},{"expectedRevision",2},{"memberId",world.Maps[1].Id},{"x",16},{"y",16},{"size",8},{"level",0}}));Check(field.GetProperty("cells").GetArrayLength()==64,"World section lighting incomplete");}
+  }finally{using var close=await http.PostAsJsonAsync("/api/agent/world/session/"+wt+"/close",new{});close.EnsureSuccessStatusCode();}
+  Console.WriteLine("PASS MCP isolated gameplay zones, overlap/stale rejection and map/world atomic commits");
+ }finally{using var close=await http.PostAsJsonAsync("/api/agent/session/"+token+"/close",new{});close.EnsureSuccessStatusCode();}
+}
+static WorldProject WorldTestsForSmoke(){var w=new WorldProject();for(var i=0;i<2;i++){var p=MapGenerator.Generate(new(){Kind="blank"});p.WorldX=100+i;w.Maps.Add(new(){Project=p});}return w;}
