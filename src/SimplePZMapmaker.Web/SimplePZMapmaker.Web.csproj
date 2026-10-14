@@ -1,3 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web"><PropertyGroup><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup><ItemGroup><ProjectReference Include="../SimplePZMapmaker.Core/SimplePZMapmaker.Core.csproj" /><Content Include="../../examples/Pilna/pilna.pzmap.json" Link="examples/Pilna/pilna.pzmap.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /></ItemGroup><ItemGroup>
   <PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
+</ItemGroup><ItemGroup>
+ <Content Include="../../tools/NativeLighting/classes/LightingProbe.class" Link="native-lighting/LightingProbe.class" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+ <Content Include="../../tools/NativeLighting/LightingProbe.java" Link="native-lighting/LightingProbe.java" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+ <Content Include="../../tools/NativeLighting/manifest.json" Link="native-lighting/manifest.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 </ItemGroup></Project>

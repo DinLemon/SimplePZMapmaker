@@ -1,5 +1,5 @@
 import {validateProject} from './editor.js';
-import {WorldGeography,validateWorldExtras} from './world-geography.js';
+import {WorldGeography,validateWorldExtras,worldAuthoringVersion} from './world-geography.js';
 const $=id=>document.getElementById(id),cellSize=256,maxFile=128*1024*1024;
 const safeId=id=>typeof id==='string'&&/^[0-9a-fA-F]{32}$/.test(id);
 const newId=()=>crypto.randomUUID().replaceAll('-','');
@@ -16,15 +16,15 @@ export function placementIssue(world,p,x,y,skipId=null){
  return null;
 }
 export function validateWorld(world,allowEmpty=false){
- if(!world||world.format!=='SimplePZWorld'||![1,2].includes(world.version)||!safeId(world.id))throw Error('The world format or identifier is corrupted.');
+ if(!world||world.format!=='SimplePZWorld'||![1,2,3].includes(world.version)||!safeId(world.id))throw Error('The world format or identifier is corrupted.');
  if(typeof world.name!=='string'||!world.name.trim()||world.name.length>80||/[\x00-\x1f\x7f]/.test(world.name))throw Error('Enter the name of the world up to 80 characters.');
  if(!Array.isArray(world.maps)||world.maps.length>(128)||(!allowEmpty&&!world.maps.length))throw Error('A world must contain 1–128 sections.');
  const ids=new Set();for(const m of world.maps){if(!m||!safeId(m.id)||ids.has(m.id))throw Error('The world section identifier is invalid or duplicated.');ids.add(m.id);validateProject(m.project);const issue=placementIssue(world,m.project,m.project.worldX,m.project.worldY,m.id);if(issue)throw Error(issue);}
  if(world.maps.length&&world.maps.every(m=>m.project.spawns.length===0))throw Error('The world needs at least one spawn point on land.');
- if(worldBounds(world).cells>8192)throw Error('The world contains more than 8192 native cells.');validateWorldExtras(world);return world;
+ if(worldBounds(world).cells>8192)throw Error('The world contains more than 8192 native cells.');validateWorldExtras(world);world.version=worldAuthoringVersion(world);return world;
 }
 const projectBytes=p=>{const {terrain,zombies,...metadata}=p;return terrain.length*8+zombies.length*8+JSON.stringify(metadata).length*2;};
-const operationBytes=o=>o.kind==='replace'?[o.before,o.after].reduce((sum,w)=>sum+w.maps.reduce((n,m)=>n+projectBytes(m.project),0)+JSON.stringify({buildings:w.buildings||[],elevation:w.elevation||null}).length*2,0):o.member?projectBytes(o.member.project):512;
+const operationBytes=o=>o.kind==='native-edit'?JSON.stringify(o).length*2:o.kind==='replace'?[o.before,o.after].reduce((sum,w)=>sum+w.maps.reduce((n,m)=>n+projectBytes(m.project),0)+JSON.stringify({buildings:w.buildings||[],elevation:w.elevation||null}).length*2,0):o.member?projectBytes(o.member.project):512;
 class WorldHistory{
  constructor(){this.past=[];this.future=[];this.budget=128*1024*1024;}
  push(operation){if(operationBytes(operation)>512*1024*1024)throw Error('Replacing a world requires more than 512MB of history. Keep the old world, then open a new empty world before replacing it. The current world is saved.');this.past.push(operation);this.future=[];while(this.past.length>1&&(this.past.length>30||this.past.reduce((n,o)=>n+operationBytes(o),0)>this.budget))this.past.shift();}

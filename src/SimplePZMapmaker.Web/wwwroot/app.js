@@ -1,3 +1,8 @@
+import {NativeLightingPanel} from './native-lighting.js';
+import {mountGameplayAuthoring} from './gameplay-authoring.js';
+import {MainNativeEditor} from './main-native-editor.js';
+import {nativeWorldOperation,applyNativeWorldOperation} from './main-native-operations.js';
+import {installLinearEditing} from './linear-editing.js';
 import {MapNativePreview} from './map-native-preview.js';
 import {ImportQualityPanel} from './import-quality.js';
 import {validatePalettes} from './palette-data.js';
@@ -59,6 +64,17 @@ $('open-resources').onclick=()=>resources.open();$('pick-world-resource').onclic
 $('erase-world-resource').onclick=()=>setTool('erase-decor');
 const appearance=new AppearancePanel({project:()=>project,selectArea:()=>{if(isometric)$('view-top').click();$('map-level').value='0';setTool('appearance-area');toast('Draw a rectangle on the map. Then choose an appearance preset.');},apply:options=>task('Applying appearance to the selected area…',async signal=>{const result=await api('/api/styles/apply',{project,...options},signal);history.begin(project);project.version=result.project.version;project.surfaceTheme=result.project.surfaceTheme;project.surfaceRegions=result.project.surfaceRegions;project.buildings=result.project.buildings;history.commit(project);appearance.done();changed();toast(`Appearance applied: ${options.region?'selected area':'entire map'}. Designed buildings: ${result.changed}.`);}),preview:options=>{const r=options.region,center=r?{x:r.x+Math.floor(r.width/2),y:r.y+Math.floor(r.height/2)}:cursor||{x:Math.floor(project.width/2),y:Math.floor(project.height/2)},cellX=Math.max(0,Math.min(project.width/256-1,Math.floor(center.x/256))),cellY=Math.max(0,Math.min(project.height/256-1,Math.floor(center.y/256))),x=Math.min(208,Math.max(0,center.x-cellX*256-24)),y=Math.min(208,Math.max(0,center.y-cellY*256-24));gamePreview.open('Selected appearance preview',level=>api('/api/preview/appearance',{project,...options,cellX,cellY,x,y,level}),-16,15,'0');}});
 const worldWorkshop=new WorldWorkshop({current:()=>project,adopt:p=>adopt(p,{worldManaged:true}),finish:()=>{finish();history.commit(project);},download,api,task,message:toast,recoveryId});
+
+function getNativeContext(){return {project,world:worldWorkshop.editedId?worldWorkshop.world:null,memberId:worldWorkshop.editedId,revision:autosaveRevision+':'+worldWorkshop.revision,level:$('map-level').value==='all'?null:Number($('map-level').value),transform:{zoom,pan,viewport}};}
+const nativeSessions=new WeakSet();
+function installNativeHistory(){const session=worldWorkshop.session;if(nativeSessions.has(session))return;const original=session.apply;session.apply=function(operation,reverse){if(operation.kind==='native-edit')applyNativeWorldOperation(this.world,operation,reverse);else original.call(this,operation,reverse);};nativeSessions.add(session);}
+function syncNativeWorld(){const member=worldWorkshop.world.maps.find(m=>m.id===worldWorkshop.editedId);if(!member){worldWorkshop.editedId=null;worldWorkshop.changed();update();return;}project=member.project;history=new History();history.extraBlockedWater=index=>worldMask().has(index);selectedId=null;selectedSpawn=-1;protectionCache=null;worldWorkshop.changed();changed();}
+const nativeEditor=new MainNativeEditor({canvas,getContext:getNativeContext,api,run:task,message:toast,requestDraw,modelImages:nativePreview.models,toolChanged:()=>{if(tool==='pan')tool='select';update();},commit:result=>{if(result.world){installNativeHistory();const operation=nativeWorldOperation(worldWorkshop.world,result.world);if(!operation.maps.length&&!operation.buildings.length&&operation.beforeVersion===operation.afterVersion)return;worldWorkshop.session.history.push(operation);applyNativeWorldOperation(worldWorkshop.world,operation,false);syncNativeWorld();}else{history.begin(project);const {terrain:ignoredTerrain,zombies:ignoredZombies,...metadata}=result.project;Object.assign(project,metadata);history.commit(project);changed();}},selectionChanged:s=>{selectedId=s?.scope==='map'?s.building?.id??null:null;selectedSpawn=-1;update();}});
+const nativeLighting=new NativeLightingPanel({getContext:getNativeContext,message:toast,requestDraw,openNative:()=>{if(!nativeView)$('view-native').click();if($('map-level').value==='all')nativeEditor.selectFloor(0);}});
+const gameplayPanel=mountGameplayAuthoring($('gameplay-panel'),{getProject:()=>project,apply:p=>{const context=getNativeContext();return nativeEditor.execute(context.world?{world:{...context.world,version:3,maps:context.world.maps.map(m=>m.id===context.memberId?{...m,project:p}:m)}}:{project:p},context);},onDrawRectangle:callback=>{if(!nativeView)$('view-native').click();nativeEditor.selectFloor(0);nativeEditor.setTool('zone-area');nativeEditor.rectangleCallback=callback;}});
+const linearWorkshop=installLinearEditing({project:()=>project,apply:p=>{finish();history.checkpoint(project,p);changed();},api,message:toast,busy:task,preview:p=>{const node=p.linearFeatures?.at(-1)?.points?.[0]??{x:p.width/2,y:p.height/2},cellX=Math.floor(node.x/256),cellY=Math.floor(node.y/256),x=Math.max(0,Math.min(208,Math.floor(node.x-cellX*256)-24)),y=Math.max(0,Math.min(208,Math.floor(node.y-cellY*256)-24));gamePreview.open('Linear feature draft from game resources',level=>api('/api/preview/cell',{project:p,cellX,cellY,x,y,level}),0,0,'0');}});
+$('open-linear-editor').onclick=()=>linearWorkshop.open();
+
 let protectionCache=null;const emptyWorldMask=new Set();
 function worldMask(p=project){if(!worldWorkshop.editedId)return emptyWorldMask;const world=worldWorkshop.world,key=p.worldX+':'+p.worldY+':'+p.width+':'+p.height;if(!protectionCache||protectionCache.world!==world||protectionCache.key!==key)protectionCache={world,key,mask:globalBuildingMask(world,p)};return protectionCache.mask;}
 function canPlace(p,b){return canPlaceLocal(p,b)&&!overlapsGlobalBuilding(p,b,worldMask(p));}
@@ -102,7 +118,7 @@ function update(){
  $('project-name').value=project.name;$('inspector-title').textContent=project.name;$('size-stat').textContent=`${project.width} × ${project.height}`;
  $('map-summary').textContent=`${project.width} × ${project.height} / ${project.width*project.height/65536} cell.`;
  $('building-count').textContent=project.buildings.length;$('spawn-count').textContent=project.spawns.length;$('seed-stat').textContent=project.seed;
- $('world-x').value=project.worldX;$('world-y').value=project.worldY;$('undo').disabled=!history.past.length;$('redo').disabled=!history.future.length;
+ $('world-x').value=project.worldX;$('world-y').value=project.worldY;$('undo').disabled=!(nativeView&&worldWorkshop.editedId?worldWorkshop.session.history.past:history.past).length;$('redo').disabled=!(nativeView&&worldWorkshop.editedId?worldWorkshop.session.history.future:history.future).length;
  $('attribution').textContent=project.attribution.length?project.attribution.join(' · '):'Geodata is not used';
  $('attribution').title=project.attribution.join('\n');
  $('geography-panel').hidden=!project.metresPerTile;
@@ -114,13 +130,13 @@ function update(){
  const nextEvidenceKey=autosaveRevision+':'+selectedId+':'+worldWorkshop.revision;if(evidenceKey!==nextEvidenceKey){evidenceKey=nextEvidenceKey;qualityPanel.update();}
  updateLibrary();
  const names={brush:`Brush · ${terrainNames[terrain]}`,rectangle:`Area · ${terrainNames[terrain]}`,road:'Road draw a line',building:`Building · ${catalog[buildingKind].name}`,spawn:'Spawn point',select:'Select objects','world-asset':'Game decor · click on the ground','surface-asset':'Game surface · click terrain','erase-decor':'Remove game decor','static-model':'Static model · press on the ground','appearance-area':'Draw a rectangle to style',pan:'Map panning',zombies:`Zombies · ${$('zombie-density').value}/255`};
- $('map-tool-label').textContent=isometric?'Isometric view · top view drawing':names[tool];
+ $('map-tool-label').textContent=nativeView?'Game view · '+nativeEditor.tool:isometric?'Isometric overview':names[tool];
  const help={'appearance-area':'Draw a rectangle on the map. Then choose a preset for the selected area.',brush:'Draw with the left button. The wheel changes scale. The middle button or Space moves the map.',rectangle:'Extend a rectangular area from one corner to the other.',road:'Press at the beginning of the road and release at the end. The brush size determines the width of the road.',building:'Click on the vacant ground. A red outline indicates an intersection, water, or cell boundary.',spawn:'Click on the dry land outside the building. You can select and delete a point using the Select tool and the Delete key.',select:'Click on a building to change its position and size. Delete deletes the selected object.',pan:'Drag the map with the mouse. The wheel changes scale.',zombies:'Draw the zombie density. One square of density corresponds to an 8×8 chunk.'};
  $('tool-help').textContent=help[tool];requestDraw();
 }
-function changed(){dirty=true;worldWorkshop.currentChanged(project);agentSession?.localChanged();autosave();update();}
-function adopt(p,options={}){validateProject(p);if(!options.worldManaged)worldWorkshop.beforeAdopt(p,options);p.version=Math.max(4,p.version);p.surfaceTheme??='legacy';p.surfaceRegions??=[];p.surfaceTiles??={};p.decorations??=[];p.staticModels??=[];p.requiredMods??=[];p.assetSources??={};p.resourcePalettes??=[];for(const b of [...p.buildings,...(p.buildingLibrary||[])])normalizeBuilding(b);project=p;for(const m of (p.staticModels||[]).slice(0,200))modelSprites.load(m).then(()=>requestDraw());appearance.reset();history=new History();history.extraBlockedWater=index=>worldMask().has(index);selectedId=null;selectedSpawn=-1;gesture=null;dirty=true;fit();changed();}
-function setTool(value){if(gesture)finish();tool=value;document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool));if(value==='zombies')$('show-zombies').checked=true;update();}
+function changed(){nativeEditor.cancel();gameplayPanel.refresh();dirty=true;worldWorkshop.currentChanged(project);agentSession?.localChanged();autosave();update();}
+function adopt(p,options={}){validateProject(p);if(!options.worldManaged)worldWorkshop.beforeAdopt(p,options);p.version=Math.max(4,p.version);p.surfaceTheme??='legacy';p.surfaceRegions??=[];p.surfaceTiles??={};p.decorations??=[];p.staticModels??=[];p.requiredMods??=[];p.assetSources??={};p.resourcePalettes??=[];for(const b of [...p.buildings,...(p.buildingLibrary||[])])normalizeBuilding(b);project=p;nativeEditor.select(null);for(const m of (p.staticModels||[]).slice(0,200))modelSprites.load(m).then(()=>requestDraw());appearance.reset();history=new History();history.extraBlockedWater=index=>worldMask().has(index);selectedId=null;selectedSpawn=-1;gesture=null;dirty=true;fit();changed();}
+function setTool(value){if(gesture)finish();if(nativeView&&value!=='pan'){nativeEditor.setTool(({building:'building',select:'select','static-model':'model','world-asset':'object','erase-decor':'erase-object'})[value]??'select');}tool=value;document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool));if(value==='zombies')$('show-zombies').checked=true;update();}
 function fit(){
  const w=viewport.width,h=viewport.height;
  if(isometric){zoom=Math.min((w-90)/(project.width+project.height),(h-90)/((project.width+project.height)/2));pan={x:w/2,y:(h-(project.width+project.height)*zoom/2)/2};}
@@ -169,6 +185,7 @@ function draw(){
  if(!nativeActive&&['all','0'].includes($('map-level').value))for(const d of project.decorations){for(const part of d.parts){const p=screen(d.x+part.dx,d.y+part.dy);ctx.fillStyle='#d5b575';ctx.strokeStyle='#28382d';ctx.lineWidth=1;ctx.fillRect(p.x,p.y,Math.max(3,zoom),Math.max(3,zoom));ctx.strokeRect(p.x,p.y,Math.max(3,zoom),Math.max(3,zoom));}}
  if(!nativeActive&&['all','0'].includes($('map-level').value))for(const m of project.staticModels||[]){const point=screen(m.x+.5,m.y+.5);modelSprites.draw(ctx,m,point.x,point.y,Math.max(12,zoom*4));}
  if($('show-spawns').checked&&['all','0'].includes($('map-level').value))for(let i=0;i<project.spawns.length;i++){const s=project.spawns[i],p=screen(s.x+.5,s.y+.5);ctx.beginPath();ctx.arc(p.x,p.y,selectedSpawn===i?8:6,0,Math.PI*2);ctx.fillStyle='#2b3528';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='#edb16b';ctx.stroke();ctx.beginPath();ctx.moveTo(p.x-3,p.y);ctx.lineTo(p.x+3,p.y);ctx.moveTo(p.x,p.y-3);ctx.lineTo(p.x,p.y+3);ctx.lineWidth=1;ctx.stroke();}
+ if(nativeActive){nativeLighting.draw(ctx,{zoom,pan,viewport});nativeEditor.draw(ctx);}
  if(cursor&&within(cursor)&&!isometric&&!busy){
   const p=screen(cursor.x,cursor.y);ctx.lineWidth=1;
   if(tool==='building'){const b=ghost(cursor);const q=screen(b.x,b.y);const valid=canPlace(project,b);ctx.fillStyle=valid?'#ead8a755':'#bd654c66';ctx.strokeStyle=valid?'#e8c690':'#ef9d7b';ctx.fillRect(q.x,q.y,b.width*zoom,b.height*zoom);ctx.strokeRect(q.x,q.y,b.width*zoom,b.height*zoom);}
@@ -202,6 +219,7 @@ canvas.addEventListener('contextmenu',e=>e.preventDefault());
 canvas.addEventListener('pointerdown',e=>{
  if(busy)return;canvas.focus();const p=gridPoint(e);cursor=p;
  if(e.button===1||e.button===2||space||tool==='pan'){gesture={pan:true,last:{x:e.clientX,y:e.clientY}};canvas.setPointerCapture(e.pointerId);return;}
+ if(nativeView&&nativeEditor.begin(e))return;
  if(isometric){toast('Switch to top view to draw.');return;}if(!within(p))return;
  if(tool==='appearance-area'){gesture={appearance:true,start:p,last:p};canvas.setPointerCapture(e.pointerId);requestDraw();return;}
  history.begin(project);
@@ -215,9 +233,11 @@ canvas.addEventListener('pointerdown',e=>{
 canvas.addEventListener('pointermove',e=>{
  const p=gridPoint(e);cursor=p;$('coordinates').textContent=`X ${p.x} · Y ${p.y}`;
  if(gesture?.pan){pan.x+=e.clientX-gesture.last.x;pan.y+=e.clientY-gesture.last.y;gesture.last={x:e.clientX,y:e.clientY};requestDraw();return;}
+ if(nativeView){const nativePoint=nativeEditor.point(e);cursor=nativePoint;$('coordinates').textContent=`X ${nativePoint.x} · Y ${nativePoint.y} · Z ${$('map-level').value}`;nativeEditor.move(e);return;}
  if(gesture&&within(p)&&(tool==='brush'||tool==='zombies')){paintAt(p,gesture.last);gesture.last=p;}requestDraw();
 });
 function finish(){
+ if(nativeEditor.drag)nativeEditor.cancel();
  if(!gesture)return;
  if(gesture.appearance){gesture=null;requestDraw();return;}
  if(!gesture.pan&&cursor){const end={x:Math.max(0,Math.min(project.width-1,cursor.x)),y:Math.max(0,Math.min(project.height-1,cursor.y))};
@@ -227,7 +247,7 @@ function finish(){
  }
  gesture=null;requestDraw();
 }
-canvas.addEventListener('pointerup',e=>{if(gesture?.appearance){const start=gesture.start,point=gridPoint(e),end={x:Math.max(0,Math.min(project.width-1,point.x)),y:Math.max(0,Math.min(project.height-1,point.y))};gesture=null;appearance.setRegion({x:Math.min(start.x,end.x),y:Math.min(start.y,end.y),width:Math.abs(end.x-start.x)+1,height:Math.abs(end.y-start.y)+1});setTool('select');appearance.open('area');}else finish();});canvas.addEventListener('pointercancel',finish);canvas.addEventListener('lostpointercapture',finish);canvas.addEventListener('pointerleave',()=>{if(!gesture){cursor=null;requestDraw();}});
+canvas.addEventListener('pointerup',e=>{if(nativeView&&nativeEditor.drag){nativeEditor.end();return;}if(gesture?.appearance){const start=gesture.start,point=gridPoint(e),end={x:Math.max(0,Math.min(project.width-1,point.x)),y:Math.max(0,Math.min(project.height-1,point.y))};gesture=null;appearance.setRegion({x:Math.min(start.x,end.x),y:Math.min(start.y,end.y),width:Math.abs(end.x-start.x)+1,height:Math.abs(end.y-start.y)+1});setTool('select');appearance.open('area');}else finish();});canvas.addEventListener('pointercancel',()=>{nativeEditor.cancel();finish();});canvas.addEventListener('lostpointercapture',()=>{nativeEditor.cancel();finish();});canvas.addEventListener('pointerleave',()=>{if(!gesture){cursor=null;requestDraw();}});
 canvas.addEventListener('wheel',e=>{e.preventDefault();const r=canvas.getBoundingClientRect();scaleAt(e.deltaY<0?1.15:1/1.15,e.clientX-r.left,e.clientY-r.top);},{passive:false});
 new ResizeObserver(entries=>{const r=entries[0].contentRect;viewport={width:r.width,height:r.height};const dpr=window.devicePixelRatio||1;canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);fit();}).observe($('canvas-wrap'));
 mini.addEventListener('pointerdown',e=>{if(isometric)return;const r=mini.getBoundingClientRect();pan.x=viewport.width/2-(e.clientX-r.left)/r.width*project.width*zoom;pan.y=viewport.height/2-(e.clientY-r.top)/r.height*project.height*zoom;requestDraw();});
@@ -242,12 +262,12 @@ $('regenerate-building').onclick=()=>regenerate(selectedId);$('regenerate-buildi
 function regenerate(id){if(id===null&&!project.buildings.length)return;task('Creating new building options...',async signal=>{const result=await api('/api/buildings/regenerate',{project,id},signal);validateProject(result.project);history.begin(project);project.buildings=result.project.buildings;history.commit(project);changed();toast(`Updated: ${result.changed}; saved unchanged: ${result.skipped}.`);});}
 for(const [id,out,suffix] of [['brush-size','brush-value',''],['zombie-density','zombie-value',''],['new-forest','new-forest-value','%'],['new-buildings','new-buildings-value','%']])$(id).oninput=()=>{$(out).textContent=$(id).value+suffix;update();};
 for(const id of ['show-buildings','show-spawns','show-zombies'])$(id).onchange=requestDraw;
-$('map-level').onchange=requestDraw;
+$('map-level').onchange=()=>{nativeEditor.cancel();nativeEditor.sync();requestDraw();};
 $('toggle-grid').onclick=()=>{showGrid=!showGrid;$('toggle-grid').classList.toggle('active',showGrid);requestDraw();};
-$('view-top').onclick=()=>{nativeView=false;nativePreview.close();$('view-native').classList.remove('active');isometric=false;$('view-top').classList.add('active');$('view-iso').classList.remove('active');fit();};
-$('view-iso').onclick=()=>{nativeView=false;nativePreview.close();$('view-native').classList.remove('active');isometric=true;$('view-iso').classList.add('active');$('view-top').classList.remove('active');fit();};
+$('view-top').onclick=()=>{nativeView=false;nativeEditor.setActive(false);nativePreview.close();$('view-native').classList.remove('active');isometric=false;$('view-top').classList.add('active');$('view-iso').classList.remove('active');fit();};
+$('view-iso').onclick=()=>{nativeView=false;nativeEditor.setActive(false);nativePreview.close();$('view-native').classList.remove('active');isometric=true;$('view-iso').classList.add('active');$('view-top').classList.remove('active');fit();};
 $('fit-map').onclick=fit;$('zoom-in').onclick=()=>scaleAt(1.25);$('zoom-out').onclick=()=>scaleAt(.8);
-$('undo').onclick=()=>{finish();if(history.undo(project)){selectedId=null;selectedSpawn=-1;changed();}};$('redo').onclick=()=>{if(history.redo(project)){selectedId=null;selectedSpawn=-1;changed();}};
+$('undo').onclick=()=>{finish();if(nativeView&&worldWorkshop.editedId){installNativeHistory();worldWorkshop.flush();if(worldWorkshop.session.undo())syncNativeWorld();nativeEditor.select(null);return;}if(history.undo(project)){selectedId=null;selectedSpawn=-1;nativeEditor.select(null);changed();}};$('redo').onclick=()=>{finish();if(nativeView&&worldWorkshop.editedId){installNativeHistory();worldWorkshop.flush();if(worldWorkshop.session.redo())syncNativeWorld();nativeEditor.select(null);return;}if(history.redo(project)){selectedId=null;selectedSpawn=-1;nativeEditor.select(null);changed();}};
 $('project-name').onfocus=()=>history.begin(project);$('project-name').onchange=()=>{const value=$('project-name').value.trim();if(!value||/[\x00-\x1f\x7f]/.test(value)){toast('Enter the name of the map.',true);update();return;}project.name=value;history.commit(project);changed();};
 $('project-name').onblur=()=>history.commit(project);
 for(const [id,key] of [['world-x','worldX'],['world-y','worldY']])$(id).onchange=()=>{const value=+$(id).value;if(!Number.isInteger(value)||value<0||value>1000){toast('Cell coordinate: integer from 0 to 1000.',true);update();return;}const issue=worldWorkshop.positionIssue(key==='worldX'?value:project.worldX,key==='worldY'?value:project.worldY);if(issue){toast(issue,true);update();return;}history.begin(project);project[key]=value;history.commit(project);changed();};
@@ -289,7 +309,7 @@ $('operation-dialog').addEventListener('cancel',e=>{e.preventDefault();controlle
 document.addEventListener('keydown',e=>{if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)||document.querySelector('dialog[open]'))return;
  if(e.code==='Space'){space=true;e.preventDefault();return;}if(busy)return;
  if(e.ctrlKey||e.metaKey){if(e.key.toLowerCase()==='z'){e.preventDefault();$(e.shiftKey?'redo':'undo').click();}else if(e.key.toLowerCase()==='s'){e.preventDefault();$('save-project').click();}else if(e.key.toLowerCase()==='o'){e.preventDefault();$('load-project').click();}return;}
- const keys={b:'brush',a:'rectangle',r:'road',h:'building',p:'spawn',v:'select',z:'zombies'};if(keys[e.key.toLowerCase()])setTool(keys[e.key.toLowerCase()]);if(e.key==='Delete')deleteSelection();
+ const keys={b:'brush',a:'rectangle',r:'road',h:'building',p:'spawn',v:'select',z:'zombies'};if(keys[e.key.toLowerCase()])setTool(keys[e.key.toLowerCase()]);if(e.key==='Escape')nativeEditor.cancel();if(e.key==='Delete'){if(nativeView)nativeEditor.deleteSelection();else deleteSelection();}
 });document.addEventListener('keyup',e=>{if(e.code==='Space')space=false;});window.addEventListener('blur',()=>{space=false;finish();});
 async function start(){
  let recovered=false;try{const response=await fetch('/api/recovery/'+recoveryId);if(response.ok){adopt(await response.json());recovered=true;status('Autosave restored');}else{const text=localStorage.getItem(recoveryKey);if(text){adopt(JSON.parse(text));recovered=true;status('Moving autosave to the project folder');}}}catch{toast('Autosave is not available. Open the previously saved file.',true);}
@@ -300,4 +320,4 @@ async function start(){
 }
 start();
 
-$('view-native').onclick=()=>{nativeView=true;isometric=true;$('view-native').classList.add('active');$('view-top').classList.remove('active');$('view-iso').classList.remove('active');fit();};
+$('view-native').onclick=()=>{nativeView=true;isometric=true;nativeEditor.setActive(true);$('view-native').classList.add('active');$('view-top').classList.remove('active');$('view-iso').classList.remove('active');fit();};

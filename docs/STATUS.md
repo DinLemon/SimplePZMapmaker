@@ -1,3 +1,15 @@
+# Verification status — 0.9.0, 2026-10-14
+
+## Geography, gameplay authoring and native lighting
+
+- Core 190/190 and JavaScript 129/129 pass; native lighting runs 18 authentic installed-library fixtures without a game session.
+- Fresh Chromium workflows exercise main-map floor/outline/edge/object/model editing, signed basements and stair links, native palettes, single-step undo/redo, shared world seam edits, linear previews and path moves, rail artwork, curved rivers, bridge underlays, loot/model properties and vehicle rectangles.
+- Native lighting checks include solid walls, windows, open/closed native and model doors, radial and disabled colored lights, signed levels -16/-1/+31, sky, roofs, basements and powered room rectangles. Browser checks verify actual engine/scene fingerprints, signed-floor recalculation, cancellation, unavailable results, stale scenes and no project/history mutation.
+- Installed API probes verify door edges/key state, light RGB/radius and vehicle direction; three original export Lua files compile and one generated declaration parses. Actual map/world ZIP regressions verify authored zones and shared loot dependencies reach the exported mod.
+- Native field values are authentic engine output. Browser material/FBO rendering, model mesh shadows, live weather/switches and character visibility are outside the adapter's rendering scope. Railway artwork requires cardinal segments; bridge decks are at ground level. No character playthrough or gameplay save/multiplayer test is claimed.
+
+## Previous release evidence
+
 # Verification status — 0.8.0, 2026-10-14
 
 ## Editor tools and publication privacy — 0.8.0

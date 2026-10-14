@@ -1,6 +1,6 @@
 # Runtime and publication
 
-Release 0.8.0 includes the editor tools described in [EDITOR-TOOLS.md](EDITOR-TOOLS.md). Public history and older package cleanup are described in [PUBLICATION-PRIVACY.md](PUBLICATION-PRIVACY.md). The following entries record earlier release verification.
+Release 0.9.0 adds [direct map editing](DIRECT-EDITING.md), [gameplay authoring](GAMEPLAY-AUTHORING.md) and [native lighting checks](NATIVE-LIGHTING.md). Release 0.8.0 introduced the editor tools described in [EDITOR-TOOLS.md](EDITOR-TOOLS.md). Public history and older package cleanup are described in [PUBLICATION-PRIVACY.md](PUBLICATION-PRIVACY.md). The following entries record earlier release verification.
 
 # Windows runtime distribution
 

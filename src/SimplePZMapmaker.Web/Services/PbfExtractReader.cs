@@ -36,7 +36,7 @@ public static class PbfExtractReader
   }
   Limit((int)output.Length,16_000_000);return new(Encoding.UTF8.GetString(output.ToArray()),omitted,timestamp,omittedWays);
  }
- private static bool Relevant(Dictionary<string,string> tags)=>tags.Keys.Any(k=>k is "highway" or "building" or "natural" or "landuse" or "waterway");
+ private static bool Relevant(Dictionary<string,string> tags)=>tags.Keys.Any(k=>k is "highway" or "building" or "natural" or "landuse" or "waterway" or "railway");
  private static bool RelevantRelation(Dictionary<string,string> tags)=>tags.Keys.Any(k=>k is "building" or "natural" or "landuse");
  private static bool IsAreaWay(Dictionary<string,string> tags)=>tags.ContainsKey("building")||tags.ContainsKey("landuse")||tags.GetValueOrDefault("natural") is "water" or "wood" or "sand" or "beach" or "wetland";
  private readonly record struct GeoNode(long Id,double Lat,double Lon);

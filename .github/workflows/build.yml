@@ -54,7 +54,7 @@ jobs:
         shell: pwsh
         run: |
           . ./scripts/WorkspaceEnv.ps1
-          node scripts/verify-public-paths.mjs artifacts/SimplePZMapmaker-0.8.0-win-x64.zip
+          node scripts/verify-public-paths.mjs artifacts/SimplePZMapmaker-0.9.0-win-x64.zip
           if ($LASTEXITCODE -ne 0) { throw 'Public package path check failed.' }
       - name: Verify signed basement example
         shell: pwsh

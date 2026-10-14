@@ -4,6 +4,8 @@ Push-Location $taskRoot
 try{
  dotnet run --project tests/SimplePZMapmaker.Tests
  if($LASTEXITCODE -ne 0){throw 'Core regression suite failed.'}
+ node scripts/verify-native-lighting.mjs
+ if($LASTEXITCODE -ne 0){throw 'Native lighting adapter verification failed.'}
  node --test tests/*.test.mjs
  if($LASTEXITCODE -ne 0){throw 'Editor regression suite failed.'}
  dotnet build src/SimplePZMapmaker.Web -c Release --nologo

@@ -4,8 +4,9 @@ public static class ProjectValidator
     public static void Validate(MapProject p)
     {
         ArgumentNullException.ThrowIfNull(p);
-        if(p.Version is not(1 or 2 or 3 or 4 or 5 or 6 or 7 or 8)) Fail("Unsupported project version.");
+        if(p.Version is not(1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9)) Fail("Unsupported project version.");
         ResourcePalette.Validate(p.ResourcePalettes);
+
         if(p.ImportSummary is {} qualityReport) ImportQuality.Validate(qualityReport);
         ResourceDependencies.Validate(p.RequiredMods,p.AssetSources);
         if(p.StaticModels is null||p.StaticModels.Count>10000)Fail("Invalid static model layer.");
@@ -26,13 +27,13 @@ public static class ProjectValidator
         if(p.Version==1&&(p.BuildingLibrary.Count>0||p.Buildings.Any(b=>b?.Design is not null)))Fail("Building floors and templates require project format version 2.");
         if(p.Version<3&&p.Buildings.Concat(p.BuildingLibrary).Any(b=>b?.Design?.MinLevel!=0&&b?.Design is not null))Fail("Basements require project format version 3.");
         if(p.Version<4&&(p.SurfaceTheme!="legacy"||p.SurfaceTiles.Count>0||p.Decorations.Count>0||p.Buildings.Concat(p.BuildingLibrary).Any(UsesAssets)))Fail("Appearance styles and game resources require project format version 4.");
-        foreach(var template in p.BuildingLibrary){if(template is null||template.Name is null||template.Name.Length>100||template.Id is null||template.Id.Length>100)Fail("Invalid building template.");BuildingDesigner.Validate(template);}
+        foreach(var template in p.BuildingLibrary){if(template is null||template.Name is null||template.Name.Length>100||template.Id is null||template.Id.Length>100)Fail("Invalid building template.");BuildingDesigner.Validate(template);ImportedBuildingGeometry.Validate(template);}
         if(p.Buildings.Concat(p.BuildingLibrary).Where(b=>b?.Design?.Floors is not null).Sum(b=>(long)b.Design!.Floors.Sum(f=>f?.Cells?.Length??0))>20_000_000)Fail("Too many building floor tiles: the limit is 20 million.");
         foreach(var b in p.Buildings)
         {
             if(b is null || !BuildingDesigner.Kinds.Contains(b.Kind) || string.IsNullOrEmpty(b.Id) || !ids.Add(b.Id) || b.Name is null || b.Name.Length>100||b.SourceId?.Length>100||b.SourceKind?.Length>100||b.SourceLevels?.Length>100||b.SourceBasements?.Length>100||b.SourceRoof?.Length>100||b.LevelsOrigin is not("inferred" or "osm-levels" or "osm-height" or "manual")) Fail("Unknown or invalid building.");
             if(b.Width is <6 or >64 || b.Height is <6 or >64 || b.X<1 || b.Y<1 || b.X>p.Width-b.Width-1 || b.Y>p.Height-b.Height-1) Fail("The building extends beyond the map area. Move it or expand the area.");
-            BuildingDesigner.Validate(b);
+            BuildingDesigner.Validate(b);ImportedBuildingGeometry.Validate(b);
             foreach(var index in BuildingDesigner.Occupied(b)){var x=b.X+index%(b.Width+1);var y=b.Y+index/(b.Width+1);if(!occupied.Add(y*p.Width+x))Fail("Building walls or rooms overlap.");}
             for(var y=0;y<b.Height;y++)for(var x=0;x<b.Width;x++)if(BuildingDesigner.Occupies(b,x,y)&&p.Terrain[(b.Y+y)*p.Width+b.X+x]==Terrain.Water)Fail("The building stands on water.");
         }
@@ -43,7 +44,22 @@ public static class ProjectValidator
             if(occupied.Contains(s.Y*p.Width+s.X)) Fail("Place the spawn point outside the building.");
         }
         var decorationIds=new HashSet<string>();var decorationCells=new HashSet<int>();foreach(var d in p.Decorations){if(d is null||string.IsNullOrEmpty(d.Id)||d.Id.Length>100||!decorationIds.Add(d.Id))Fail("Invalid terrain decoration.");VisualStyles.ValidateParts(d.Asset,d.Parts);foreach(var part in d.Parts){var x=d.X+part.Dx;var y=d.Y+part.Dy;if(x<0||y<0||x>=p.Width||y>=p.Height||p.Terrain[y*p.Width+x]==Terrain.Water||occupied.Contains(y*p.Width+x)||p.Spawns.Any(s=>s.X==x&&s.Y==y)||!decorationCells.Add(y*p.Width+x))Fail("Terrain decoration is outside the map or overlaps an object, water, or a spawn point.");}}
-        var modelIds=new HashSet<string>();foreach(var model in p.StaticModels){StaticModelPlacement.Validate(model,p.Width,p.Height,0,0);if(!modelIds.Add(model.Id)||p.Terrain[model.Y*p.Width+model.X]==Terrain.Water||occupied.Contains(model.Y*p.Width+model.X)||p.Spawns.Any(s=>s.X==model.X&&s.Y==model.Y))Fail("The environment model overlaps water, a building, or a spawn point.");}
+        var modelIds=new HashSet<string>();var blockingModels=new HashSet<int>();var doorEdges=new HashSet<(int X,int Y,string Direction)>();
+        foreach(var model in p.StaticModels){
+            StaticModelPlacement.Validate(model,p.Width,p.Height,0,0);
+            if(!modelIds.Add(model.Id))Fail("Duplicate environment model ID.");
+            foreach(var cell in StaticModelPlacement.FootprintCells(model)){
+                var x=model.X+cell.Dx;var y=model.Y+cell.Dy;var index=y*p.Width+x;
+                if(p.Terrain[index]==Terrain.Water||occupied.Contains(index)||p.Spawns.Any(s=>s.X==x&&s.Y==y))Fail("The complete environment model footprint overlaps water, a building, or a spawn point.");
+                if(StaticModelPlacement.BlocksTiles(model)&&(!blockingModels.Add(index)||decorationCells.Contains(index)))Fail("A blocking model footprint overlaps another blocking model or decoration.");
+            }
+            if(model.Door is {} door&&!doorEdges.Add((model.X,model.Y,door.Direction)))Fail("Environment model doors overlap the same edge.");
+        }
+        foreach(var model in p.StaticModels.Where(m=>m.Door is not null)){
+            var door=model.Door!;var otherX=model.X-(door.Direction=="w"?1:0);var otherY=model.Y-(door.Direction=="n"?1:0);
+            if(otherX<0||otherY<0||blockingModels.Contains(model.Y*p.Width+model.X)||blockingModels.Contains(otherY*p.Width+otherX)||decorationCells.Contains(model.Y*p.Width+model.X)||decorationCells.Contains(otherY*p.Width+otherX)||occupied.Contains(otherY*p.Width+otherX)||p.Terrain[otherY*p.Width+otherX]==Terrain.Water)Fail("A model door needs a clear approach on both sides of its edge.");
+        }
+        LinearFeatureEditor.Validate(p);GameZones.ValidateProject(p);
         if(p.Bounds is not null) ValidateBounds(p.Bounds);
         if(p.MetresPerTile is double metres && (!double.IsFinite(metres)||metres<=0||metres>100000))Fail("Invalid geographic data scale.");
         if(p.ImportSummary is { } summary && (summary.SourceFeatures is <0 or >30000||summary.SourceBuildings is <0 or >30000||summary.PlacedBuildings is <0 or >4000||summary.SkipReasons is null||summary.SkipReasons.Count>20||summary.SkipReasons.Any(s=>s.Key.Length>100||s.Value is <0 or >30000)))Fail("Invalid import report.");

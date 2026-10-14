@@ -13,7 +13,7 @@ public static class StaticModelExporter
  }
  public static void Write(ZipArchive zip,string modRoot,IEnumerable<PlacedStaticModel> source)
  {
-  var placements=source.ToArray();if(placements.Length==0)return;if(placements.Length>100000)throw new ArgumentException("Too many static models.");
+  var placements=source.ToArray();if(placements.Length==0)return;if(placements.Length>100000)throw new ArgumentException("Too many static models.");if(placements.Any(p=>p.Placement.Interactive)){InteractiveModelExporter.Write(zip,modRoot,placements);return;}
   var root=modRoot.TrimEnd('/')+"/42/media/";
   var module="SPZM"+Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(modRoot)))[..12];
   string Proxy(string model)=>"Prop"+Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(model)))[..16];

@@ -4,7 +4,7 @@ public enum Terrain : byte { Grass, Forest, Road, Water, Sand, Dirt, Pavement }
 public sealed class MapProject
 {
     private int version=4;
-    public int Version { get=>ResourcePalettes?.Count>0&&version<8?8:version==6&&(StaticModels?.Any(m=>m?.Profile!="pickup")==true||(Buildings??[]).Concat(BuildingLibrary??[]).Any(b=>b?.Design?.Floors?.Any(f=>f?.StaticModels?.Any(m=>m?.Profile!="pickup")==true)==true))?7:version;set=>version=value; }
+    public int Version { get=>AuthoringFormats.MapHasNewAuthoring(this)&&version<9?9:ResourcePalettes?.Count>0&&version<8?8:version==6&&(StaticModels?.Any(m=>m?.Profile!="pickup")==true||(Buildings??[]).Concat(BuildingLibrary??[]).Any(b=>b?.Design?.Floors?.Any(f=>f?.StaticModels?.Any(m=>m?.Profile!="pickup")==true)==true))?7:version;set=>version=value; }
     public bool WorldSection {get;set;}
     public string Name { get; set; }="New map";
     public int Width { get; set; }=256;
@@ -18,6 +18,8 @@ public sealed class MapProject
     public List<Building> Buildings { get; set; }=[];
     public List<Building> BuildingLibrary {get;set;}=[];
     public List<ResourcePalette> ResourcePalettes {get;set;}=[];
+    public List<LinearFeature> LinearFeatures {get;set;}=[];
+    public List<GameZone> GameZones {get;set;}=[];
     public string SurfaceTheme {get;set;}="legacy";
     public List<SurfaceRegion> SurfaceRegions {get;set;}=[];
     public Dictionary<int,string> SurfaceTiles {get;set;}=[];
@@ -56,6 +58,9 @@ public sealed class Building
     public string? SourceLevels {get;set;}
     public string? SourceBasements {get;set;}
     public string? SourceRoof {get;set;}
+    public string FootprintOrigin {get;set;}="authored";
+    public List<List<SourceOutlinePoint>> SourceOutline {get;set;}=[];
+    public bool SourceOutlineSimplified {get;set;}
     public List<string> Attribution {get;set;}=[];
     public List<string> RequiredMods {get;set;}=[];
     public Dictionary<string,string> AssetSources {get;set;}=[];

@@ -2,21 +2,21 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using SimplePZMapmaker.Core;
 namespace SimplePZMapmaker.Web.Services;
-public sealed class StaticModelCatalog(GameAssetCatalog assets)
+public sealed class StaticModelCatalog(GameAssetCatalog assets,GameplayCatalog? gameplay=null)
 {
  public sealed record Model(string Id,string Name,string SourceId,string? ModId,string[] RequiredMods,string? ItemType,string Format,double ScriptScale,string? Texture,string? Error);
  private sealed record Entry(Model Model,string? MeshPath,string? TexturePath,string Fingerprint,string? TextureFingerprint,double[] WorldRotation,double WorldScale);
  private Dictionary<string,Entry> entries=[];private string sourcesKey="";private readonly object gate=new();
- public object Search(string? query=null,int offset=0,int limit=60)
- {Refresh();if(offset<0||offset>200000||limit is <1 or >120||(query?.Length??0)>120)throw new ArgumentException("Check the model catalog parameters.");var list=entries.Values.Select(e=>e.Model).Where(m=>string.IsNullOrEmpty(query)||m.Id.Contains(query,StringComparison.OrdinalIgnoreCase)||(m.ModId?.Contains(query,StringComparison.OrdinalIgnoreCase)??false)).OrderBy(m=>m.Id).ToArray();return new{total=list.Length,offset,limit,items=list.Skip(offset).Take(limit)};}
+ public object Search(string? query=null,int offset=0,int limit=60,string? source=null)
+ {Refresh();if(offset<0||offset>200000||limit is <1 or >120||(query?.Length??0)>120)throw new ArgumentException("Check the model catalog parameters.");var list=entries.Values.Select(e=>e.Model).Where(m=>string.IsNullOrEmpty(source)||(source=="game"?m.ModId is null:source=="mod"?m.ModId is not null:m.ModId==source)).Where(m=>string.IsNullOrEmpty(query)||m.Id.Contains(query,StringComparison.OrdinalIgnoreCase)||(m.ModId?.Contains(query,StringComparison.OrdinalIgnoreCase)??false)).OrderBy(m=>m.Id).ToArray();return new{total=list.Length,offset,limit,items=list.Skip(offset).Take(limit)};}
  public Model Get(string id){Refresh();return EntryFor(id).Model;}
  public object Geometry(string id)
  {Refresh();var entry=EntryFor(id);EnsureFile(entry);if(entry.Model.Error is not null)throw new ArgumentException(entry.Model.Error);if(entry.Model.Format=="fbx")return new{format="fbx",url="/api/models/mesh/"+Uri.EscapeDataString(id),scale=entry.Model.ScriptScale,worldRotation=entry.WorldRotation,worldScale=entry.WorldScale,texture=entry.TexturePath is not null?"/api/models/texture/"+Uri.EscapeDataString(id):null};var text=File.ReadAllText(entry.MeshPath!);return new{format=entry.Model.Format,meshes=entry.Model.Format=="x"?StaticModelGeometry.ReadX(text):StaticModelGeometry.ReadObj(text),scale=entry.Model.ScriptScale,worldRotation=entry.WorldRotation,worldScale=entry.WorldScale,texture=entry.TexturePath is not null?"/api/models/texture/"+Uri.EscapeDataString(id):null};}
  public byte[] Mesh(string id){Refresh();var e=EntryFor(id);EnsureFile(e);if(e.Model.Format!="fbx")throw new ArgumentException("Only FBX is available here.");return File.ReadAllBytes(e.MeshPath!);}
  public byte[] Texture(string id){Refresh();var e=EntryFor(id);EnsureFile(e);if(e.TexturePath is null)throw new ArgumentException("Model texture not found.");if(new FileInfo(e.TexturePath).Length>16*1024*1024)throw new ArgumentException("The texture is too large.");return File.ReadAllBytes(e.TexturePath);}
  public StaticModelPlacement Placement(string id){var m=Get(id);if(m.Error is not null)throw new ArgumentException(m.Error);var entry=EntryFor(id);return new(){ModelId=m.Id,ItemType=m.ItemType,SourceId=m.SourceId,RequiredMods=m.RequiredMods.ToList(),WorldRotation=entry.WorldRotation.ToArray(),WorldScale=entry.WorldScale};}
- public void Validate(StaticModelPlacement p){StaticModelPlacement.Validate(p,int.MaxValue,int.MaxValue);var m=Get(p.ModelId);if(m.Error is not null)throw new ArgumentException(m.Error);if(m.SourceId!=p.SourceId||!m.RequiredMods.Order(StringComparer.Ordinal).SequenceEqual(p.RequiredMods.Order(StringComparer.Ordinal)))throw new ArgumentException("The model source has changed. Select the model again.");var entry=EntryFor(p.ModelId);p.WorldRotation=entry.WorldRotation.ToArray();p.WorldScale=entry.WorldScale;}
- public void Validate(MapProject p){foreach(var m in p.StaticModels)Validate(m);foreach(var b in p.Buildings.Concat(p.BuildingLibrary))if(b.Design is {} d)foreach(var f in d.Floors)foreach(var m in f.StaticModels)Validate(m);}
+ public void Validate(StaticModelPlacement p){StaticModelPlacement.Validate(p,int.MaxValue,int.MaxValue);var m=Get(p.ModelId);if(m.Error is not null)throw new ArgumentException(m.Error);if(m.SourceId!=p.SourceId||!m.RequiredMods.Order(StringComparer.Ordinal).SequenceEqual(p.RequiredMods.Order(StringComparer.Ordinal)))throw new ArgumentException("The model source has changed. Select the model again.");var entry=EntryFor(p.ModelId);p.WorldRotation=entry.WorldRotation.ToArray();p.WorldScale=entry.WorldScale;(gameplay??new GameplayCatalog(assets)).Validate(p);}
+ public void Validate(MapProject p){foreach(var m in p.StaticModels)Validate(m);foreach(var b in p.Buildings.Concat(p.BuildingLibrary))if(b.Design is {} d)foreach(var f in d.Floors)foreach(var m in f.StaticModels)Validate(m);(gameplay??new GameplayCatalog(assets)).Validate(p);}
  public void Refresh(bool force=false)
  {
   lock(gate){var sources=assets.ActiveSources().Where(s=>!string.IsNullOrWhiteSpace(s.Root)).ToArray();var key=string.Join('|',sources.Select(s=>s.Id+":"+s.Root));if(!force&&sourcesKey==key)return;var models=new Dictionary<string,(string Name,string SourceId,string? ModId,string[] Requirements,Dictionary<string,string> Props,Dictionary<string,string> World)>();var items=new Dictionary<string,string>();var roots=sources.Select(s=>s.Root).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();var scriptCount=0;
@@ -53,7 +53,7 @@ public static class StaticModelEndpoints
 {
  public static void MapStaticModelEndpoints(this WebApplication app)
  {
-  app.MapGet("/api/models/search",(StaticModelCatalog models,string? q,int? offset,int? limit)=>models.Search(q,offset??0,limit??60));
+  app.MapGet("/api/models/search",(StaticModelCatalog models,string? q,int? offset,int? limit,string? source)=>models.Search(q,offset??0,limit??60,source));
   app.MapGet("/api/models/item/{id}",(StaticModelCatalog models,string id)=>models.Get(id));
   app.MapGet("/api/models/geometry/{id}",(StaticModelCatalog models,string id)=>models.Geometry(id));
   app.MapGet("/api/models/mesh/{id}",(StaticModelCatalog models,string id)=>Results.Bytes(models.Mesh(id),"application/octet-stream"));

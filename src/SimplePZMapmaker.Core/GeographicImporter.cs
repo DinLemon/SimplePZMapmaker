@@ -7,7 +7,7 @@ public sealed record ImportResult(MapProject Project,int ImportedFeatures,int Sk
     public Dictionary<string,int> SkipReasons {get;init;}=[];
 }
 public static partial class GeographicImporter {
-    private sealed record Feature(Dictionary<string,string> Tags,List<List<(double X,double Y)>> Rings,bool Polygon);
+    private sealed record Feature(Dictionary<string,string> Tags,List<List<(double X,double Y)>> Rings,bool Polygon) { public List<List<(double X,double Y)>>? OriginalRings {get;init;} }
     public static ImportResult Import(string json,MapProject project,GeoBounds? bounds=null,CancellationToken cancellationToken=default,bool preserveEdits=false,GeographicProjection? projection=null)
     {
         ProjectValidator.Validate(project);
@@ -22,6 +22,7 @@ public static partial class GeographicImporter {
         if(bounds.North-bounds.South<0.000001)bounds.North=bounds.South+0.000001;
         ProjectValidator.ValidateBounds(bounds);
         if(preserveEdits&&project.Bounds is {} previous&&(Math.Abs(previous.West-bounds.West)>1e-9||Math.Abs(previous.East-bounds.East)>1e-9||Math.Abs(previous.South-bounds.South)>1e-9||Math.Abs(previous.North-bounds.North)>1e-9))throw new ArgumentException("To preserve manual edits, keep the original import bounds. Import a different area without preserving edits.");
+        var preserved=preserveEdits&&project.LinearFeatures.Count>0?LinearFeatureEditor.Rebuild(project,[]):project;
         var p=MapGenerator.Generate(new(){Size=project.Width,Seed=project.Seed,Kind="blank",Name=project.Name});
         if(project.Height!=project.Width) {p.Height=project.Height;p.Terrain=new Terrain[p.Width*p.Height];p.Zombies=new int[p.Width*p.Height/64];}
         p.WorldX=project.WorldX;p.WorldY=project.WorldY;p.Bounds=bounds;
@@ -38,7 +39,7 @@ public static partial class GeographicImporter {
         p.MetresPerTile=projection?.Reference.MetresPerTile??111320/scale;
         var left=(p.Width-(bounds.East-bounds.West)*cos*scale)/2;var top=(p.Height-(bounds.North-bounds.South)*scale)/2;
         (double X,double Y) Project((double X,double Y) v)=>projection?.Project(v)??(left+(v.X-bounds.West)*cos*scale,top+(bounds.North-v.Y)*scale);
-        var transformed=features.Select(f=>f with{Rings=f.Rings.Select(r=>r.Select(Project).ToList()).ToList()}).ToList();
+        var transformed=features.Select(f=>f with{OriginalRings=f.Rings,Rings=f.Rings.Select(r=>r.Select(Project).ToList()).ToList()}).ToList();
         double work=0;
         foreach(var f in transformed.Where(f=>f.Polygon&&!f.Tags.ContainsKey("building"))){var outer=f.Rings[0];var rows=Math.Clamp(outer.Max(v=>v.Y)-outer.Min(v=>v.Y)+2,0,p.Height);var columns=Math.Clamp(outer.Max(v=>v.X)-outer.Min(v=>v.X)+2,0,p.Width);work+=rows*(columns+f.Rings.Sum(r=>r.Count));}
         if(work>40_000_000)throw new ArgumentException("The outlines are too complex for this map. Reduce the area or map size, or simplify the GeoJSON.");
@@ -49,23 +50,37 @@ public static partial class GeographicImporter {
             var terrain=natural is "water" or "wetland" || land=="reservoir" ? Terrain.Water : natural=="wood"||land=="forest" ? Terrain.Forest : natural is "beach" or "sand" ? Terrain.Sand : Terrain.Grass;
             FillPolygon(p,f.Rings,terrain,cancellationToken);imported++;
         }
+        var editableLines=new List<LinearFeature>();var staticLines=0;var omittedRails=0;var simplifiedLines=0;var lineBudget=0;
+        p.Spawns=[];
         foreach(var f in transformed.Where(f=>!f.Polygon || f.Tags.ContainsKey("highway"))) {
             cancellationToken.ThrowIfCancellationRequested();
-            var water=f.Tags.ContainsKey("waterway"); if(!water&&!f.Tags.ContainsKey("highway"))continue;
-            var highway=f.Tags.GetValueOrDefault("highway");
-            double widthMetres=water?8:highway is "motorway" or "trunk"?16:highway is "primary" or "secondary"?10:highway is "footway" or "path" or "cycleway"?2:6;
+            var water=f.Tags.ContainsKey("waterway");var rail=f.Tags.ContainsKey("railway");if(!water&&!rail&&!f.Tags.ContainsKey("highway"))continue;
+            var highway=f.Tags.GetValueOrDefault("highway");var bridge=f.Tags.TryGetValue("bridge",out var bridgeTag)&&bridgeTag is not("no" or "0" or "false");
+            var kind=water?"river":rail?"railway":bridge?"bridge":highway is "footway" or "path" or "cycleway" or "pedestrian"?"sidewalk":"road";
+            double widthMetres=water?8:rail?3:highway is "motorway" or "trunk"?16:highway is "primary" or "secondary"?10:kind=="sidewalk"?2:6;
             if(f.Tags.TryGetValue("width",out var widthText)&&double.TryParse(widthText.Replace(" m",""),System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out var specifiedWidth)&&specifiedWidth>0&&specifiedWidth<=60)widthMetres=specifiedWidth;
-            var radius=Math.Clamp((int)Math.Round(widthMetres/p.MetresPerTile.Value/2),0,24);
-            foreach(var ring in f.Rings)for(var i=1;i<ring.Count;i++) DrawLine(p,ring[i-1],ring[i],radius,water?Terrain.Water:Terrain.Road);
+            var tileWidth=Math.Clamp(widthMetres/p.MetresPerTile.Value,1,48);var radius=Math.Clamp((int)Math.Round(tileWidth/2),0,24);
+            foreach(var (ring,index) in f.Rings.Select((r,i)=>(r,i))){
+                var sourceId=f.Tags.GetValueOrDefault("__pz_source");if(preserveEdits&&sourceId is not null&&project.LinearFeatures.Any(l=>l.Modified&&l.SourceId==sourceId))continue;
+                var line=new LinearFeature{Id="geo-line-"+Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes((sourceId??string.Join(";",ring.Select(v=>v.X.ToString("R",System.Globalization.CultureInfo.InvariantCulture)+","+v.Y.ToString("R",System.Globalization.CultureInfo.InvariantCulture))))+"/"+index))).ToLowerInvariant()[..24],Kind=kind,Width=rail?3:tileWidth,SourceId=sourceId,SourceTags=f.Tags.Where(v=>v.Key.Length<=100).Take(47).ToDictionary(v=>v.Key,v=>v.Value[..Math.Min(300,v.Value.Length)]),Points=ring.Select(v=>new LinearPoint(v.X,v.Y)).ToList()};
+                var sourceRing=f.OriginalRings![index];line.SourcePath=sourceRing.Count<=512?sourceRing.Select(v=>new SourceOutlinePoint(v.X,v.Y)).ToList():Enumerable.Range(0,512).Select(i=>sourceRing[(int)((long)i*(sourceRing.Count-1)/511)]).Select(v=>new SourceOutlinePoint(v.X,v.Y)).ToList();
+                if(line.Points.Count>512){line.Points=Enumerable.Range(0,512).Select(i=>line.Points[(int)((long)i*(line.Points.Count-1)/511)]).ToList();line.SourceTags["pzmap:geometry"]="simplified to 512 source samples";simplifiedLines++;}
+                bool eligible=editableLines.Count<64-(preserveEdits?project.LinearFeatures.Count(l=>l.Modified):0);try{LinearFeatureEditor.ValidateFeature(line);if(eligible){var cells=LinearFeatureEditor.Rasterize(line,p.Width,p.Height);eligible=cells.Count>0&&lineBudget+cells.Count<=100000;if(eligible)lineBudget+=cells.Count;}}catch(ArgumentException){eligible=false;}
+                if(eligible)editableLines.Add(line);else if(rail)omittedRails++;else{for(var i=1;i<ring.Count;i++)DrawLine(p,ring[i-1],ring[i],radius,water?Terrain.Water:kind=="sidewalk"?Terrain.Pavement:Terrain.Road);staticLines++;}
+            }
             imported++;
         }
-        if(preserveEdits){p.Version=Math.Max(p.Version,project.Version);p.TerrainEdits=project.TerrainEdits;var mask=TerrainEditMask.Decode(project);for(var i=0;i<p.Terrain.Length;i++)if(TerrainEditMask.IsEdited(mask,i))p.Terrain[i]=project.Terrain[i];p.RequiredMods=[..project.RequiredMods];p.AssetSources=new(project.AssetSources);p.StaticModels=JsonSerializer.Deserialize<List<StaticModelPlacement>>(JsonSerializer.Serialize(project.StaticModels))!;p.Zombies=(int[])project.Zombies.Clone();p.SurfaceRegions=JsonSerializer.Deserialize<List<SurfaceRegion>>(JsonSerializer.Serialize(project.SurfaceRegions))!;if(p.SurfaceRegions.Count>0)p.Version=Math.Max(p.Version,5);p.SurfaceTiles=new(project.SurfaceTiles);p.Decorations=JsonSerializer.Deserialize<List<WorldDecoration>>(JsonSerializer.Serialize(project.Decorations))!;foreach(var i in p.SurfaceTiles.Keys)p.Terrain[i]=project.Terrain[i];foreach(var model in p.StaticModels){var i=model.Y*p.Width+model.X;p.Terrain[i]=project.Terrain[i];}foreach(var d in p.Decorations)foreach(var part in d.Parts){var i=(d.Y+part.Dy)*p.Width+d.X+part.Dx;p.Terrain[i]=project.Terrain[i];}}
+
+        if(preserveEdits){p.Version=Math.Max(p.Version,project.Version);p.TerrainEdits=project.TerrainEdits;var mask=TerrainEditMask.Decode(project);for(var i=0;i<p.Terrain.Length;i++)if(TerrainEditMask.IsEdited(mask,i))p.Terrain[i]=preserved.Terrain[i];p.RequiredMods=[..project.RequiredMods];p.AssetSources=new(project.AssetSources);p.StaticModels=JsonSerializer.Deserialize<List<StaticModelPlacement>>(JsonSerializer.Serialize(project.StaticModels))!;p.Zombies=(int[])project.Zombies.Clone();p.SurfaceRegions=JsonSerializer.Deserialize<List<SurfaceRegion>>(JsonSerializer.Serialize(project.SurfaceRegions))!;if(p.SurfaceRegions.Count>0)p.Version=Math.Max(p.Version,5);p.SurfaceTiles=new(preserved.SurfaceTiles);p.Decorations=JsonSerializer.Deserialize<List<WorldDecoration>>(JsonSerializer.Serialize(preserved.Decorations))!;foreach(var i in p.SurfaceTiles.Keys)p.Terrain[i]=preserved.Terrain[i];foreach(var model in p.StaticModels)foreach(var cell in StaticModelPlacement.FootprintCells(model)){var i=(model.Y+cell.Dy)*p.Width+model.X+cell.Dx;p.Terrain[i]=preserved.Terrain[i];}foreach(var d in p.Decorations)foreach(var part in d.Parts){var i=(d.Y+part.Dy)*p.Width+d.X+part.Dx;p.Terrain[i]=preserved.Terrain[i];}}
         if(p.BuildingLibrary.Any(b=>b.RequiredMods.Count>0||b.AssetSources.Count>0||b.Design?.Floors.Any(f=>f.StaticModels.Count>0)==true)){p.Version=Math.Max(p.Version,6);p.RequiredMods=p.RequiredMods.Concat(p.BuildingLibrary.SelectMany(b=>b.RequiredMods)).Distinct().ToList();}
         if(preserveEdits)foreach(var old in project.Buildings.Where(b=>b.Modified)){
             var kept=JsonSerializer.Deserialize<Building>(JsonSerializer.Serialize(old))!;
-            foreach(var index in BuildingDesigner.Occupied(kept,false)){var px=kept.X+index%(kept.Width+1);var py=kept.Y+index/(kept.Width+1);p.Terrain[py*p.Width+px]=project.Terrain[py*project.Width+px];}
+            foreach(var index in BuildingDesigner.Occupied(kept,false)){var px=kept.X+index%(kept.Width+1);var py=kept.Y+index/(kept.Width+1);p.Terrain[py*p.Width+px]=preserved.Terrain[py*project.Width+px];}
             if(!MapGenerator.CanPlace(p,kept,false))throw new ArgumentException("Manual buildings conflict after the geographic update. Import canceled; the original project was preserved.");p.Buildings.Add(kept);
         }
+        var plannedLines=editableLines.Concat(preserveEdits?project.LinearFeatures.Where(f=>f.Modified).Select(NeighborhoodPlanner.Copy):[]).ToList();
+        foreach(var line in plannedLines){line.Underlay=[];line.GeneratedDecorations=[];line.DecorationIds=[];}
+        if(plannedLines.Count>0)p=LinearFeatureEditor.Rebuild(p,plannedLines);
         foreach(var f in transformed.Where(f=>f.Polygon&&f.Tags.ContainsKey("building"))) {
             cancellationToken.ThrowIfCancellationRequested();
             if(preserveEdits&&f.Tags.TryGetValue("__pz_source",out var sourceKey)&&p.Buildings.Any(b=>b.Modified&&b.SourceId==sourceKey)){imported++;continue;}
@@ -86,7 +101,8 @@ public static partial class GeographicImporter {
                 if(p.SurfaceTheme!="legacy")VisualStyles.Apply(b);
                 if(f.Tags.GetValueOrDefault("roof:shape") is "flat" or "gabled" or "shed" or "skillion" or "hipped")b.Design.Roof=f.Tags["roof:shape"]=="skillion"?"shed":f.Tags["roof:shape"];
                 else if(b.SourceRoof is not null){b.Design.Roof=b.SourceRoof=="pyramidal"?"hipped":b.SourceRoof=="saltbox"?"gabled":"flat";approximateRoofs++;}
-                ApplyOutline(b,f.Rings);
+                if(!ImportedBuildingGeometry.Apply(b,f.Rings,out var footprintReason)){skipped++;skipReasons[footprintReason]=skipReasons.GetValueOrDefault(footprintReason)+1;if(skippedOutlines.Count<256)skippedOutlines.Add(new(b.SourceId,b.Name,footprintReason,x,y,w,h));continue;}
+                b.SourceOutline=ImportedBuildingGeometry.Capture(f.OriginalRings!,out var sourceSimplified);b.SourceOutlineSimplified=sourceSimplified;
             }
             if(w>64||h>64||!MapGenerator.CanPlace(p,b)){
                 skipped++;
@@ -95,8 +111,12 @@ public static partial class GeographicImporter {
             }
             p.Buildings.Add(b);imported++;
         }
-        if(preserveEdits){p.Spawns=project.Spawns.Select(s=>new SpawnPoint{X=s.X,Y=s.Y}).ToList();foreach(var spawn in p.Spawns)p.Terrain[spawn.Y*p.Width+spawn.X]=project.Terrain[spawn.Y*p.Width+spawn.X];}else{try{p.Spawns=[MapGenerator.FindSafeSpawn(p)];}catch(ArgumentException) when(p.WorldSection){p.Spawns=[];}}
+        if(preserveEdits){p.Spawns=project.Spawns.Select(s=>new SpawnPoint{X=s.X,Y=s.Y}).ToList();foreach(var spawn in p.Spawns)p.Terrain[spawn.Y*p.Width+spawn.X]=preserved.Terrain[spawn.Y*p.Width+spawn.X];}else{try{p.Spawns=[MapGenerator.FindSafeSpawn(p)];}catch(ArgumentException) when(p.WorldSection){p.Spawns=[];}}
         p.ImportSummary=new(){SourceFeatures=features.Count,SourceBuildings=transformed.Count(f=>f.Polygon&&f.Tags.ContainsKey("building")),PlacedBuildings=p.Buildings.Count,SkipReasons=new(skipReasons),Quality=ImportQuality.Summarize(p.Buildings,omittedGeometry),SkippedOutlines=skippedOutlines};
+        p.ImportSummary.Notes.Add($"Editable source paths: {editableLines.Count}; raster-only paths retained because of authoring limits: {staticLines}. Imported path widths are estimated from source tags or road classes.");
+        p.ImportSummary.Notes.Add("Building outlines preserve concavity and courtyard holes through tile-center resampling; rooms, stairs and furniture are generated, not surveyed. Original geographic rings are retained separately.");
+        if(omittedRails>0)p.ImportSummary.Notes.Add($"Railway paths skipped because cardinal native artwork or authoring limits were not supported: {omittedRails}. No train simulation is provided.");
+        if(simplifiedLines>0)p.ImportSummary.Notes.Add($"Long source paths simplified to 512 samples: {simplifiedLines}.");
         p.ImportSummary.Notes.Add($"OSM floor counts: {p.Buildings.Count(b=>b.LevelsOrigin=="osm-levels")}; estimated from height: {p.Buildings.Count(b=>b.LevelsOrigin=="osm-height")}; assumed: {p.Buildings.Count(b=>b.LevelsOrigin=="inferred")}.");
         if(limitedLevels>0)p.ImportSummary.Notes.Add($"Above-ground and basement levels were limited to 16 for {limitedLevels} source outlines.");if(approximateRoofs>0)p.ImportSummary.Notes.Add($"Unusual roof shapes were adapted for {approximateRoofs} outlines; original tags were preserved in the building properties.");
         if(preserveEdits)p.ImportSummary.Notes.Add($"Manually edited buildings preserved: {p.Buildings.Count(b=>b.Modified)}. Adjacent source outlines may be skipped to preserve these edits.");
@@ -104,20 +124,6 @@ public static partial class GeographicImporter {
         if(!preserveEdits)foreach(var b in p.Buildings)for(var y=b.Y/8;y<=(b.Y+b.Height)/8;y++)for(var x=b.X/8;x<=(b.X+b.Width)/8;x++)p.Zombies[y*(p.Width/8)+x]=90;
         ImportQuality.Validate(p.ImportSummary);ProjectValidator.Validate(p);
         var warnings=new List<string>();if(skipped>0)warnings.Add($"Buildings skipped: {skipped}. "+string.Join("; ",skipReasons.Select(r=>$"{r.Key}: {r.Value}"))+". Outlines adapted to the grid; interiors generated.");if(omittedGeometry>0){var warning=$"Features with missing points or unclosed OSM relations skipped: {omittedGeometry}. Partial outlines were not used.";warnings.Add(warning);p.ImportSummary.Notes.Add(warning);}return new(p,imported,skipped,warnings){SourceBuildings=transformed.Count(f=>f.Polygon&&f.Tags.ContainsKey("building")),SourceFeatures=features.Count,SkipReasons=skipReasons};
-    }
-    private static void ApplyOutline(Building b,List<List<(double X,double Y)>> rings){
-        var original=b.Design!;var mask=new bool[b.Width*b.Height];
-        for(var y=0;y<b.Height;y++)for(var x=0;x<b.Width;x++)mask[y*b.Width+x]=Inside(b.X+x+.5,b.Y+y+.5,rings[0])&&!rings.Skip(1).Any(r=>Inside(b.X+x+.5,b.Y+y+.5,r));
-        if(mask.Count(v=>v)<16)return;
-        var staircase=-1;for(var y=0;y<b.Height-4&&staircase<0;y++)for(var x=0;x<b.Width;x++)if(Enumerable.Range(0,5).All(i=>mask[(y+i)*b.Width+x])){staircase=y*b.Width+x;break;}
-        if(original.Floors.Count>1&&staircase<0)return;
-        var draft=JsonSerializer.Deserialize<BuildingDesign>(JsonSerializer.Serialize(original))!;b.Design=draft;draft.Shape="custom";
-        for(var z=0;z<draft.Floors.Count;z++){
-            var f=draft.Floors[z];var cells=f.Cells.ToCharArray();for(var i=0;i<cells.Length;i++)if(!mask[i])cells[i]='.';
-            f.Objects.Clear();if(staircase>=0&&draft.Floors.Count>1){for(var i=0;i<5;i++)cells[staircase+i*b.Width]='0';if(z<draft.Floors.Count-1)f.Objects.Add(new(){X=staircase%b.Width,Y=staircase/b.Width,Kind="stairs"});}
-            f.Cells=new(cells);f.Edges=BuildingDesigner.AutoEdges(b,f,z+draft.MinLevel);
-        }
-        try{BuildingDesigner.Validate(b);for(var z=0;z<draft.Floors.Count;z++)BuildingDesigner.Furnish(b,z,new Random(unchecked(draft.Variant+z*1009)));BuildingDesigner.Validate(b);}catch(ArgumentException){b.Design=original;}
     }
     private static JsonDocument Parse(string json){try{return JsonDocument.Parse(json,new(){MaxDepth=48});}catch(JsonException){throw new ArgumentException("Could not read the geographic JSON data.");}}
     private static List<Feature> ReadFeatures(JsonElement root,out int omittedGeometry)
@@ -132,7 +138,7 @@ public static partial class GeographicImporter {
         Dictionary<string,string> Tags(JsonElement el,string key){var tags=new Dictionary<string,string>();if(el.TryGetProperty(key,out var props)&&props.ValueKind==JsonValueKind.Object)foreach(var pair in props.EnumerateObject())tags[pair.Name]=pair.Value.ToString();return tags;}
         List<(double X,double Y)>? OsmRing(JsonElement geometry){if(geometry.ValueKind!=JsonValueKind.Array)return null;var ring=new List<(double,double)>();foreach(var point in geometry.EnumerateArray()){if(point.ValueKind!=JsonValueKind.Object||!point.TryGetProperty("lon",out var lon)||!point.TryGetProperty("lat",out var lat)||!lon.TryGetDouble(out var x)||!lat.TryGetDouble(out var y))return null;ring.Add(Point(x,y));}return ring;}
         void Add(Dictionary<string,string> tags,List<List<(double,double)>> rings,bool polygon) {
-            if(rings.Count==0||rings.Any(r=>r.Count<(polygon?4:2)))return;
+            if(rings.Count==0||rings.Any(r=>r.Count<(polygon?4:2)||polygon&&r[0]!=r[^1])){omitted++;return;}
             if(result.Count>=30000)throw new ArgumentException("Too many objects: the limit is 30,000.");
             result.Add(new(tags,rings,polygon));
         }

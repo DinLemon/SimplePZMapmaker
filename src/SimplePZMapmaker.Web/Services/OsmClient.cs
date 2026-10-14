@@ -41,8 +41,8 @@ public sealed partial class OsmClient(string cacheDirectory,HttpMessageHandler? 
  }
  private Task<OsmDownload> FetchSingleDetailed(GeoBounds b,CancellationToken token,IProgress<OsmProgress>? progress=null){
   ProjectValidator.ValidateBounds(b);var box=FormattableString.Invariant($"{b.South:F6},{b.West:F6},{b.North:F6},{b.East:F6}");
-  var query=$"[out:json][timeout:25];(way[highway]({box});way[building]({box});way[natural]({box});way[landuse]({box});way[waterway]({box});relation[natural]({box});relation[landuse]({box});relation[building]({box}););out geom;";
-  return Request("osm-v6-"+box,providers,url=>new(HttpMethod.Post,url){Content=new FormUrlEncodedContent(new Dictionary<string,string>{{"data",query}})},true,token,progress);
+  var query=$"[out:json][timeout:25];(way[highway]({box});way[building]({box});way[natural]({box});way[landuse]({box});way[waterway]({box});way[railway]({box});relation[natural]({box});relation[landuse]({box});relation[building]({box}););out geom;";
+  return Request("osm-v7-"+box,providers,url=>new(HttpMethod.Post,url){Content=new FormUrlEncodedContent(new Dictionary<string,string>{{"data",query}})},true,token,progress);
  }
  public async Task<JsonElement> Search(string query,CancellationToken token){
   if(string.IsNullOrWhiteSpace(query)||query.Length>180)throw new ArgumentException("Enter a city name or address, up to 180 characters.");

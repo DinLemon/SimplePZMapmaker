@@ -36,7 +36,7 @@ public static class NativeMapExporter {
                 if(t==Terrain.Water)continue;
                 zones.Append(Culture($" {{ name = \"\", type = \"{type}\", x = {p.WorldX*256+cx*8}, y = {p.WorldY*256+cy*8}, z = 0, width = 8, height = 8 }},\n"));
             }
-            zones.Append("}\n");Text(root+"objects.lua",zones.ToString());
+            zones.Append("}\n");Text(root+"objects.lua",p.GameZones.Count>0?GameZonesExporter.ObjectsLua(p,token):zones.ToString());
             var attribution=p.Attribution.Concat(p.Buildings.Concat(p.BuildingLibrary).SelectMany(b=>b.Attribution)).Distinct();
             Text($"{slug}/ATTRIBUTION.txt",string.Join('\n',attribution.Prepend("Created with SimplePZMapmaker. Native export format: Build 42 (256-cell / 8-chunk)."))+"\n");
             Text($"{slug}/project.pzmap.json",JsonSerializer.Serialize(p,JsonOptions));

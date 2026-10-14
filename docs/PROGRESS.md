@@ -114,3 +114,8 @@ All authored interface/errors/docs/examples are English; source OSM tags/proper 
 - Added streamed main-map game sprites and physically scaled registered models; floor/object clipboard, native transforms, alignment and visual diagnostics; reusable map-format-8 palettes; road-facing parcels, yards, access gaps, parking and deterministic room variation; import quality/source evidence and manual correction.
 - Core159 and Node97 checks pass. Browser evidence covers signed/shared floors, bounded2048 view, actual model geometry and safe atomic edits. Native atlases now include readable XML and an IGMBv2 companion.
 - Public history/download cleanup retains local recovery copies, preserves clean example packages and replaces affected old Windows binaries with the current release. Character gameplay testing was removed from scope by the user.
+
+
+## 0.9.0 — 2026-10-14
+
+Exact imported footprint masks preserve concavity and courtyards. Editable linear roads, rivers, sidewalks, ground-level bridge decks and cardinal railway sprites retain original geometry evidence and reversible underlays. Main Game view authors buildings and registered models directly with signed floors and atomic history. Game zones, vehicle distributions, multi-cell collision, keyed native doors, authored lights and procedural loot export to actual native/Lua resources. Native LightingJNI calculation runs inside the editor with controlled scenario inputs and verified engine provenance. Map/template/world formats advance to 9/6/3 only for new authoring. Illustrated English guides cover each workflow.

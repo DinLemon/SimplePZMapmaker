@@ -1,0 +1,8 @@
+{
+  "description": "Original reflection adapter; no game code or libraries bundled",
+  "protocol": 2,
+  "javaTarget": 17,
+  "sourceEncoding": "UTF-8 with LF line endings",
+  "sourceSha256": "eb33a160a84f6a69086ed4f2ecbecaee13a7b4d5f5f4125978e43be3e46fb8ac",
+  "classSha256": "25e5387b5227ebe3743c125c4b7c0f024b0723bacf08218235419fa0c6ee0790"
+}

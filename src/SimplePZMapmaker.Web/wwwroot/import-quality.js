@@ -1,10 +1,11 @@
 export function buildingEvidence(b){
  const d=b.design,levels=d?d.floors.length+(d.minLevel||0):1,basements=-(d?.minLevel||0),source=b.levelsOrigin||'inferred';
  return [
-  {field:'Footprint',value:`${b.width} × ${b.height} tiles`,origin:b.sourceId?(d?.shape==='custom'?'Source outline adapted to the grid':'Source bounds; generated rectangular footprint'):'Authored or generated outline',source:b.sourceId||''},
+  {field:'Footprint',value:`${b.width} × ${b.height} tiles`,origin:b.footprintOrigin==='manual-source-edit'?'Manually edited source grid':b.footprintOrigin==='source-grid'?'Source polygon with holes resampled at tile centers':b.sourceId?(d?.shape==='custom'?'Source outline adapted to the grid':'Source bounds; generated rectangular footprint'):'Authored or generated outline',source:b.sourceId||''},
   {field:'Above-ground floors',value:String(levels),origin:source==='osm-levels'?'Source tag':source==='osm-height'?'Estimated from source height':source==='manual'?(b.sourceId?'Manual correction':'Authored template selection'):'Generator assumption',source:b.sourceLevels||''},
   {field:'Basements',value:String(basements),origin:b.sourceBasements!==null&&b.sourceBasements!==undefined?(/^\d+$/.test(b.sourceBasements)?'Source tag adapted to supported levels':'Invalid source tag; no basement assumed'):'Absent from source; authored or assumed',source:b.sourceBasements||''},
   {field:'Roof',value:d?.roof||'unspecified',origin:b.sourceRoof?(['flat','gabled','shed','hipped','skillion'].includes(b.sourceRoof)?'Source shape adapted to tiles':'Unsupported source shape approximated'):'Authored or generated',source:b.sourceRoof||''},
+  {field:'Original geographic outline',value:b.sourceOutline?.length?`${b.sourceOutline.length} rings; ${b.sourceOutline.reduce((n,r)=>n+r.length,0)} WGS84 points`:'Not stored',origin:b.sourceOutline?.length?(b.sourceOutlineSimplified?'Source evidence simplified to bounded samples':'Original source coordinates; game tiles are a resampling'):'Legacy or authored building',source:''},
   {field:'Rooms and furniture',value:'Editable generated layout',origin:b.modified?'Generated layout with manual edits':'Generator; not surveyed interiors',source:''},
   {field:'Building purpose',value:b.kind,origin:b.sourceKind&&!b.sourceKind.startsWith('original-')&&!b.sourceKind.startsWith('generated-')&&b.sourceKind!=='yes'?'Source classification adapted to game types':'Authored or inferred',source:b.sourceKind||''}
  ];

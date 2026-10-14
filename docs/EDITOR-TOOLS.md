@@ -2,9 +2,9 @@
 
 ## Inspect the main map with game resources
 
-Choose **Game view** above the map, then choose a signed floor or **All levels**. The first visit uploads one validated snapshot; panning fetches visible native-cell chunks. The view uses exported tile identifiers and registered model geometry, textures, attachment transforms and physical scale. Select **Top** for terrain drawing.
+Choose **Game view** above the map, then choose a signed floor or **All levels**. The first visit uploads one validated snapshot; panning fetches visible native-cell chunks. The view uses exported tile identifiers and registered model geometry, textures, attachment transforms and physical scale. Select **Top** for terrain drawing. To paint buildings in the main canvas, follow the [direct Game-view editing guide](DIRECT-EDITING.md).
 
-Use the wheel or the **+**/**−** controls to inspect resources. Game view permits 96 pixels per half-tile axis; other map views retain their previous zoom limit. At overview scales terrain is sampled and forest sprites are thinned. Authored walls, furniture, shared buildings and models retain their positions and size. The status bar reports sampling and missing resources. This preview does not simulate the game's lighting or character behavior.
+Use the wheel or the **+**/**−** controls to inspect resources. Game view permits 96 pixels per half-tile axis; other map views retain their previous zoom limit. At overview scales terrain is sampled and forest sprites are thinned. Authored walls, furniture, shared buildings and models retain their positions and size. The status bar reports sampling and missing resources. The resource preview does not simulate character behavior. **Check lighting** adds a light field calculated by the installed native library; follow the [native lighting guide](NATIVE-LIGHTING.md) for its controlled inputs and rendering limits.
 
 Client limits are 96 chunks, 24 MB of chunk JSON and 96 MB of atlas images, with two concurrent chunk requests. The server keeps at most four snapshots within an estimated 192 MB budget, four composed cells per snapshot, and expires idle snapshots after five minutes. Expired views renew automatically with a bounded retry. Resource catalog changes invalidate the view.
 
@@ -41,6 +41,6 @@ Inspect the colored proposal and counts before **Apply proposal to session**, th
 
 Expand **Import quality and source evidence** in the project inspector. It distinguishes tagged floor counts, height estimates and assumptions from generated interiors and roofs. Skipped outlines retain bounded source identifiers and reasons, such as unsuitable geometry or collision with preserved buildings.
 
-Select an imported building to inspect its evidence and correct its floors. A correction records the manual decision while preserving original source tags. Generated rectangular footprints and inferred interiors are labeled accordingly; they are not surveyed architectural plans.
+Select an imported building to inspect its evidence and correct its floors. A correction records the manual decision while preserving original source tags. Imported source outlines retain concave footprints and courtyard holes when they fit the editor grid. Original survey rings and source-grid resampling remain visible in the evidence. Unsuitable shapes are reported as skipped; generated interiors and roofs remain approximations. Use the [path editing guide](DIRECT-EDITING.md#edit-roads-rivers-and-railway-paths) to revise roads, rivers and native railway layers.
 
 Native exports include both readable `worldmap.xml` and its Build 42 IGMB version 2 binary companion. The companion preserves the same cell polygons and properties and avoids the installed Build 42 XML point-count parser problem.

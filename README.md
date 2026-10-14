@@ -2,7 +2,7 @@
 
 A local visual map and building editor for **Project Zomboid Build 42**, written in C#/.NET 10 with a browser interface. Create maps without programming, assemble rooms from your installed game's resources, import OpenStreetMap geography, and join adjacent sections into one world.
 
-**Current release: 0.8.0.** The Windows x64 download includes the .NET Runtime. The editor supports 24 original editable building plans, up to 16 above-ground levels and basements **−1 to −16**, game/mod sprites and static models, shared buildings across section boundaries, measured DEM elevation, and MCP planning with a review before changes enter your project.
+**Current release: 0.9.0.** The Windows x64 download includes the .NET Runtime. The editor supports 24 original editable building plans, up to 16 above-ground levels and basements **−1 to −16**, game/mod sprites and static models, shared buildings across section boundaries, measured DEM elevation, and MCP planning with a review before changes enter your project.
 
 [Download releases](https://github.com/DinLemon/SimplePZMapmaker/releases) · [Verification status](docs/STATUS.md) · [Code and data provenance](docs/PROVENANCE.md)
 
@@ -22,12 +22,12 @@ A local visual map and building editor for **Project Zomboid Build 42**, written
 ### 2. Download the application ZIP
 
 1. Open [GitHub Releases](https://github.com/DinLemon/SimplePZMapmaker/releases).
-2. Select **v0.8.0**, or a newer published release. The project publishes prereleases, so use the release list rather than assuming GitHub's `/latest` page shows the newest build.
-3. Expand **Assets** and download **`SimplePZMapmaker-0.8.0-win-x64.zip`**. Example map ZIPs contain game mods, not the editor. GitHub's automatic **Source code** archives are development sources, not the ready-to-run application.
+2. Select **v0.9.0**, or a newer published release. The project publishes prereleases, so use the release list rather than assuming GitHub's `/latest` page shows the newest build.
+3. Expand **Assets** and download **`SimplePZMapmaker-0.9.0-win-x64.zip`**. Example map ZIPs contain game mods, not the editor. GitHub's automatic **Source code** archives are development sources, not the ready-to-run application.
 4. Optionally download the release checksum file and compare the archive's SHA-256 before extracting it. Run this command from the folder containing the downloaded archive:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath './SimplePZMapmaker-0.8.0-win-x64.zip'
+Get-FileHash -Algorithm SHA256 -LiteralPath './SimplePZMapmaker-0.9.0-win-x64.zip'
 ```
 
 ### 3. Extract the entire archive
@@ -129,11 +129,11 @@ For Smolensk, the regional source downloads an oblast PBF from [OSM France](http
 
 Automatic OSM selection retries temporary failures through backup servers. A 504 is an external timeout; availability cannot be guaranteed. Failed/cancelled imports keep the current project. Saved GeoJSON/Overpass JSON imports work offline: WGS 84 `[longitude, latitude]`, supported lines/polygons/multipolygons, limits of 16 MB, 250,000 points and 30,000 features, plus polygon complexity limits.
 
-The interface and authored examples are English; original imported OSM place names and source tags remain unchanged so the geographic source stays reproducible. OSM attribution is retained; its geography has separate ODbL obligations. Google Maps is not an exportable-geometry source. A separate railway layer is not implemented.
+The interface and authored examples are English; original imported OSM place names and source tags remain unchanged so the geographic source stays reproducible. OSM attribution is retained; its geography has separate ODbL obligations. Google Maps is not an exportable-geometry source. The editable railway layer uses original cardinal track sprites; diagonal and curved railway artwork is rejected explicitly.
 
 ## Native view, clipboard, palettes and import quality
 
-Choose **Game view** above the main map to inspect exported game sprites and physically scaled registered models. Choose a signed floor, zoom in, or switch back to **Top** to draw. The building editor adds floor/object clipboard, alignment, supported native rotations/mirrors, visual diagnostics and portable resource palettes. Neighborhood proposals add road-facing parcels, yards, fence gaps, parking and deterministic room-layout variation. The project inspector exposes source-versus-inference evidence and skipped outlines. Follow the illustrated [editor tools guide](docs/EDITOR-TOOLS.md).
+Choose **Game view** above the main map to edit floors, rooms, outlines, walls, doors, windows, stairs and registered objects directly against game resources. Choose a signed floor and use **Edit in Game view**; every completed stroke is one undo operation. Read the illustrated [direct editing guide](docs/DIRECT-EDITING.md). The building editor adds floor/object clipboard, alignment, supported native rotations/mirrors, visual diagnostics and portable resource palettes. Neighborhood proposals add road-facing parcels, yards, fence gaps, parking and deterministic room-layout variation. The project inspector exposes source-versus-inference evidence and skipped outlines. Follow the illustrated [editor tools guide](docs/EDITOR-TOOLS.md).
 
 ## Stitch sections and use elevation
 
@@ -235,7 +235,7 @@ QA downloads/screenshots/logs stay in `work/qa-results/` or `work/logs/`. Develo
 1. Open **Actions** in the GitHub repository and select **Build and verify**.
 2. Choose **Run workflow**, select `develop` or the branch to verify, then start.
 3. Inspect build/startup/browser steps in the run.
-4. Download the completed application artifact for local use. Extract GitHub's outer artifact archive, then extract the contained `SimplePZMapmaker-0.8.0-win-x64.zip` into the application folder and follow the installation steps above. The diagnostic artifact contains startup evidence and screenshots. GitHub may require sign-in for artifacts.
+4. Download the completed application artifact for local use. Extract GitHub's outer artifact archive, then extract the contained `SimplePZMapmaker-0.9.0-win-x64.zip` into the application folder and follow the installation steps above. The diagnostic artifact contains startup evidence and screenshots. GitHub may require sign-in for artifacts.
 
 CI runs on pushes to `develop`, pull requests and manual dispatch. The Windows runner uses its mapped checkout as the workspace and keeps task caches there. Its no-game fallback check does not replace local installed-game probes.
 
@@ -259,3 +259,14 @@ CI runs on pushes to `develop`, pull requests and manual dispatch. The Windows r
 Independent native readers and selected installed-game loaders check archives, upstairs/basement rooms and stairs. Static-model probes exercise actual game collision approaches and container capacity. Browser checks cover editing, imports, world assembly, recovery and agent review. These do **not** establish a complete character playthrough, exact visuals for every mod model/roof, loot balance or multiplayer/save-reload correctness. Dated evidence: [STATUS.md](docs/STATUS.md). Historical paths/download cleanup and updating an existing clone: [Publication privacy](docs/PUBLICATION-PRIVACY.md).
 
 Unofficial and unaffiliated with The Indie Stone. Code/original plans: **GPL-2.0-or-later**; OSM geography: separate **ODbL** obligations. Game/mod resources and reference images retain their owners' rights. Read [PROVENANCE.md](docs/PROVENANCE.md), [RUNTIME.md](docs/RUNTIME.md) and bundled licenses.
+
+## Author gameplay in the editor
+
+Use **Game zones and vehicles** to draw ground-level biome or vehicle-distribution rectangles. Select a model in **Game view** for its collision footprint, native door, light and container properties. [Step-by-step gameplay authoring](docs/GAMEPLAY-AUTHORING.md) explains the controls, export behavior and power assumptions.
+
+![Vehicle zones authored directly in Game view](docs/screenshots/10-gameplay-zones.png)
+
+
+## Check lighting without leaving the editor
+
+Use **Check lighting** in **Game view** to calculate a selected area with the installed game's native lighting library. The editor displays actual returned cell colors and engine/scene fingerprints, with controls for sky input, room power and authored model lights. No game session or character walk is started. Signed basements and neighboring stitched sections participate in the calculation. The browser visualizes the native light field; game FBO shaders, material rendering, model-mesh shadows, live weather and switches remain explicit limitations. Follow the [illustrated native lighting guide](docs/NATIVE-LIGHTING.md).

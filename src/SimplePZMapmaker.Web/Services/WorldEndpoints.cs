@@ -45,7 +45,7 @@ public static class WorldEndpoints
   });
   app.MapPost("/api/world/recovery/{id}/clear",async(string id,WorldStore store,CancellationToken token)=>{await store.ClearAsync(id,token);return Results.Ok(new{cleared=true});});return app;
  }
- private static WorldAssembler.Bounds Validate(WorldProject world,GameAssetCatalog assets,StaticModelCatalog models){var bounds=WorldAssembler.Validate(world);foreach(var member in world.Maps){AssetRules.Project(member.Project,assets);models.Validate(member.Project);}foreach(var building in world.Buildings){AssetRules.Building(building,assets);ModelRules.Building(building,models);}return bounds;}
+ internal static WorldAssembler.Bounds Validate(WorldProject world,GameAssetCatalog assets,StaticModelCatalog models){var bounds=WorldAssembler.Validate(world);foreach(var member in world.Maps){AssetRules.Project(member.Project,assets);models.Validate(member.Project);}foreach(var building in world.Buildings){AssetRules.Building(building,assets);ModelRules.Building(building,models);}return bounds;}
 }
 public sealed record WorldMoveRequest(WorldProject World,string MemberId,int CellX,int CellY);
 public sealed record WorldBuildingRequest(WorldProject World,Building Building);
