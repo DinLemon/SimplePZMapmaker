@@ -8,6 +8,36 @@ A local visual map and building editor for **Project Zomboid Build 42**, written
 
 ![The English map editor](docs/screenshots/01-editor.png)
 
+## What's new in 0.9.0
+
+The [0.9.0 implementation commit](https://github.com/DinLemon/SimplePZMapmaker/commit/70718e4d3ec46b5e4631def90606f49ef906c12a) adds the following tools. For first-time setup, follow the [Windows installation instructions](#install-the-ready-to-run-windows-application) below.
+
+### Edit buildings directly in Game view
+
+Paint floors, rooms, building outlines, walls, doors and windows against actual game sprites. Place furniture and registered models from the game or active mods without leaving the main map. Add upper floors, basements and connected stairs; edit shared buildings across world-section boundaries. Each accepted stroke or object change is one undo operation. See the [direct editing guide](docs/DIRECT-EDITING.md).
+
+![Direct building editing with game resources and registered model previews](docs/screenshots/07-main-native-editing.png)
+
+### Preserve imported outlines and edit geographic paths
+
+OpenStreetMap building footprints now preserve concave outlines and courtyard holes at game-tile resolution, with original source geometry retained in the project. Edit roads, rivers, sidewalks, bridges and railway paths through control points, widths and previews. Moving or removing a path restores its previous terrain while protecting later manual edits and complete object footprints. Curved roads and rivers support Catmull–Rom interpolation; railway artwork uses original cardinal track sprites, and bridge decks remain at ground level. See [path editing instructions](docs/DIRECT-EDITING.md#edit-roads-rivers-and-railway-paths).
+
+![Editable paths with control points and a preview of native railway sprites](docs/screenshots/08-linear-editor.png)
+
+### Author gameplay zones and interactive objects
+
+Draw biome and vehicle-spawn rectangles directly on the map, select registered vehicle distributions and set their direction. Give models connected collision footprints, native doors with locks and keys, light sources, or container loot distributions. Authored zones, object properties and resource dependencies are included in native map and stitched-world exports. See the [gameplay authoring guide](docs/GAMEPLAY-AUTHORING.md).
+
+![A snapped vehicle zone authored in the main Game view](docs/screenshots/10-gameplay-zones.png)
+
+### Check native lighting inside the editor
+
+Choose **Check lighting** to calculate a selected area with the installed game's `LightingJNI` library. Inspect returned cell colors on signed floors, including basements and nearby stitched sections. Control sky color, ambient strength, room power and authored light sources; inspect engine and scene fingerprints, cancel calculations and discard stale results after edits. The calculation opens no game session. The browser visualizes the native light field; it does not reproduce game FBO/material shaders, model-mesh shadows or live weather and switches. See the [native lighting guide](docs/NATIVE-LIGHTING.md).
+
+![Colored light calculated by the installed native lighting engine and displayed inside the editor](docs/screenshots/09-native-lighting.png)
+
+Validation for this implementation: **190 C# checks, 129 JavaScript checks and 18 installed native-lighting scenarios passed**, together with browser authoring/export/undo workflows and the [GitHub Actions build](https://github.com/DinLemon/SimplePZMapmaker/actions/runs/38558398809). See the [verification record](docs/STATUS.md) for scope and limitations.
+
 ## Install the ready-to-run Windows application
 
 ### 1. Check the requirements
@@ -263,9 +293,6 @@ Unofficial and unaffiliated with The Indie Stone. Code/original plans: **GPL-2.0
 ## Author gameplay in the editor
 
 Use **Game zones and vehicles** to draw ground-level biome or vehicle-distribution rectangles. Select a model in **Game view** for its collision footprint, native door, light and container properties. [Step-by-step gameplay authoring](docs/GAMEPLAY-AUTHORING.md) explains the controls, export behavior and power assumptions.
-
-![Vehicle zones authored directly in Game view](docs/screenshots/10-gameplay-zones.png)
-
 
 ## Check lighting without leaving the editor
 
