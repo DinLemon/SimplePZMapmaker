@@ -108,3 +108,9 @@ Live network: Nominatim succeeds; public Overpass import not validated because s
 ## English publication — 0.7.1, 2026-10-13
 
 All authored interface/errors/docs/examples are English; source OSM tags/proper names retain provenance. Five actual UI screenshots accompany the installation guide and Windows package. Three agents handled frontend translation, backend/tests, and documentation; an independent startup/workflow review found and fixed per-command native-reader exit checking and asynchronous saved-project reopen verification. Local verification: 136 Core, 75 Node, 19 real browser workflows, both official MCP protocols/38 tools, eight native archives, and extracted self-contained package startup without game/shared runtime. GitHub Actions now launches the published app, exercises HTTP/native export and Chromium save/change/reopen, and uploads application/diagnostic artifacts. The repository description and all seven previous release titles/bodies were translated and read back without altering their assets.
+
+## 0.8.0 — 2026-10-14
+
+- Added streamed main-map game sprites and physically scaled registered models; floor/object clipboard, native transforms, alignment and visual diagnostics; reusable map-format-8 palettes; road-facing parcels, yards, access gaps, parking and deterministic room variation; import quality/source evidence and manual correction.
+- Core159 and Node97 checks pass. Browser evidence covers signed/shared floors, bounded2048 view, actual model geometry and safe atomic edits. Native atlases now include readable XML and an IGMBv2 companion.
+- Public history/download cleanup retains local recovery copies, preserves clean example packages and replaces affected old Windows binaries with the current release. Character gameplay testing was removed from scope by the user.

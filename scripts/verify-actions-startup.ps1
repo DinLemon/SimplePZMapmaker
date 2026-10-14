@@ -22,7 +22,7 @@ try {
   if($process.HasExited){throw 'Published application exited before becoming ready.'}
   try{$state=Invoke-RestMethod -Uri ($env:PZMAP_TEST_URL+'/api/environment') -TimeoutSec 1;break}catch{Start-Sleep -Milliseconds 250}
  }
- if(-not $state -or $state.version -ne '0.7.2' -or -not $state.selfContained -or $state.gameFound -or [IO.Path]::GetFullPath($state.workspace) -ne [IO.Path]::GetFullPath($qaRoot)){throw 'Unexpected published application environment.'}
+ if(-not $state -or $state.version -ne '0.8.0' -or -not $state.selfContained -or $state.gameFound -or [IO.Path]::GetFullPath($state.workspace) -ne [IO.Path]::GetFullPath($qaRoot)){throw 'Unexpected published application environment.'}
  $state | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $qaRoot 'environment.json')
  $map=Invoke-RestMethod -Uri ($env:PZMAP_TEST_URL+'/api/generate') -Method Post -ContentType application/json -Body '{"kind":"blank","size":256,"name":"Actions startup check"}'
  $json=$map|ConvertTo-Json -Depth 48 -Compress

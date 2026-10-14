@@ -1,3 +1,6 @@
+import {MapNativePreview} from './map-native-preview.js';
+import {ImportQualityPanel} from './import-quality.js';
+import {validatePalettes} from './palette-data.js';
 import {blank,paint,line,canPlace as canPlaceLocal,History,validateProject as validateLocalProject,boundsFromSearchResult,geographicBase} from './editor.js';
 import {kinds,containsPoint,cell,shapeCells,validateDesign,combineAttribution,minLevel,aboveLevels,visibleFloors,containsVisiblePoint,usesAssets,normalizeBuilding} from './building.js';
 import {BuildingWorkshop} from './workshop.js';
@@ -24,7 +27,7 @@ let recoveryId=crypto.randomUUID().replaceAll('-','');
 try{const existing=localStorage.getItem(recoveryClientKey);if(/^[a-f0-9]{32}$/.test(existing||''))recoveryId=existing;else localStorage.setItem(recoveryClientKey,recoveryId);}catch{}
 let autosaveRevision=0,recoveryQueue=Promise.resolve();
 let project=blank(),history=new History(),tool='brush',terrain=0,buildingKind='house';
-let selectedId=null,selectedSpawn=-1,gesture=null,cursor=null,isometric=false,showGrid=true;
+let selectedId=null,selectedSpawn=-1,gesture=null,cursor=null,isometric=false,nativeView=false,showGrid=true;
 let selectedPlaceBounds=null;
 let zoom=1,pan={x:0,y:0},space=false,busy=false,controller=null,saveTimer,toastTimer,frame=0,dirty=true;
 const canvas=$('map-canvas'),ctx=canvas.getContext('2d'),mini=$('minimap'),mctx=mini.getContext('2d');
@@ -34,9 +37,12 @@ let viewport={width:800,height:600};
 let worldAsset=null,surfaceAsset=null,standaloneId=null,staticModel=null,agentSession=null;
 const gamePreview=new GamePreview();
 const modelSprites=new StaticModelSprites();
+const nativePreview=new MapNativePreview({canvas,requestDraw,status:text=>{if(nativeView)$('status').textContent=text;}});
+let evidenceKey='';
+const qualityPanel=new ImportQualityPanel({project:()=>project,selectedBuilding:()=>project.buildings.find(b=>b.id===selectedId),editBuilding:id=>{selectedId=id;update();$('edit-building').click();},container:document.querySelector('.inspector')});
 const resources=new ResourcePicker({message:toast,pickWorld:a=>{worldAsset=a;setTool('world-asset');$('world-resource-name').textContent=a.name+' · '+a.id;},pickSurface:a=>{surfaceAsset=a;setTool('surface-asset');$('world-resource-name').textContent=a.id;}});
 function saveTemplate(b){project.buildingLibrary??=[];if(project.buildingLibrary.length>=64)throw Error('The library can contain up to 64 templates.');b.attribution=combineAttribution(b.attribution||[],project.attribution);history.begin(project);project.version=Math.max(project.version,b.requiredMods?.length||Object.keys(b.assetSources||{}).length||b.design?.floors.some(f=>f.staticModels?.length)?6:4);b.id=crypto.randomUUID();b.sourceId=null;b.sourceKind=null;b.modified=false;project.buildingLibrary.push(b);history.commit(project);changed();}
-const workshop=new BuildingWorkshop({api,download,resources,preview:gamePreview,apply:b=>{
+const workshop=new BuildingWorkshop({api,download,resources,preview:gamePreview,getPalettes:()=>project.resourcePalettes??[],savePalettes:palettes=>{validatePalettes(palettes);history.begin(project);project.resourcePalettes=structuredClone(palettes);project.version=Math.max(8,project.version);history.commit(project);changed();},apply:b=>{
  if(b.id===standaloneId){saveTemplate(b);standaloneId=null;toast('Your template has been saved. Select it from the library to put it on the map.');return;}
  const old=project.buildings.find(a=>a.id===b.id);if(!old)throw Error('The original building no longer exists.');
  b.modified=true;if(aboveLevels(b)!==aboveLevels(old))b.levelsOrigin='manual';validateDesign(b);if(!canPlace({...project,buildings:project.buildings.filter(a=>a!==old)},b))throw Error('The new outline intersects with water, another building, a spawn point, or a cell boundary.');
@@ -105,6 +111,7 @@ function update(){
  $('surface-theme').value=project.surfaceTheme??'legacy';$('appearance-current').textContent=`Now: ${environmentPresets.find(s=>s.id===project.surfaceTheme)?.name||'Legacy appearance'} · individual sections: ${(project.surfaceRegions||[]).length}`;
  const b=project.buildings.find(b=>b.id===selectedId);$('selection-panel').hidden=!b;
  if(b){$('building-name').value=b.name;$('building-x').value=b.x;$('building-y').value=b.y;$('building-width').value=b.width;$('building-height').value=b.height;$('building-details').textContent=`${kinds[b.kind]} · ${aboveLevels(b)} floor(s) · ${-minLevel(b)} basement(s) · ${b.levelsOrigin==='osm-levels'?'number of floors OSM':b.levelsOrigin==='osm-height'?'estimated from OSM height':b.levelsOrigin==='manual'?'set manually':'number of floors is assumed'}${b.modified?' · manual edits':''}`;}
+ const nextEvidenceKey=autosaveRevision+':'+selectedId+':'+worldWorkshop.revision;if(evidenceKey!==nextEvidenceKey){evidenceKey=nextEvidenceKey;qualityPanel.update();}
  updateLibrary();
  const names={brush:`Brush · ${terrainNames[terrain]}`,rectangle:`Area · ${terrainNames[terrain]}`,road:'Road draw a line',building:`Building · ${catalog[buildingKind].name}`,spawn:'Spawn point',select:'Select objects','world-asset':'Game decor · click on the ground','surface-asset':'Game surface · click terrain','erase-decor':'Remove game decor','static-model':'Static model · press on the ground','appearance-area':'Draw a rectangle to style',pan:'Map panning',zombies:`Zombies · ${$('zombie-density').value}/255`};
  $('map-tool-label').textContent=isometric?'Isometric view · top view drawing':names[tool];
@@ -112,7 +119,7 @@ function update(){
  $('tool-help').textContent=help[tool];requestDraw();
 }
 function changed(){dirty=true;worldWorkshop.currentChanged(project);agentSession?.localChanged();autosave();update();}
-function adopt(p,options={}){validateProject(p);if(!options.worldManaged)worldWorkshop.beforeAdopt(p,options);p.version=Math.max(4,p.version);p.surfaceTheme??='legacy';p.surfaceRegions??=[];p.surfaceTiles??={};p.decorations??=[];p.staticModels??=[];p.requiredMods??=[];p.assetSources??={};for(const b of [...p.buildings,...(p.buildingLibrary||[])])normalizeBuilding(b);project=p;for(const m of (p.staticModels||[]).slice(0,200))modelSprites.load(m).then(()=>requestDraw());appearance.reset();history=new History();history.extraBlockedWater=index=>worldMask().has(index);selectedId=null;selectedSpawn=-1;gesture=null;dirty=true;fit();changed();}
+function adopt(p,options={}){validateProject(p);if(!options.worldManaged)worldWorkshop.beforeAdopt(p,options);p.version=Math.max(4,p.version);p.surfaceTheme??='legacy';p.surfaceRegions??=[];p.surfaceTiles??={};p.decorations??=[];p.staticModels??=[];p.requiredMods??=[];p.assetSources??={};p.resourcePalettes??=[];for(const b of [...p.buildings,...(p.buildingLibrary||[])])normalizeBuilding(b);project=p;for(const m of (p.staticModels||[]).slice(0,200))modelSprites.load(m).then(()=>requestDraw());appearance.reset();history=new History();history.extraBlockedWater=index=>worldMask().has(index);selectedId=null;selectedSpawn=-1;gesture=null;dirty=true;fit();changed();}
 function setTool(value){if(gesture)finish();tool=value;document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool));if(value==='zombies')$('show-zombies').checked=true;update();}
 function fit(){
  const w=viewport.width,h=viewport.height;
@@ -125,7 +132,7 @@ function inverse(x,y){x-=pan.x;y-=pan.y;return isometric?{x:Math.floor((x+2*y)/(
 function screen(x,y){return isometric?{x:pan.x+(x-y)*zoom,y:pan.y+(x+y)*zoom/2}:{x:pan.x+x*zoom,y:pan.y+y*zoom};}
 function within(p){return p.x>=0&&p.y>=0&&p.x<project.width&&p.y<project.height;}
 function scaleAt(factor,x=viewport.width/2,y=viewport.height/2){
- const old=zoom;zoom=Math.max(.08,Math.min(20,zoom*factor));pan.x=x-(x-pan.x)*zoom/old;pan.y=y-(y-pan.y)*zoom/old;update();
+ const old=zoom;zoom=Math.max(.08,Math.min(nativeView?96:20,zoom*factor));pan.x=x-(x-pan.x)*zoom/old;pan.y=y-(y-pan.y)*zoom/old;update();
 }
 function requestDraw(){if(!frame)frame=requestAnimationFrame(()=>{frame=0;draw();});}
 function rebuildRaster(){
@@ -133,16 +140,19 @@ function rebuildRaster(){
 }
 function polygon(points,fill,stroke){ctx.beginPath();for(let i=0;i<points.length;i++){const p=points[i];i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y);}ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.stroke();}}
 function draw(){
+ const nativeActive=nativeView&&isometric;
+ if(nativeActive){const world=worldWorkshop.editedId?{...worldWorkshop.world,maps:worldWorkshop.world.maps.map(m=>m.id===worldWorkshop.editedId?{...m,project}:m)}:null;nativePreview.update({project,world,memberId:worldWorkshop.editedId,revision:autosaveRevision+':'+worldWorkshop.revision,level:$('map-level').value==='all'?null:Number($('map-level').value),viewport,zoom,pan,isometric:true});}
  rebuildRaster();const dpr=window.devicePixelRatio||1;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,viewport.width,viewport.height);ctx.imageSmoothingEnabled=false;
  ctx.save();if(isometric)ctx.transform(zoom,zoom/2,-zoom,zoom/2,pan.x,pan.y);else ctx.transform(zoom,0,0,zoom,pan.x,pan.y);
- ctx.shadowColor='#0007';ctx.shadowBlur=12;ctx.drawImage(raster,0,0);ctx.shadowBlur=0;
+ ctx.shadowColor='#0007';ctx.shadowBlur=12;if(!nativeActive||canvas.dataset.nativeState==='loading')ctx.drawImage(raster,0,0);ctx.shadowBlur=0;
+ if(nativeActive){ctx.restore();nativePreview.draw(ctx);ctx.save();ctx.transform(zoom,zoom/2,-zoom,zoom/2,pan.x,pan.y);}
  if($('show-zombies').checked){const n=project.width/8;for(let y=0;y<project.height/8;y++)for(let x=0;x<n;x++){const z=project.zombies[y*n+x];if(z){ctx.fillStyle=`rgba(171,53,32,${z/255*.7})`;ctx.fillRect(x*8,y*8,8,8);}}}
  if(showGrid){
   ctx.lineWidth=1/zoom;ctx.strokeStyle='#d5ad6999';ctx.setLineDash([5/zoom,5/zoom]);ctx.beginPath();for(let x=0;x<=project.width;x+=256){ctx.moveTo(x,0);ctx.lineTo(x,project.height);}for(let y=0;y<=project.height;y+=256){ctx.moveTo(0,y);ctx.lineTo(project.width,y);}ctx.stroke();ctx.setLineDash([]);
   if(zoom>=5&&!isometric){ctx.strokeStyle='#25302322';ctx.lineWidth=.5/zoom;ctx.beginPath();const a=inverse(0,0),b=inverse(viewport.width,viewport.height);for(let x=Math.max(0,a.x);x<=Math.min(project.width,b.x+1);x++){ctx.moveTo(x,Math.max(0,a.y));ctx.lineTo(x,Math.min(project.height,b.y+1));}for(let y=Math.max(0,a.y);y<=Math.min(project.height,b.y+1);y++){ctx.moveTo(Math.max(0,a.x),y);ctx.lineTo(Math.min(project.width,b.x+1),y);}ctx.stroke();}
  }
  ctx.restore();
- if($('show-buildings').checked){
+ if(!nativeActive&&$('show-buildings').checked){
   const global=worldWorkshop.editedId?(worldWorkshop.world.buildings||[]).filter(b=>b.x+b.width>=project.worldX*256&&b.y+b.height>=project.worldY*256&&b.x<project.worldX*256+project.width&&b.y<project.worldY*256+project.height).map(b=>({...b,x:b.x-project.worldX*256,y:b.y-project.worldY*256})):[];
   const buildings=isometric?[...project.buildings,...global].sort((a,b)=>(a.x+a.y)-(b.x+b.y)):[...project.buildings,...global];
   ctx.save();polygon([[0,0],[project.width,0],[project.width,project.height],[0,project.height]].map(([x,y])=>screen(x,y)));ctx.clip();
@@ -156,8 +166,8 @@ function draw(){
   }
   ctx.restore();
  }
- if(['all','0'].includes($('map-level').value))for(const d of project.decorations){for(const part of d.parts){const p=screen(d.x+part.dx,d.y+part.dy);ctx.fillStyle='#d5b575';ctx.strokeStyle='#28382d';ctx.lineWidth=1;ctx.fillRect(p.x,p.y,Math.max(3,zoom),Math.max(3,zoom));ctx.strokeRect(p.x,p.y,Math.max(3,zoom),Math.max(3,zoom));}}
- if(['all','0'].includes($('map-level').value))for(const m of project.staticModels||[]){const point=screen(m.x+.5,m.y+.5);modelSprites.draw(ctx,m,point.x,point.y,Math.max(12,zoom*4));}
+ if(!nativeActive&&['all','0'].includes($('map-level').value))for(const d of project.decorations){for(const part of d.parts){const p=screen(d.x+part.dx,d.y+part.dy);ctx.fillStyle='#d5b575';ctx.strokeStyle='#28382d';ctx.lineWidth=1;ctx.fillRect(p.x,p.y,Math.max(3,zoom),Math.max(3,zoom));ctx.strokeRect(p.x,p.y,Math.max(3,zoom),Math.max(3,zoom));}}
+ if(!nativeActive&&['all','0'].includes($('map-level').value))for(const m of project.staticModels||[]){const point=screen(m.x+.5,m.y+.5);modelSprites.draw(ctx,m,point.x,point.y,Math.max(12,zoom*4));}
  if($('show-spawns').checked&&['all','0'].includes($('map-level').value))for(let i=0;i<project.spawns.length;i++){const s=project.spawns[i],p=screen(s.x+.5,s.y+.5);ctx.beginPath();ctx.arc(p.x,p.y,selectedSpawn===i?8:6,0,Math.PI*2);ctx.fillStyle='#2b3528';ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='#edb16b';ctx.stroke();ctx.beginPath();ctx.moveTo(p.x-3,p.y);ctx.lineTo(p.x+3,p.y);ctx.moveTo(p.x,p.y-3);ctx.lineTo(p.x,p.y+3);ctx.lineWidth=1;ctx.stroke();}
  if(cursor&&within(cursor)&&!isometric&&!busy){
   const p=screen(cursor.x,cursor.y);ctx.lineWidth=1;
@@ -234,8 +244,8 @@ for(const [id,out,suffix] of [['brush-size','brush-value',''],['zombie-density',
 for(const id of ['show-buildings','show-spawns','show-zombies'])$(id).onchange=requestDraw;
 $('map-level').onchange=requestDraw;
 $('toggle-grid').onclick=()=>{showGrid=!showGrid;$('toggle-grid').classList.toggle('active',showGrid);requestDraw();};
-$('view-top').onclick=()=>{isometric=false;$('view-top').classList.add('active');$('view-iso').classList.remove('active');fit();};
-$('view-iso').onclick=()=>{isometric=true;$('view-iso').classList.add('active');$('view-top').classList.remove('active');fit();};
+$('view-top').onclick=()=>{nativeView=false;nativePreview.close();$('view-native').classList.remove('active');isometric=false;$('view-top').classList.add('active');$('view-iso').classList.remove('active');fit();};
+$('view-iso').onclick=()=>{nativeView=false;nativePreview.close();$('view-native').classList.remove('active');isometric=true;$('view-iso').classList.add('active');$('view-top').classList.remove('active');fit();};
 $('fit-map').onclick=fit;$('zoom-in').onclick=()=>scaleAt(1.25);$('zoom-out').onclick=()=>scaleAt(.8);
 $('undo').onclick=()=>{finish();if(history.undo(project)){selectedId=null;selectedSpawn=-1;changed();}};$('redo').onclick=()=>{if(history.redo(project)){selectedId=null;selectedSpawn=-1;changed();}};
 $('project-name').onfocus=()=>history.begin(project);$('project-name').onchange=()=>{const value=$('project-name').value.trim();if(!value||/[\x00-\x1f\x7f]/.test(value)){toast('Enter the name of the map.',true);update();return;}project.name=value;history.commit(project);changed();};
@@ -289,3 +299,5 @@ async function start(){
  update();
 }
 start();
+
+$('view-native').onclick=()=>{nativeView=true;isometric=true;$('view-native').classList.add('active');$('view-top').classList.remove('active');$('view-iso').classList.remove('active');fit();};

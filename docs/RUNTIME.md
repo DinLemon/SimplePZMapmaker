@@ -1,3 +1,7 @@
+# Runtime and publication
+
+Release 0.8.0 includes the editor tools described in [EDITOR-TOOLS.md](EDITOR-TOOLS.md). Public history and older package cleanup are described in [PUBLICATION-PRIVACY.md](PUBLICATION-PRIVACY.md). The following entries record earlier release verification.
+
 # Windows runtime distribution
 
 Release 0.7.2 uses generic public installation instructions. Local game/Workshop settings stay in ignored `work/` files or environment variables. Published application binaries omit project debug symbols; compiler source paths are mapped to a neutral prefix. Packaging checks source/archive contents against configured local installation paths. Documentation screenshots mask installation-path and session-key fields. This does not remove earlier commits or release files from Git history.

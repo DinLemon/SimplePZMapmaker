@@ -1,0 +1,13 @@
+using SimplePZMapmaker.Core;
+static class ImportQualityTests {
+ public static IEnumerable<(string,Action)> Cases(){
+  yield return("import evidence distinguishes tagged floors estimates assumptions and generated interiors",()=>{
+   var p=MapGenerator.Generate(new(){Kind="blank",Size=512});var source="""{"type":"FeatureCollection","features":[{"type":"Feature","id":"tagged","properties":{"building":"house","building:levels":"3","building:levels:underground":"1","roof:shape":"gabled"},"geometry":{"type":"Polygon","coordinates":[[[30.001,50.001],[30.002,50.001],[30.002,50.002],[30.001,50.002],[30.001,50.001]]]}},{"type":"Feature","id":"height","properties":{"building":"house","height":"9 m","roof:shape":"dome"},"geometry":{"type":"Polygon","coordinates":[[[30.004,50.001],[30.005,50.001],[30.005,50.002],[30.004,50.002],[30.004,50.001]]]}},{"type":"Feature","id":"assumed","properties":{"building":"house"},"geometry":{"type":"Polygon","coordinates":[[[30.007,50.001],[30.008,50.001],[30.008,50.002],[30.007,50.002],[30.007,50.001]]]}}]}""";
+   var report=GeographicImporter.Import(source,p,new(){West=30,East=30.01,South=50,North=50.01}).Project.ImportSummary!;var q=report.Quality!;Check(q.SourceFloors==1&&q.EstimatedFloors==1&&q.AssumedFloors==1&&q.GeneratedLayouts==3&&q.SourceRoofs==1&&q.AdaptedRoofs==1&&q.GeneratedRoofs==1&&q.SourceBasements==1,"Imported evidence lost or generator inference presented as source");ImportQuality.Validate(report);
+  });
+  yield return("skipped outlines retain source IDs and reasons with bounded diagnostic details",()=>{
+   var p=MapGenerator.Generate(new(){Kind="blank"});var source="""{"type":"FeatureCollection","features":[{"type":"Feature","id":"too-large","properties":{"name":"Oversized source house","building":"house"},"geometry":{"type":"Polygon","coordinates":[[[30,50],[30.009,50],[30.009,50.009],[30,50.009],[30,50]]]}}]}""";var report=GeographicImporter.Import(source,p,new(){West=30,East=30.01,South=50,North=50.01}).Project.ImportSummary!;Check(report.SkippedOutlines.Count==1&&report.SkippedOutlines[0].SourceId is not null&&report.SkippedOutlines[0].Reason=="Outline too large"&&report.SkipReasons["Outline too large"]==1,"Skipped source outline details missing");report.SkippedOutlines.AddRange(Enumerable.Repeat(report.SkippedOutlines[0],256));Reject(()=>ImportQuality.Validate(report));
+  });
+ }
+ static void Check(bool value,string message){if(!value)throw new Exception(message);}static void Reject(Action action){try{action();}catch(ArgumentException){return;}throw new Exception("Expected import report validation failure");}
+}

@@ -27,6 +27,7 @@ public static partial class GeographicImporter {
         p.WorldX=project.WorldX;p.WorldY=project.WorldY;p.Bounds=bounds;
         p.WorldSection=projection is not null||project.WorldSection;if(p.WorldSection)p.Version=Math.Max(p.Version,6);
         p.Attribution=[..project.Attribution];
+        p.ResourcePalettes=NeighborhoodPlanner.Copy(project.ResourcePalettes);
         p.SurfaceTheme=project.SurfaceTheme;
         p.BuildingLibrary=JsonSerializer.Deserialize<List<Building>>(JsonSerializer.Serialize(project.BuildingLibrary))!;
         if(p.BuildingLibrary.Any(b=>b.RequiredMods.Count>0||b.AssetSources.Count>0||b.Design?.Floors.Any(f=>f.StaticModels.Count>0)==true))p.Version=Math.Max(p.Version,6);
@@ -41,7 +42,7 @@ public static partial class GeographicImporter {
         double work=0;
         foreach(var f in transformed.Where(f=>f.Polygon&&!f.Tags.ContainsKey("building"))){var outer=f.Rings[0];var rows=Math.Clamp(outer.Max(v=>v.Y)-outer.Min(v=>v.Y)+2,0,p.Height);var columns=Math.Clamp(outer.Max(v=>v.X)-outer.Min(v=>v.X)+2,0,p.Width);work+=rows*(columns+f.Rings.Sum(r=>r.Count));}
         if(work>40_000_000)throw new ArgumentException("The outlines are too complex for this map. Reduce the area or map size, or simplify the GeoJSON.");
-        var imported=0;var skipped=0;var limitedLevels=0;var approximateRoofs=0;var skipReasons=new Dictionary<string,int>();
+        var imported=0;var skipped=0;var limitedLevels=0;var approximateRoofs=0;var skipReasons=new Dictionary<string,int>();var skippedOutlines=new List<SkippedImportOutline>();
         foreach(var f in transformed.Where(f=>f.Polygon&&!f.Tags.ContainsKey("building"))) {
             cancellationToken.ThrowIfCancellationRequested();
             var natural=f.Tags.GetValueOrDefault("natural");var land=f.Tags.GetValueOrDefault("landuse");
@@ -90,18 +91,18 @@ public static partial class GeographicImporter {
             if(w>64||h>64||!MapGenerator.CanPlace(p,b)){
                 skipped++;
                 var reason=w>64||h>64?"Outline too large":b.X<1||b.Y<1||b.X+b.Width>=p.Width||b.Y+b.Height>=p.Height?"Outside the map":b.X/256!=(b.X+b.Width)/256||b.Y/256!=(b.Y+b.Height)/256?"Cell boundary":p.Buildings.Any(a=>b.X<a.X+a.Width+1&&b.X+b.Width+1>a.X&&b.Y<a.Y+a.Height+1&&b.Y+b.Height+1>a.Y)?"Building overlap":"Water or road";
-                skipReasons[reason]=skipReasons.GetValueOrDefault(reason)+1;continue;
+                skipReasons[reason]=skipReasons.GetValueOrDefault(reason)+1;if(skippedOutlines.Count<256)skippedOutlines.Add(new(b.SourceId,b.Name,reason,x,y,w,h));continue;
             }
             p.Buildings.Add(b);imported++;
         }
         if(preserveEdits){p.Spawns=project.Spawns.Select(s=>new SpawnPoint{X=s.X,Y=s.Y}).ToList();foreach(var spawn in p.Spawns)p.Terrain[spawn.Y*p.Width+spawn.X]=project.Terrain[spawn.Y*p.Width+spawn.X];}else{try{p.Spawns=[MapGenerator.FindSafeSpawn(p)];}catch(ArgumentException) when(p.WorldSection){p.Spawns=[];}}
-        p.ImportSummary=new(){SourceFeatures=features.Count,SourceBuildings=transformed.Count(f=>f.Polygon&&f.Tags.ContainsKey("building")),PlacedBuildings=p.Buildings.Count,SkipReasons=new(skipReasons)};
+        p.ImportSummary=new(){SourceFeatures=features.Count,SourceBuildings=transformed.Count(f=>f.Polygon&&f.Tags.ContainsKey("building")),PlacedBuildings=p.Buildings.Count,SkipReasons=new(skipReasons),Quality=ImportQuality.Summarize(p.Buildings,omittedGeometry),SkippedOutlines=skippedOutlines};
         p.ImportSummary.Notes.Add($"OSM floor counts: {p.Buildings.Count(b=>b.LevelsOrigin=="osm-levels")}; estimated from height: {p.Buildings.Count(b=>b.LevelsOrigin=="osm-height")}; assumed: {p.Buildings.Count(b=>b.LevelsOrigin=="inferred")}.");
         if(limitedLevels>0)p.ImportSummary.Notes.Add($"Above-ground and basement levels were limited to 16 for {limitedLevels} source outlines.");if(approximateRoofs>0)p.ImportSummary.Notes.Add($"Unusual roof shapes were adapted for {approximateRoofs} outlines; original tags were preserved in the building properties.");
         if(preserveEdits)p.ImportSummary.Notes.Add($"Manually edited buildings preserved: {p.Buildings.Count(b=>b.Modified)}. Adjacent source outlines may be skipped to preserve these edits.");
         if(preserveEdits&&project.TerrainEdits.Length==0)p.ImportSummary.Notes.Add("Legacy manual terrain changes without a mask cannot be identified. Explicit surfaces, decoration, and buildings were preserved; unmarked terrain was refreshed from geographic data.");
         if(!preserveEdits)foreach(var b in p.Buildings)for(var y=b.Y/8;y<=(b.Y+b.Height)/8;y++)for(var x=b.X/8;x<=(b.X+b.Width)/8;x++)p.Zombies[y*(p.Width/8)+x]=90;
-        ProjectValidator.Validate(p);
+        ImportQuality.Validate(p.ImportSummary);ProjectValidator.Validate(p);
         var warnings=new List<string>();if(skipped>0)warnings.Add($"Buildings skipped: {skipped}. "+string.Join("; ",skipReasons.Select(r=>$"{r.Key}: {r.Value}"))+". Outlines adapted to the grid; interiors generated.");if(omittedGeometry>0){var warning=$"Features with missing points or unclosed OSM relations skipped: {omittedGeometry}. Partial outlines were not used.";warnings.Add(warning);p.ImportSummary.Notes.Add(warning);}return new(p,imported,skipped,warnings){SourceBuildings=transformed.Count(f=>f.Polygon&&f.Tags.ContainsKey("building")),SourceFeatures=features.Count,SkipReasons=skipReasons};
     }
     private static void ApplyOutline(Building b,List<List<(double X,double Y)>> rings){

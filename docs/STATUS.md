@@ -1,3 +1,15 @@
+# Verification status — 0.8.0, 2026-10-14
+
+## Editor tools and publication privacy — 0.8.0
+
+- Core 159/159 and JavaScript 97/97 pass. Independent atlas readback checks both single maps and stitched sparse worlds against the XML polygons and enforces the installed binary reader's signed-short limits.
+- Actual Chromium workflows verify main-map native sprites and physical model geometry, signed/shared basements, zoom/pan, catalog invalidation, bounded caches and 2048-tile overview; building floor/group clipboard, native transforms, alignment, diagnostics, format-8 palettes and provider conflict rejection; parcel review/atomic apply/undo and import source evidence/manual floor corrections.
+- Unsupported sprite transforms reject the complete operation before changing the draft. Generated layouts preserve staircase cores and authored basements. Inactive palette references do not activate mods.
+- Public history and affected historical Windows downloads receive the cleanup described in [Publication privacy](PUBLICATION-PRIVACY.md). Exact rewritten refs, retained assets and final package are audited before publication.
+- On 2026-10-14 the user removed the in-game character playthrough from this task. Character traversal, lighting, loot, gameplay save/reload and multiplayer are not claimed as validated by this release.
+
+## Earlier verification records
+
 # Verification status — 0.7.2, 2026-10-13
 
 ## Public installation-path correction — 0.7.2

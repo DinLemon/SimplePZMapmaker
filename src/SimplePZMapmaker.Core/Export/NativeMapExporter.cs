@@ -41,7 +41,7 @@ public static class NativeMapExporter {
             Text($"{slug}/ATTRIBUTION.txt",string.Join('\n',attribution.Prepend("Created with SimplePZMapmaker. Native export format: Build 42 (256-cell / 8-chunk)."))+"\n");
             Text($"{slug}/project.pzmap.json",JsonSerializer.Serialize(p,JsonOptions));
             Text($"{slug}/INSTALL.txt",$"Extract {slug} into Zomboid/mods. Enable the mod, create a NEW game, and choose the {p.Name} map. Do not add it to an important existing world. The generator does not install the mod automatically. Other maps occupying the same coordinates may conflict. For a server, set Map={slug} and Mods={slug}. This is a B42 export; check compatibility in a separate new save. The identifier depends on the name and seed; changing either creates a different mod.\n");
-            Text(root+"worldmap.xml",WorldMap(p));
+            var atlas=WorldMap(p);Text(root+"worldmap.xml",new XDocument(new XDeclaration("1.0","UTF-8",null),atlas).ToString());Bytes(root+"worldmap.xml.bin",NativeWorldMapBinary.Write(atlas));
             for(var cellY=0;cellY<p.Height/256;cellY++)for(var cellX=0;cellX<p.Width/256;cellX++) {
                 token.ThrowIfCancellationRequested();
                 var composer=new TileComposer(p,cellX,cellY);
@@ -86,7 +86,7 @@ public static class NativeMapExporter {
         }
         return s.ToArray();
     }
-    private static string WorldMap(MapProject p) {
+    private static XElement WorldMap(MapProject p) {
         var world=new XElement("world",new XAttribute("version","1.0"),new XAttribute("cellSize",256));
         for(var cy=0;cy<p.Height/256;cy++)for(var cx=0;cx<p.Width/256;cx++) {
             var cell=new XElement("cell",new XAttribute("x",p.WorldX+cx),new XAttribute("y",p.WorldY+cy));
@@ -110,6 +110,6 @@ public static class NativeMapExporter {
             }
             world.Add(cell);
         }
-        return new XDocument(new XDeclaration("1.0","UTF-8",null),world).ToString();
+        return world;
     }
 }

@@ -1,0 +1,24 @@
+export function buildingEvidence(b){
+ const d=b.design,levels=d?d.floors.length+(d.minLevel||0):1,basements=-(d?.minLevel||0),source=b.levelsOrigin||'inferred';
+ return [
+  {field:'Footprint',value:`${b.width} × ${b.height} tiles`,origin:b.sourceId?(d?.shape==='custom'?'Source outline adapted to the grid':'Source bounds; generated rectangular footprint'):'Authored or generated outline',source:b.sourceId||''},
+  {field:'Above-ground floors',value:String(levels),origin:source==='osm-levels'?'Source tag':source==='osm-height'?'Estimated from source height':source==='manual'?(b.sourceId?'Manual correction':'Authored template selection'):'Generator assumption',source:b.sourceLevels||''},
+  {field:'Basements',value:String(basements),origin:b.sourceBasements!==null&&b.sourceBasements!==undefined?(/^\d+$/.test(b.sourceBasements)?'Source tag adapted to supported levels':'Invalid source tag; no basement assumed'):'Absent from source; authored or assumed',source:b.sourceBasements||''},
+  {field:'Roof',value:d?.roof||'unspecified',origin:b.sourceRoof?(['flat','gabled','shed','hipped','skillion'].includes(b.sourceRoof)?'Source shape adapted to tiles':'Unsupported source shape approximated'):'Authored or generated',source:b.sourceRoof||''},
+  {field:'Rooms and furniture',value:'Editable generated layout',origin:b.modified?'Generated layout with manual edits':'Generator; not surveyed interiors',source:''},
+  {field:'Building purpose',value:b.kind,origin:b.sourceKind&&!b.sourceKind.startsWith('original-')&&!b.sourceKind.startsWith('generated-')&&b.sourceKind!=='yes'?'Source classification adapted to game types':'Authored or inferred',source:b.sourceKind||''}
+ ];
+}
+export function importQualityModel(project){
+ const report=project.importSummary;if(!report)return null;
+ return {sourceFeatures:report.sourceFeatures,sourceBuildings:report.sourceBuildings,placed:report.placedBuildings,skipped:Object.entries(report.skipReasons||{}).reduce((n,[,v])=>n+v,0),reasons:Object.entries(report.skipReasons||{}),quality:report.quality||null,outlines:(report.skippedOutlines||[]).slice(0,256),notes:report.notes||[]};
+}
+export class ImportQualityPanel {
+ constructor({project,selectedBuilding,editBuilding,container}){Object.assign(this,{project,selectedBuilding,editBuilding});this.node=document.createElement('details');this.node.id='import-quality';const summary=document.createElement('summary');summary.textContent='Import quality and source evidence';this.content=document.createElement('div');this.node.append(summary,this.content);(container||document.querySelector('#import-summary')?.parentElement||document.body).append(this.node);}
+ update(){this.content.replaceChildren();const report=importQualityModel(this.project());const text=(tag,value)=>{const n=document.createElement(tag);n.textContent=value;this.content.append(n);return n;};
+  if(!report){text('p','No geographic import report. Building evidence below also works for authored projects.');}
+  else {text('p',`${report.placed} placed of ${report.sourceBuildings} source buildings; ${report.skipped} skipped; ${report.sourceFeatures} supported features.`);if(report.quality){const q=report.quality;text('p',`Import-time floors: ${q.sourceFloors} source tags, ${q.estimatedFloors} height estimates, ${q.assumedFloors} assumptions, ${q.manualFloors} manual. Interiors: ${q.generatedLayouts} generated layouts. Roofs: ${q.sourceRoofs} source shapes, ${q.adaptedRoofs} approximations, ${q.generatedRoofs} authored/generated. Missing geometry: ${q.omittedFeatures}.`);}const reasons=text('ul','');for(const [reason,count] of report.reasons){const li=document.createElement('li');li.textContent=`${reason}: ${count}`;reasons.append(li);}if(report.outlines.length){const skipped=text('details','');const title=document.createElement('summary');title.textContent=`Skipped outlines (${report.outlines.length} shown, maximum 256)`;skipped.append(title);const list=document.createElement('ol');for(const o of report.outlines){const li=document.createElement('li');li.textContent=`${o.name} · ${o.sourceId||'anonymous feature'} · ${o.reason} · X${o.x}, Y${o.y}, ${o.width} × ${o.height}`;list.append(li);}skipped.append(list);}for(const note of report.notes)text('p',note);}
+  const b=this.selectedBuilding?.();if(b){text('h4',b.name);const list=text('dl','');for(const row of buildingEvidence(b)){const label=document.createElement('dt');label.textContent=row.field;const value=document.createElement('dd');value.textContent=`${row.value} · ${row.origin}${row.source?' · source: '+row.source:''}`;list.append(label,value);}const edit=text('button','Correct floors or inspect this building');edit.type='button';edit.onclick=()=>this.editBuilding?.(b.id);}
+  else text('p','Select a building to inspect its source tags and correct floors in the building editor. Source tags are retained after manual corrections.');
+ }
+}

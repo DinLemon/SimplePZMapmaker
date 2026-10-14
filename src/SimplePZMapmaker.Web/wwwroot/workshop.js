@@ -4,10 +4,11 @@ import {StaticModelSprites} from './static-model-sprites.js';
 import {EmbeddedResourcePalette} from './resources.js';
 import {VisualWorkshop,nearestEdge,placementCheck} from './visual-workshop.js';
 import {installArchitectureControls} from './building-architecture.js';
+import {installBuildingUsabilityControls} from './building-usability.js';
 const $=id=>document.getElementById(id),colors=['#b6ac83','#6d877c','#9b815e','#ad8c7d','#858aaa','#938c68','#a59883'];
 export class BuildingWorkshop{
- constructor({api,apply,template,download,attribution,resources,preview}){
-  Object.assign(this,{api,apply,template,download,attribution,resources,preview});this.draft=null;this.level=0;this.tool='room';this.room='1';this.scale=10;this.origin={x:0,y:0};this.drag=null;this.history=new DraftHistory();this.saving=false;this.asset=null;this.floorTile=null;this.wallPair=null;this.doorPair=null;this.windowPair=null;
+ constructor({api,apply,template,download,attribution,resources,preview,getPalettes,savePalettes}){
+  Object.assign(this,{api,apply,template,download,attribution,resources,preview,getPalettes,savePalettes});this.draft=null;this.level=0;this.tool='room';this.room='1';this.scale=10;this.origin={x:0,y:0};this.drag=null;this.history=new DraftHistory();this.saving=false;this.asset=null;this.floorTile=null;this.wallPair=null;this.doorPair=null;this.windowPair=null;
   this.modelSprites=new StaticModelSprites();this.visual=new VisualWorkshop(this);this.palette=new EmbeddedResourcePalette({images:this.visual.images,choose:(role,a)=>this.chooseResource(role,a)});
   for(const [id,style] of Object.entries(visualStyles))$('be-style').add(new Option(style.name,id));
   $('be-style').onchange=()=>this.change(()=>{const id=$('be-style').value;this.draft.design.style=id;if(id)this.draft.design.material=visualStyles[id].material;for(const f of this.draft.design.floors)for(const o of f.objects)if(!['stairs','asset'].includes(o.kind))o.style=id;});
@@ -46,6 +47,7 @@ export class BuildingWorkshop{
   canvas.addEventListener('pointerup',()=>{if(!this.drag)return;const {start,end}=this.drag;this.drag=null;this.paintArea(start,end);});
   canvas.addEventListener('pointercancel',()=>{this.drag=null;this.draw();});
   $('building-dialog').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)){e.preventDefault();e.stopPropagation();$(e.shiftKey?'be-redo':'be-undo').click();}});
+  installBuildingUsabilityControls(this);
  }
  get floor(){return this.draft.design.floors[this.level];}
  async validateForSave(){this.readName();validateDesign(this.draft);const result=await this.api('/api/building/validate',this.draft);this.draft=normalizeBuilding(result.building||this.draft);}

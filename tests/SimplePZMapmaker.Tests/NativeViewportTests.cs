@@ -1,0 +1,22 @@
+using SimplePZMapmaker.Core;
+using SimplePZMapmaker.Core.Export;
+public static class NativeViewportTests
+{
+ public static IEnumerable<(string Name,Action Run)> Cases()=>[
+  ("native viewport uses exactly the exported sprites at full detail",Exact),
+  ("native overview samples terrain while retaining authored geometry",Overview),
+  ("native overview thins forest sprites without enlarging trees",Forest),
+  ("native viewport keeps signed shared buildings across section boundaries",Shared),
+  ("native viewport bounds composer cache and rejects invalid chunk geometry",Bounded),
+  ("native viewport cancellation does not construct a cell",Cancelled)
+ ];
+ static void Check(bool value,string message){if(!value)throw new Exception(message);}
+ static MapProject Fixture(){var p=MapGenerator.Generate(new(){Kind="blank"});p.Buildings.Add(new(){X=20,Y=20,Width=12,Height=10,Name="Viewport house"});return p;}
+ static string Key(int x,int y,int z,string tile)=>$"{x},{y},{z}:{tile}";
+ static void Exact(){var p=Fixture();var expected=NativeScene.Cell(p,16,16,32,32,0).Sprites.Select(s=>Key(s.X,s.Y,s.Z,s.Tile)).Order().ToArray();var scene=NativeViewportScene.FromProject(p).Read(16,16,32,1,0);var actual=scene.Sprites.Select(s=>Key(s.X,s.Y,s.Z,s.Tile)).Order().ToArray();Check(expected.SequenceEqual(actual),"Viewport sprites drifted from the native exporter");Check(scene.Sprites.All(s=>s.Span==1),"Detail view changed the size of a native tile");}
+ static void Overview(){var p=Fixture();var source=NativeViewportScene.FromProject(p);var coarse=source.Read(0,0,256,8,0);var detailed=source.Read(16,16,32,1,0);Check(coarse.Sprites.Count(s=>s.Layer==0)==1024,"Overview terrain did not stay bounded");Check(coarse.Sprites.Where(s=>s.Layer==0).All(s=>s.Span==8),"Incorrect terrain sampling");var authored=detailed.Sprites.Where(s=>s.Layer==1).Select(s=>Key(s.X,s.Y,s.Z,s.Tile)).Order();Check(authored.SequenceEqual(coarse.Sprites.Where(s=>s.Layer==1).Select(s=>Key(s.X,s.Y,s.Z,s.Tile)).Order()),"Overview simplified authored walls or furniture");}
+ static void Forest(){var p=MapGenerator.Generate(new(){Kind="blank"});Array.Fill(p.Terrain,Terrain.Forest);p.Terrain[p.Spawns[0].Y*p.Width+p.Spawns[0].X]=Terrain.Grass;var source=NativeViewportScene.FromProject(p);var coarse=source.Read(0,0,256,8,0);var trees=coarse.Sprites.Where(s=>s.Layer==1).ToArray();Check(trees.Length>0&&trees.All(s=>s.Span==1),"Terrain sampling enlarged or removed all trees");Check(trees.Length<source.Read(0,0,256,1,0).Sprites.Count(s=>s.Layer==1),"Forest detail was not thinned at overview scale");}
+ static void Shared(){var west=MapGenerator.Generate(new(){Kind="blank"});var east=MapGenerator.Generate(new(){Kind="blank"});east.WorldX=101;var world=new WorldProject{Name="Shared native scene",Maps=[new(){Project=west},new(){Project=east}]};var b=HousingTemplates.Create("village-izba");b.X=101*256-6;b.Y=100*256+20;world.Buildings.Add(b);var member=world.Maps[1];var view=NativeViewportScene.FromWorld(world,member.Id).Read(0,16,32,1,-1);Check(view.Sprites.Count>0&&view.Sprites.All(s=>s.Z==-1),"Shared basement was lost at the section edge");var expected=NativeScene.WorldCell(world,member.Id,0,16,-1).Sprites.Where(s=>s.X<32&&s.Y<32).Select(s=>Key(s.X,s.Y+16,s.Z,s.Tile)).Order();Check(expected.SequenceEqual(view.Sprites.Select(s=>Key(s.X,s.Y,s.Z,s.Tile)).Order()),"Clipped shared basement differs from world export preview");Check(b.X==101*256-6,"Readonly viewport modified common building coordinates");}
+ static void Bounded(){var p=MapGenerator.Generate(new(){Kind="blank",Size=2048});var view=NativeViewportScene.FromProject(p);for(var x=0;x<2048;x+=256)view.Read(x,0,32,1,0);Check(view.CachedCells==4,"Unbounded native cell cache");try{view.Read(255,0,32,1,0);throw new Exception("A chunk crossed its native cell");}catch(ArgumentException){}try{view.Read(0,0,32,3,0);throw new Exception("Invalid sampling stride accepted");}catch(ArgumentException){}try{view.Read(int.MaxValue-7,0,8,1,0);throw new Exception("Overflowing viewport origin accepted");}catch(ArgumentException){}}
+ static void Cancelled(){var view=NativeViewportScene.FromProject(Fixture());using var source=new CancellationTokenSource();source.Cancel();try{view.Read(0,0,32,1,0,source.Token);throw new Exception("Cancelled request was rendered");}catch(OperationCanceledException){}Check(view.CachedCells==0,"Cancelled request retained a native cell");}
+}

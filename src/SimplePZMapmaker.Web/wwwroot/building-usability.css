@@ -1,0 +1,14 @@
+#be-usability,#be-custom-palettes{border-top:1px solid #72816a55;padding-top:.7rem;margin-top:.7rem}
+#be-usability summary,#be-custom-palettes summary{font-weight:600;cursor:pointer;margin-bottom:.5rem}
+.be-edit-row{display:flex;gap:.3rem;margin:.35rem 0}
+.be-edit-row button{flex:1;min-width:0}
+#be-usability small,#be-custom-palettes small{display:block;color:#bfc8b8;font-size:.75rem;margin:.3rem 0}
+#be-issue-list{max-height:12rem;overflow:auto}
+#be-issue-list button{display:block;text-align:left;font-size:.75rem;width:100%;color:#f2b5a8;border-color:#b45f51;margin:.25rem 0}
+#be-custom-resources{max-height:14rem;overflow:auto}
+.be-saved-resource{display:flex;gap:.2rem;margin:.25rem 0}
+.be-saved-resource button:first-child{flex:1;overflow-wrap:anywhere;text-align:left;font-size:.75rem}
+#be-selection-count{display:block;font-size:.75rem;color:#bde3bf}
+
+.be-saved-resource button:first-child{width:auto;min-width:0}
+.be-saved-resource button:last-child{width:28px;flex:0 0 28px}

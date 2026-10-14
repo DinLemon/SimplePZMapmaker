@@ -4,7 +4,7 @@ public enum Terrain : byte { Grass, Forest, Road, Water, Sand, Dirt, Pavement }
 public sealed class MapProject
 {
     private int version=4;
-    public int Version { get=>version==6&&(StaticModels?.Any(m=>m?.Profile!="pickup")==true||(Buildings??[]).Concat(BuildingLibrary??[]).Any(b=>b?.Design?.Floors?.Any(f=>f?.StaticModels?.Any(m=>m?.Profile!="pickup")==true)==true))?7:version;set=>version=value; }
+    public int Version { get=>ResourcePalettes?.Count>0&&version<8?8:version==6&&(StaticModels?.Any(m=>m?.Profile!="pickup")==true||(Buildings??[]).Concat(BuildingLibrary??[]).Any(b=>b?.Design?.Floors?.Any(f=>f?.StaticModels?.Any(m=>m?.Profile!="pickup")==true)==true))?7:version;set=>version=value; }
     public bool WorldSection {get;set;}
     public string Name { get; set; }="New map";
     public int Width { get; set; }=256;
@@ -17,6 +17,7 @@ public sealed class MapProject
     public int[] Zombies { get; set; }=[];
     public List<Building> Buildings { get; set; }=[];
     public List<Building> BuildingLibrary {get;set;}=[];
+    public List<ResourcePalette> ResourcePalettes {get;set;}=[];
     public string SurfaceTheme {get;set;}="legacy";
     public List<SurfaceRegion> SurfaceRegions {get;set;}=[];
     public Dictionary<int,string> SurfaceTiles {get;set;}=[];
@@ -36,6 +37,8 @@ public sealed class ImportSummary
     public int SourceBuildings {get;set;}
     public int PlacedBuildings {get;set;}
     public Dictionary<string,int> SkipReasons {get;set;}=[];
+    public ImportQualitySummary? Quality {get;set;}
+    public List<SkippedImportOutline> SkippedOutlines {get;set;}=[];
     public List<string> Notes {get;set;}=[];
 }
 public sealed class Building
