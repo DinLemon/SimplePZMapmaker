@@ -47,8 +47,8 @@ public static class NativeLightingGeometryTests
    Check(scene.RoomLights.Any(r=>r.X<2816)&&scene.RoomLights.Any(r=>r.X>=2816),"Neighbor room light rectangle lost");Check(JsonSerializer.Serialize(world)==before,"World lighting mutated shared geometry");
   });
   yield return("lighting refuses invalid crops and cancels without inventing empty signed-floor terrain",()=>{
-   var p=Blank();Reject(()=>NativeLightingGeometry.FromProject(p,200,200,64,0,false,Tiles));Reject(()=>NativeLightingGeometry.FromProject(p,30,30,65,0,false,Tiles));Reject(()=>NativeLightingGeometry.FromProject(p,30,30,32,-17,false,Tiles));
-   var scene=NativeLightingGeometry.FromProject(p,30,30,32,-16,false,Tiles);Check(scene.Squares.All(s=>s.Z==0),"Empty basement became a synthetic floor");
+   var p=Blank();Reject(()=>NativeLightingGeometry.FromProject(p,200,200,64,0,false,Tiles));Reject(()=>NativeLightingGeometry.FromProject(p,30,30,65,0,false,Tiles));Reject(()=>NativeLightingGeometry.FromProject(p,30,30,32,-33,false,Tiles));
+   var scene=NativeLightingGeometry.FromProject(p,30,30,32,-32,false,Tiles);Check(scene.Squares.All(s=>s.Z==0),"Empty basement became a synthetic floor");
    using var source=new CancellationTokenSource();source.Cancel();try{NativeLightingGeometry.FromProject(p,30,30,32,0,false,Tiles,source.Token);throw new Exception("Cancellation ignored");}catch(OperationCanceledException){}
   });
   yield return("linear river editing and geographic reimport protect the full model footprint",()=>{

@@ -27,11 +27,11 @@ public sealed class StaticModelPlacement
  public double[] WorldRotation {get;set;}=[0,0,0];
  public double WorldScale {get;set;}=1;
  public List<string> RequiredMods {get;set;}=[];
- public static void Validate(StaticModelPlacement p,int width,int height,int minZ=-16,int maxZ=15)
+ public static void Validate(StaticModelPlacement p,int width,int height,int minZ=ZLevels.Min,int maxZ=ZLevels.Max)
  {
   if(p is null||!Regex.IsMatch(p.Id??"","^[a-fA-F0-9]{32}$")||!Regex.IsMatch(p.ModelId??"",@"^[A-Za-z][A-Za-z0-9_]*\.[A-Za-z0-9_]+$"))throw new ArgumentException("Invalid static model ID.");
   if(p.ItemType is not null&&!Regex.IsMatch(p.ItemType,@"^[A-Za-z][A-Za-z0-9_]*\.[A-Za-z0-9_]+$"))throw new ArgumentException("Invalid model item type.");
-  if(p.SourceId is null||p.SourceId.Length>180||p.SourceId.Any(char.IsControl)||p.X<0||p.Y<0||p.X>=width||p.Y>=height||p.Z<minZ||p.Z>maxZ)throw new ArgumentException("The model is outside the map or floor.");
+  if(p.SourceId is null||p.SourceId.Length>180||p.SourceId.Any(char.IsControl)||p.X<0||p.Y<0||p.X>=width||p.Y>=height||!ZLevels.Contains(p.Z)||p.Z<minZ||p.Z>maxZ)throw new ArgumentException("The model is outside the map or floor.");
   if(!double.IsFinite(p.OffsetX)||!double.IsFinite(p.OffsetY)||!double.IsFinite(p.OffsetZ)||p.OffsetX is <0 or >1||p.OffsetY is <0 or >1||p.OffsetZ is <0 or >1||!double.IsFinite(p.Rotation)||p.Rotation is <0 or >=360||!double.IsFinite(p.Scale)||p.Scale is <.01 or >20)throw new ArgumentException("Check the model offset, rotation, and scale.");
   ResourceDependencies.Validate(p.RequiredMods,[]);
   if(p.Profile is not ("pickup" or "scenery" or "obstacle" or "destructible" or "container" or "door" or "light")||p.Health is <1 or >100000||p.Capacity is <1 or >1000)throw new ArgumentException("Check the model behavior, health (1-100,000), and capacity (1-1,000).");

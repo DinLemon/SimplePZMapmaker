@@ -1,8 +1,9 @@
+import {minZ,maxZ} from './z-levels.js';
 export function lightingArea(context,size=32,x=null,y=null){
  const {project,transform:t}=context;if(!project||!t||!Number.isFinite(t.zoom)||t.zoom<=0||!Number.isInteger(size)||size<8||size>64)throw Error('Select a map and an area of 8–64 tiles.');
  const level=context.level??0;
  if(x===null||y===null){const sx=(t.viewport.width/2-t.pan.x)/t.zoom,sy=(t.viewport.height/2-t.pan.y+level*3*t.zoom)/t.zoom;x=Math.floor(sx/2+sy-size/2);y=Math.floor(sy-sx/2-size/2);}
- if(!Number.isInteger(x)||!Number.isInteger(y)||!Number.isInteger(level)||level< -16||level>31)throw Error('Lighting needs whole tile coordinates and one signed floor.');
+ if(!Number.isInteger(x)||!Number.isInteger(y)||!Number.isInteger(level)||level<minZ||level>maxZ)throw Error('Lighting needs whole tile coordinates and one signed floor.');
  return {x:Math.max(0,Math.min(project.width-size,x)),y:Math.max(0,Math.min(project.height-size,y)),size,level};
 }
 export function lightingPoint(x,y,level,t){return {x:t.pan.x+(x-y)*t.zoom,y:t.pan.y+(x+y)*t.zoom/2-level*3*t.zoom};}

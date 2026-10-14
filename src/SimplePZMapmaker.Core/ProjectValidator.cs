@@ -4,7 +4,7 @@ public static class ProjectValidator
     public static void Validate(MapProject p)
     {
         ArgumentNullException.ThrowIfNull(p);
-        if(p.Version is not(1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9)) Fail("Unsupported project version.");
+        if(p.Version is not(1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10)) Fail("Unsupported project version.");
         ResourcePalette.Validate(p.ResourcePalettes);
 
         if(p.ImportSummary is {} qualityReport) ImportQuality.Validate(qualityReport);

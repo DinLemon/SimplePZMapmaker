@@ -22,10 +22,11 @@ const java=join(game,'jre64','bin','java.exe'),jar=join(game,'projectzomboid.jar
 if(![java,jar,dll].every(existsSync)){if(required)throw Error('The configured installation lacks the JRE, game JAR or lighting library.');console.log('SKIP installed native lighting: required installed components are unavailable. Helper manifest verified.');process.exit(0);}
 const work=join(root,'work','native-lighting-regressions'),home=join(work,'home'),tmp=join(work,'tmp');for(const dir of [work,home,tmp])mkdirSync(dir,{recursive:true});
 const F={floor:1,wallN:2,wallW:4,windowN:16,windowW:32,doorN:64,doorW:128,openN:256,openW:512,air:2048,thumpN:4096,thumpW:8192};
-function fixture(name,{level=0,barrier=0,north=false,point=true,active=true,sky=false,roof=false,roomPower=null}={}){
- const size=24,worldX=80,worldY=160,min=level,max=roof?Math.min(31,level+1):level,squares=[];
+function fixture(name,{level=0,barrier=0,north=false,point=true,active=true,sky=false,roof=false,roomPower=null,fullSpan=false,expectReject=false}={}){
+ const size=24,worldX=80,worldY=160,min=fullSpan?-32:level,max=fullSpan?31:roof?Math.min(31,level+1):level,squares=[];
  for(let y=0;y<size;y++)for(let x=0;x<size;x++)squares.push([x,y,level,F.floor|(sky&&!roof&&level>=0?F.air:0)|((north?y:x)===12?barrier:0),roomPower===null?-1:1,roomPower===null?-1:2]);
  if(roof)for(let y=0;y<size;y++)for(let x=0;x<size;x++)squares.push([x,y,level+1,F.floor|F.air,-1,-1]);
+ if(fullSpan)for(let z=min;z<=max;z++)if(z!==level)for(let y=0;y<size;y++)for(let x=0;x<size;x++)squares.push([x,y,z,F.floor,-1,-1]);
  const lights=point?[[worldX+(north?12:8),worldY+(north?8:12),level,10,.5,.1,.05,active]]:[];
  const rooms=roomPower===null?[]:[[1,2,worldX+4,worldY+4,level,16,16,roomPower]];
  const bytes=Buffer.alloc(1024+squares.length*32+lights.length*29+rooms.length*37);let offset=0;
@@ -37,7 +38,8 @@ function fixture(name,{level=0,barrier=0,north=false,point=true,active=true,sky=
  i(rooms.length);for(const room of rooms){l(room[0]);l(room[1]);room.slice(2,7).forEach(i);b(room[7]);}
  const input=join(work,name+'.bin'),output=join(work,name+'.json');writeFileSync(input,bytes.subarray(0,offset));
  try{execFileSync(java,['-Djava.awt.headless=true','-Duser.home='+home,'-Djava.io.tmpdir='+tmp,'-XX:ErrorFile='+join(work,'hs_err_%p.log'),'-XX:-CreateCoredumpOnCrash','--enable-native-access=ALL-UNNAMED','-cp',join(helper,'classes')+delimiter+jar,'LightingProbe',dll,input,output],{cwd:work,timeout:20000,maxBuffer:1024*1024,stdio:['ignore','pipe','pipe'],env:{...process.env,TEMP:tmp,TMP:tmp}});}
- catch(error){writeFileSync(join(work,name+'.log'),Buffer.concat([error.stdout||Buffer.alloc(0),error.stderr||Buffer.alloc(0)]));throw Error(`Native helper failed for ${name}; inspect its log in work/native-lighting-regressions.`);}
+ catch(error){writeFileSync(join(work,name+'.log'),Buffer.concat([error.stdout||Buffer.alloc(0),error.stderr||Buffer.alloc(0)]));if(expectReject){assert.equal(error.status,1);assert.match(String(error.stderr),/IllegalArgumentException: (Minimum floor|Maximum floor)/);return null;}throw Error(`Native helper failed for ${name}; inspect its log in work/native-lighting-regressions.`);}
+ if(expectReject)throw Error(`Native helper accepted invalid floor for ${name}`);
  // This ABI starts its update counter at -1; twelve adapter frames therefore finish at 11.
  const result=JSON.parse(readFileSync(output,'utf8'));assert.equal(result.protocol,2);assert.ok(result.counter>=11,'Cached native geometry did not survive twelve update frames');assert.equal(result.cells.length,576);const seen=new Set();
  for(const cell of result.cells){assert.equal(cell.length,15);assert.ok(cell.every(Number.isFinite));assert.equal(cell[2],level);assert.ok(cell[0]>=0&&cell[0]<24&&cell[1]>=0&&cell[1]<24);assert.ok(cell.slice(3,6).every(v=>v>=0&&v<=1));assert.ok(cell.slice(7).every(Number.isInteger));assert.ok(!seen.has(`${cell[0]}:${cell[1]}`));seen.add(`${cell[0]}:${cell[1]}`);}
@@ -56,10 +58,13 @@ for(const north of [false,true]){
  assert.ok(opened.sample[3]>.1,'Open model door did not transmit light');assert.notDeepEqual(closed.sample,opened.sample,'Model door state did not affect native results');
 }
 const off=fixture('light-off',{active:false});assert.ok(off.sample[3]<.01&&off.sample[4]<.01&&off.sample[5]<.01,'Disabled point light still illuminates');
-for(const level of [-16,-1,31]){const signed=fixture('signed-'+level,{level});assert.ok(Math.abs(signed.sample[3]-open.sample[3])<.01,'Native point light changed at an equivalent signed floor');}
+for(const level of [-32,-16,-1,31]){const signed=fixture('signed-'+level,{level});assert.ok(Math.abs(signed.sample[3]-open.sample[3])<.01,'Native point light changed at an equivalent signed floor');}
+const deepSpan=fixture('full-span-low',{level:-32,fullSpan:true}),highSpan=fixture('full-span-high',{level:31,fullSpan:true});
+assert.ok(deepSpan.sample[3]>.1&&highSpan.sample[3]>.1,'Native 64-floor geometry was not retained at both extremes');
+for(const level of [-33,32])fixture('invalid-'+level,{level,expectReject:true});
 const sky=fixture('sky',{sky:true,point:false}),roof=fixture('sky-roof',{sky:true,point:false,roof:true}),basement=fixture('sky-basement',{sky:true,point:false,level:-1});
 assert.ok(Math.abs(sky.sample[3]-.7)<.01&&Math.abs(sky.sample[4]-.6)<.01&&Math.abs(sky.sample[5]-.4)<.01,'Controlled sky RGB channels changed order');
 assert.ok(sky.sample[3]>roof.sample[3]+.05,'Roof did not change the native sky field');assert.ok(sky.sample[3]>basement.sample[3]+.05,'Basement received direct sky light');
 const roomOn=fixture('room-on',{point:false,roomPower:true}),roomOff=fixture('room-off',{point:false,roomPower:false});assert.ok(roomOn.sample[3]>roomOff.sample[3]+.05,'Explicit room power did not affect native light');
-const report={protocol:2,gameSession:false,nativeSha256:hash(dll),helperSha256:manifest.classSha256,fixtures:18,openRgb:open.sample.slice(3,6),wallRgb:wall.sample.slice(3,6),skyRgb:sky.sample.slice(3,6),roofRgb:roof.sample.slice(3,6),basementRgb:basement.sample.slice(3,6)};writeFileSync(join(work,'report.json'),JSON.stringify(report,null,2));
+const report={protocol:2,gameSession:false,nativeSha256:hash(dll),helperSha256:manifest.classSha256,fixtures:23,minLevel:-32,maxLevel:31,totalLevels:64,openRgb:open.sample.slice(3,6),wallRgb:wall.sample.slice(3,6),skyRgb:sky.sample.slice(3,6),roofRgb:roof.sample.slice(3,6),basementRgb:basement.sample.slice(3,6)};writeFileSync(join(work,'report.json'),JSON.stringify(report,null,2));
 console.log('PASS native lighting: walls, windows, native/model doors, radial/color/disabled lights, signed floors, roof/sky/basement and room power. No game session started.');

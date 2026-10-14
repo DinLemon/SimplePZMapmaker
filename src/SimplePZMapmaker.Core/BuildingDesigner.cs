@@ -13,7 +13,7 @@ public static class BuildingDesigner
   if(b.Design is null&&perimeter)for(var y=0;y<=b.Height;y++)for(var x=0;x<=b.Width;x++)result.Add(y*(b.Width+1)+x);return result;
  }
  public static BuildingDesign Generate(Building b,int levels,int seed,string shape="rect",int basements=0){
-  if(b.Width is <6 or >64||b.Height is <6 or >64||levels is <1 or >16||basements is <0 or >16||!Kinds.Contains(b.Kind)||shape is not("rect" or "l" or "t" or "courtyard" or "annex"))throw new ArgumentException("Check the building type, dimensions, shape, and floor count: 1-16 above-ground floors and 0-16 basement levels.");
+  if(b.Width is <6 or >64||b.Height is <6 or >64||levels is <1 or >ZLevels.AboveGroundCount||basements is <0 or >ZLevels.BasementCount||!Kinds.Contains(b.Kind)||shape is not("rect" or "l" or "t" or "courtyard" or "annex"))throw new ArgumentException("Check the building type, dimensions, shape, and floor count: 1-32 above-ground floors (z=0 to 31) and 0-32 basement levels (z=-1 to -32).");
   levels+=basements;
   var rng=new Random(seed);var design=new BuildingDesign{MinLevel=-basements,Variant=seed,Shape=shape,Material=new[]{"wood","brick","plaster"}[rng.Next(3)],Roof=shape=="rect"?new[]{"flat","gabled","shed","hipped"}[rng.Next(4)]:"flat"};
   var names=b.Kind switch{"house"=>new[]{"livingroom","kitchen","bedroom","bathroom"},"apartments"=>new[]{"bedroom","kitchen","livingroom","bathroom"},"school"=>new[]{"classroom","office","classroom","bathroom"},"shop"=>new[]{"conveniencestore","storage","office","bathroom"},"clinic"=>new[]{"medical","office","medical","bathroom"},"hotel"=>new[]{"hotelroom","hotelroom","office","bathroom"},"garage"=>new[]{"garage","storage","garage","storage"},_=>new[]{"warehouse","storage","office","storage"}};
@@ -49,6 +49,7 @@ public static class BuildingDesigner
    var f=design.Floors[z];f.Edges=AutoEdges(b,f,z+design.MinLevel);
    Furnish(b,z,rng);
   }
+  RoofGeometry.SelectSafeAutomaticRoof(b);
   Validate(b);
   return design;
  }
@@ -81,7 +82,7 @@ public static class BuildingDesigner
   ResourceDependencies.Validate(b.RequiredMods,b.AssetSources);
   if(b.Design is null)return;var d=b.Design;
   [System.Diagnostics.CodeAnalysis.DoesNotReturn] void Fail(string text)=>throw new ArgumentException($"Building '{b.Name}': {text}");
-  if(d.Material is not("wood" or "brick" or "plaster")||d.Roof is not("flat" or "gabled" or "shed" or "hipped")||d.Shape is not("rect" or "l" or "t" or "courtyard" or "annex" or "custom")||d.Floors is null||d.MinLevel is < -16 or >0||d.Floors.Count is <1 or >32||d.Floors.Count+d.MinLevel is <1 or >16)Fail("invalid material, roof, or floor count: 1-16 above-ground floors and 0-16 basement levels.");
+  if(d.Material is not("wood" or "brick" or "plaster")||d.Roof is not("none" or "flat" or "gabled" or "shed" or "hipped")||d.Shape is not("rect" or "l" or "t" or "courtyard" or "annex" or "custom")||d.Floors is null||d.MinLevel is <ZLevels.Min or >0||d.Floors.Count is <1 or >ZLevels.Total||d.Floors.Count+d.MinLevel is <1 or >ZLevels.AboveGroundCount)Fail("invalid material, roof, or floor count: 1-32 above-ground floors and 0-32 basement levels, within z=-32 to 31.");
   if(d.Style is null||d.Style.Length>0&&!VisualStyles.All.ContainsKey(d.Style)||d.RoofTileset is not null&&!System.Text.RegularExpressions.Regex.IsMatch(d.RoofTileset,@"^roofs_30_[0-9]{2}$"))Fail("invalid appearance style or roof tileset.");
   if(d.Floors.Any(f=>f is null||f.Cells is null||f.Cells.Length!=b.Width*b.Height||f.Objects is null||f.Objects.Count>512||f.Edges is null||f.Edges.Count>2*(b.Width+1)*(b.Height+1)||f.Edges.Any(e=>e is null)||f.Rooms is null))Fail("invalid floor layer.");
   for(var z=0;z<d.Floors.Count;z++){
@@ -111,6 +112,7 @@ public static class BuildingDesigner
     if(i>0)foreach(var level in new[]{z,z+1})if(d.Floors[level].Edges.Any(e=>e.X==x&&e.Y==y&&e.Edge==stair.Direction&&e.Kind!="open"))Fail("stairs cross a wall or opening. Keep the passage along the steps clear.");
    }
   }
+  RoofGeometry.Validate(b);
   if(requireAccess)BuildingAccess.Validate(b);
  }
  public static int Regenerate(MapProject project,string? id=null){

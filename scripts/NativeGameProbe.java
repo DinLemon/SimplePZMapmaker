@@ -8,6 +8,7 @@ import zombie.network.GameServer;
 
 public class NativeGameProbe {
  public static void main(String[] args) throws Exception {
+  if(IsoChunkMap.class.getField("BOTTOM_LEVEL").getInt(null)!=-32||IsoChunkMap.class.getField("TOP_LEVEL").getInt(null)!=31||IsoChunkMap.class.getField("LEVELS").getInt(null)!=64||IsoChunkMap.class.getField("GROUND_LEVEL").getInt(null)!=32)throw new AssertionError("Installed game signed-floor ABI differs from the supported Build 42 range");
   GameServer.server=true;
   ZomboidFileSystem.instance.setCacheDir(args[1]);
   zombie.core.random.RandStandard.INSTANCE.init();
@@ -16,7 +17,7 @@ public class NativeGameProbe {
   for(int i=0;i<definitions.length;i++){Path file=Path.of(args[2],"media",definitions[i]);if(Files.exists(file))IsoWorld.instance.LoadTileDefinitionsPropertyStrings(sprites,file.toString(),i);}
   Method aliases=IsoWorld.class.getDeclaredMethod("GenerateTilePropertyLookupTables");aliases.setAccessible(true);aliases.invoke(IsoWorld.instance);
   for(int i=0;i<definitions.length;i++){Path file=Path.of(args[2],"media",definitions[i]);if(Files.exists(file))IsoWorld.instance.LoadTileDefinitions(sprites,file.toString(),i);}
-  Path folder=Path.of(args[0]);int cellCount=0,chunkCount=0,roomCount=0,upperRooms=0,basementRooms=0,stairTiles=0,basementStairs=0,minLoadedLevel=0;
+  Path folder=Path.of(args[0]);int cellCount=0,chunkCount=0,roomCount=0,upperRooms=0,basementRooms=0,stairTiles=0,basementStairs=0,minLoadedLevel=0,maxLoadedLevel=0;
   try(var files=Files.list(folder)){
    for(Path file:files.filter(p->p.toString().endsWith(".lotheader")).sorted().toList()){
     String name=file.getFileName().toString();String[] parts=name.replace(".lotheader","").split("_");int cx=Integer.parseInt(parts[0]),cy=Integer.parseInt(parts[1]);
@@ -27,8 +28,8 @@ public class NativeGameProbe {
     Field gridField=IsoMetaGrid.class.getDeclaredField("grid");gridField.setAccessible(true);gridField.set(grid,new IsoMetaCell[1][1]);
     Class<?> loaderClass=Class.forName("zombie.iso.IsoMetaGrid$MetaGridLoaderThread");Constructor<?> constructor=loaderClass.getDeclaredConstructor(IsoMetaGrid.class,int.class);constructor.setAccessible(true);Object loader=constructor.newInstance(grid,cy);
     Method load=loaderClass.getDeclaredMethod("loadCell",MapFiles.class,int.class,int.class);load.setAccessible(true);load.invoke(loader,map,cx,cy);
-    Field roomField=loaderClass.getDeclaredField("roomList");roomField.setAccessible(true);List<?> rooms=(List<?>)roomField.get(loader);roomCount+=rooms.size();for(Object room:rooms){int level=((RoomDef)room).level;if(level>0)upperRooms++;if(level<0)basementRooms++;minLoadedLevel=Math.min(minLoadedLevel,level);}
-    if(header.width!=8||header.height!=8||header.maxLevel<1||header.tilesUsed.isEmpty())throw new AssertionError("Installed game rejected header "+name);
+    Field roomField=loaderClass.getDeclaredField("roomList");roomField.setAccessible(true);List<?> rooms=(List<?>)roomField.get(loader);roomCount+=rooms.size();for(Object room:rooms){int level=((RoomDef)room).level;if(level>0)upperRooms++;if(level<0)basementRooms++;minLoadedLevel=Math.min(minLoadedLevel,level);maxLoadedLevel=Math.max(maxLoadedLevel,level);}
+    if(header.width!=8||header.height!=8||header.minLevel< -32||header.maxLevel<1||header.maxLevel>31||header.tilesUsed.isEmpty())throw new AssertionError("Installed game rejected header "+name);
     for(String tile:header.tilesUsed)if(sprites.getSprite(tile)==null)throw new AssertionError("Game sprite absent: "+tile);
     for(int x=0;x<32;x++)for(int y=0;y<32;y++){
      IsoLot lot=IsoLot.get(map,cx,cy,cx*32+x,cy*32+y,null);if(lot.data.isEmpty())throw new AssertionError("Installed game rejected chunk "+x+","+y);
@@ -41,8 +42,9 @@ public class NativeGameProbe {
   }
   boolean requireBasements=args.length>3&&args[3].equals("--basements");
   int expectedMin=args.length>4?Integer.parseInt(args[4]):-16;
-  if(expectedMin < -16 || expectedMin > -1)throw new AssertionError("Basement minimum outside supported range");
+  if(expectedMin < -32 || expectedMin > -1)throw new AssertionError("Basement minimum outside supported range");
+  if(args.length>5&&maxLoadedLevel!=Integer.parseInt(args[5]))throw new AssertionError("Expected top room was not loaded by the installed reader");
   if(stairTiles==0||(!requireBasements&&upperRooms==0)||(requireBasements&&(minLoadedLevel!=expectedMin||basementRooms==0||basementStairs==0)))throw new AssertionError("Expected signed rooms/stair sprites not loaded");
-  System.out.printf("NATIVE_GAME_PROBE cells=%d chunks=%d rooms=%d upperRooms=%d basementRooms=%d minLevel=%d stairTiles=%d basementStairs=%d status=passed%n",cellCount,chunkCount,roomCount,upperRooms,basementRooms,minLoadedLevel,stairTiles,basementStairs);
+  System.out.printf("NATIVE_GAME_PROBE cells=%d chunks=%d rooms=%d upperRooms=%d basementRooms=%d minLevel=%d maxRoomLevel=%d stairTiles=%d basementStairs=%d status=passed%n",cellCount,chunkCount,roomCount,upperRooms,basementRooms,minLoadedLevel,maxLoadedLevel,stairTiles,basementStairs);
  }
 }

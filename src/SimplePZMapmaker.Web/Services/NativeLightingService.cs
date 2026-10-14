@@ -36,7 +36,7 @@ public sealed class NativeLightingService(string workspace,GameAssetCatalog asse
   if(manifest.RootElement.GetProperty("protocol").GetInt32()!=2||manifest.RootElement.GetProperty("classSha256").GetString()!=Fingerprint(Helper))throw new ArgumentException("The lighting adapter failed its integrity check. Rebuild or reinstall the editor.");
  }
  public async Task<object> Check(NativeLightingRequest request,CancellationToken cancellation){
-  if((request.Project is null)==(request.World is null)||request.SkyRgb is null||request.SkyRgb.Length!=3||request.SkyRgb.Any(v=>!double.IsFinite(v)||v is <0 or >1)||!double.IsFinite(request.Ambient)||request.Ambient is <0 or >1||request.Revision is null||request.Revision.Length>100||request.Size is <8 or >64||request.Level is < -16 or >31)throw new ArgumentException("Select one map or world section, a signed floor, 8–64 tiles, and sky/ambient values between 0 and 1.");
+  if((request.Project is null)==(request.World is null)||request.SkyRgb is null||request.SkyRgb.Length!=3||request.SkyRgb.Any(v=>!double.IsFinite(v)||v is <0 or >1)||!double.IsFinite(request.Ambient)||request.Ambient is <0 or >1||request.Revision is null||request.Revision.Length>100||request.Size is <8 or >64||request.Level<ZLevels.Min||request.Level>ZLevels.Max)throw new ArgumentException("Select one map or world section, a signed floor, 8–64 tiles, and sky/ambient values between 0 and 1.");
   ValidateInstallation();
   if(!await gate.WaitAsync(0,cancellation))throw new ArgumentException("A native lighting check is already running. Cancel it or wait for its result.");
   var job=Path.Combine(workRoot,Guid.NewGuid().ToString("N"));

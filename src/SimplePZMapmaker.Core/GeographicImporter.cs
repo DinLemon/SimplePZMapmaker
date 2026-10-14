@@ -93,14 +93,15 @@ public static partial class GeographicImporter {
             b.SourceLevels=f.Tags.GetValueOrDefault("building:levels")?[..Math.Min(100,f.Tags["building:levels"].Length)];b.SourceRoof=f.Tags.GetValueOrDefault("roof:shape")?[..Math.Min(100,f.Tags["roof:shape"].Length)];
             if(w<=64&&h<=64){
                 var levels=kind is "apartments" or "school" or "clinic" or "hotel"?2:1;
-                if(f.Tags.TryGetValue("building:levels",out var levelText)&&int.TryParse(levelText,out var specified)&&specified>0){levels=Math.Clamp(specified,1,16);b.LevelsOrigin="osm-levels";if(specified>16)limitedLevels++;}
-                else if(f.Tags.TryGetValue("height",out var heightText)&&double.TryParse(heightText.Replace(" m",""),System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out var height)&&height>0&&double.IsFinite(height)){levels=Math.Clamp((int)Math.Min(16,Math.Round(height/3)),1,16);b.LevelsOrigin="osm-height";}
+                if(f.Tags.TryGetValue("building:levels",out var levelText)&&int.TryParse(levelText,out var specified)&&specified>0){levels=Math.Clamp(specified,1,ZLevels.AboveGroundCount);b.LevelsOrigin="osm-levels";if(specified>ZLevels.AboveGroundCount)limitedLevels++;}
+                else if(f.Tags.TryGetValue("height",out var heightText)&&double.TryParse(heightText.Replace(" m",""),System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out var height)&&height>0&&double.IsFinite(height)){levels=Math.Clamp((int)Math.Min(ZLevels.AboveGroundCount,Math.Round(height/3)),1,ZLevels.AboveGroundCount);b.LevelsOrigin="osm-height";}
                 var basements=0;b.SourceBasements=f.Tags.GetValueOrDefault("building:levels:underground")?[..Math.Min(100,f.Tags["building:levels:underground"].Length)];
-                if(b.SourceBasements is not null&&int.TryParse(b.SourceBasements,out var depth)&&depth>0){basements=Math.Clamp(depth,0,16);if(depth>16)limitedLevels++;}
+                if(b.SourceBasements is not null&&int.TryParse(b.SourceBasements,out var depth)&&depth>0){basements=Math.Clamp(depth,0,ZLevels.BasementCount);if(depth>ZLevels.BasementCount)limitedLevels++;}
                 var seed=unchecked(project.Seed^x*73856093^y*19349663);b.Design=BuildingDesigner.Generate(b,levels,seed,"rect",basements);
                 if(p.SurfaceTheme!="legacy")VisualStyles.Apply(b);
                 if(f.Tags.GetValueOrDefault("roof:shape") is "flat" or "gabled" or "shed" or "skillion" or "hipped")b.Design.Roof=f.Tags["roof:shape"]=="skillion"?"shed":f.Tags["roof:shape"];
                 else if(b.SourceRoof is not null){b.Design.Roof=b.SourceRoof=="pyramidal"?"hipped":b.SourceRoof=="saltbox"?"gabled":"flat";approximateRoofs++;}
+                if(RoofGeometry.SelectSafeAutomaticRoof(b))approximateRoofs++;
                 if(!ImportedBuildingGeometry.Apply(b,f.Rings,out var footprintReason)){skipped++;skipReasons[footprintReason]=skipReasons.GetValueOrDefault(footprintReason)+1;if(skippedOutlines.Count<256)skippedOutlines.Add(new(b.SourceId,b.Name,footprintReason,x,y,w,h));continue;}
                 b.SourceOutline=ImportedBuildingGeometry.Capture(f.OriginalRings!,out var sourceSimplified);b.SourceOutlineSimplified=sourceSimplified;
             }
@@ -118,7 +119,7 @@ public static partial class GeographicImporter {
         if(omittedRails>0)p.ImportSummary.Notes.Add($"Railway paths skipped because cardinal native artwork or authoring limits were not supported: {omittedRails}. No train simulation is provided.");
         if(simplifiedLines>0)p.ImportSummary.Notes.Add($"Long source paths simplified to 512 samples: {simplifiedLines}.");
         p.ImportSummary.Notes.Add($"OSM floor counts: {p.Buildings.Count(b=>b.LevelsOrigin=="osm-levels")}; estimated from height: {p.Buildings.Count(b=>b.LevelsOrigin=="osm-height")}; assumed: {p.Buildings.Count(b=>b.LevelsOrigin=="inferred")}.");
-        if(limitedLevels>0)p.ImportSummary.Notes.Add($"Above-ground and basement levels were limited to 16 for {limitedLevels} source outlines.");if(approximateRoofs>0)p.ImportSummary.Notes.Add($"Unusual roof shapes were adapted for {approximateRoofs} outlines; original tags were preserved in the building properties.");
+        if(limitedLevels>0)p.ImportSummary.Notes.Add($"Above-ground and basement levels were limited to 32 for {limitedLevels} source outlines.");if(approximateRoofs>0)p.ImportSummary.Notes.Add($"Unusual roof shapes were adapted for {approximateRoofs} outlines; original tags were preserved in the building properties.");
         if(preserveEdits)p.ImportSummary.Notes.Add($"Manually edited buildings preserved: {p.Buildings.Count(b=>b.Modified)}. Adjacent source outlines may be skipped to preserve these edits.");
         if(preserveEdits&&project.TerrainEdits.Length==0)p.ImportSummary.Notes.Add("Legacy manual terrain changes without a mask cannot be identified. Explicit surfaces, decoration, and buildings were preserved; unmarked terrain was refreshed from geographic data.");
         if(!preserveEdits)foreach(var b in p.Buildings)for(var y=b.Y/8;y<=(b.Y+b.Height)/8;y++)for(var x=b.X/8;x<=(b.X+b.Width)/8;x++)p.Zombies[y*(p.Width/8)+x]=90;

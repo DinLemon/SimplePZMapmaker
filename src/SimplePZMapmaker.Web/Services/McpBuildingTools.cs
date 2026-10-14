@@ -21,7 +21,7 @@ public sealed class McpBuildingTools(AgentProjectStore sessions,GameAssetCatalog
  public object ModelPlacement(string id)=>models.Placement(id);
  [McpServerTool(Name="building_templates",ReadOnly=true,UseStructuredContent=true),Description("List original editable researched housing templates with dimensions, floors and basements.")]
  public object Templates()=>HousingTemplates.Catalog;
- [McpServerTool(Name="building_draft_create",UseStructuredContent=true),Description("Create an isolated draft from an existing map building, a catalog template, or a newly generated building. The map is unchanged until building_draft_commit.")]
+ [McpServerTool(Name="building_draft_create",UseStructuredContent=true),Description("Create an isolated draft from an existing map building, a catalog template, or a newly generated building. levels is 1-32 including ground, basements is 0-32; signed z is -32..31. The top occupied floor uses no automatic roof when roof headroom is unavailable. The map is unchanged until building_draft_commit.")]
  public AgentDraft CreateDraft(string sessionToken,string? buildingId=null,string? templateId=null,string name="Agent house",int width=16,int height=14,int levels=1,int basements=0,string shape="rect",int seed=42){
   Building b;if(buildingId is not null)b=sessions.Read(sessionToken).Project.Buildings.SingleOrDefault(b=>b.Id==buildingId)??throw new ArgumentException("Building not found.");
   else if(templateId is not null)b=HousingTemplates.Create(templateId);

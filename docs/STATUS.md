@@ -1,3 +1,17 @@
+# Verification status — 0.9.1, 2026-10-14
+
+## Full signed vertical range
+
+- Installed Build 42 `IsoChunkMap` constants and the [official constant values](https://projectzomboid.com/modding/constant-values.html#zombie.iso.IsoChunkMap.BOTTOM_LEVEL) agree: bottom -32, top 31, ground index 32 and 64 levels. UI floor 32 corresponds to z=31; z=32 is invalid.
+- Core 203/203 and JavaScript 138/138 pass. Generation, OSM import, neighborhood constraints, authored models, signed scene/viewport APIs and connected stairs support 32 basements plus 32 above-ground floors.
+- Roof headroom uses actual slope-piece heights. Overflow rejects before saving/export; generation chooses a valid flat roof or explicit `No automatic roof` at the upper boundary. Imported roof adaptation is recorded in the quality report.
+- Native lighting 23/23 authentic fixtures pass, including z=-32 and z=31, both endpoints of a full 64-level scene and rejection of -33/+32.
+- The installed game reader loads the new fixture: 1,024 chunks, 320 rooms, signed room levels -32..31 and 189 recognized stair tiles. No game session or character traversal is used.
+- Fresh browser checks verify all 64 selectors, both caps, actual endpoint sprites, map10/template7 roundtrip, roof rejection and stair history. Official MCP clients create and preview a 64-level isolated draft, reject z=32 and retain the original map revision.
+- Extended authoring uses map/template/world formats 10/7/4. Older compatible data retains its prior format. Editable serialization and undo preserve the signed stack and explicit roof choice.
+
+## Previous release evidence
+
 # Verification status — 0.9.0, 2026-10-14
 
 ## Geography, gameplay authoring and native lighting

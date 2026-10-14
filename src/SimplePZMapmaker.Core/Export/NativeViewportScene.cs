@@ -18,7 +18,7 @@ public sealed class NativeViewportScene
  public static NativeViewportScene FromProject(MapProject project){ArgumentNullException.ThrowIfNull(project);ProjectValidator.Validate(project);return new(project);}
  public static NativeViewportScene FromWorld(WorldProject world,string memberId){ArgumentNullException.ThrowIfNull(world);WorldAssembler.Validate(world);var member=world.Maps.SingleOrDefault(m=>m.Id==memberId)??throw new ArgumentException("World section not found.");return new(WorldAssembler.ProjectSection(world,member));}
  public Chunk Read(int x,int y,int size=32,int stride=1,int? level=null,CancellationToken cancellation=default){
-  if(x<0||y<0||size is <1 or >256||stride is not(1 or 2 or 4 or 8)||size%stride!=0||x>Width-size||y>Height-size||x%256+size>256||y%256+size>256||level is < -16 or >31)throw new ArgumentException("A viewport chunk must fit one native cell, with a valid signed floor and stride 1, 2, 4, or 8.");
+  if(x<0||y<0||size is <1 or >256||stride is not(1 or 2 or 4 or 8)||size%stride!=0||x>Width-size||y>Height-size||x%256+size>256||y%256+size>256||level is < ZLevels.Min or > ZLevels.Max)throw new ArgumentException("A viewport chunk must fit one native cell, with a valid signed floor and stride 1, 2, 4, or 8.");
   cancellation.ThrowIfCancellationRequested();var key=(x/256,y/256);
   lock(cells){
    cancellation.ThrowIfCancellationRequested();

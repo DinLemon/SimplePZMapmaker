@@ -63,7 +63,7 @@ public final class LightingProbe {
         int chunksX=bounded(in.getInt(),1,16,"Chunk width"),chunksY=bounded(in.getInt(),1,16,"Chunk height");
         int worldChunkX=bounded(in.getInt(),0,40000,"World chunk X"),worldChunkY=bounded(in.getInt(),0,40000,"World chunk Y");
         startX=worldChunkX*8;startY=worldChunkY*8;width=chunksX*8;height=chunksY*8;
-        minZ=bounded(in.getInt(),-16,31,"Minimum floor");maxZ=bounded(in.getInt(),minZ,31,"Maximum floor");
+        minZ=bounded(in.getInt(),-32,31,"Minimum floor");maxZ=bounded(in.getInt(),minZ,31,"Maximum floor");
         int level=bounded(in.getInt(),minZ,maxZ,"Output floor");
         int outX=bounded(in.getInt(),0,width-1,"Output X"),outY=bounded(in.getInt(),0,height-1,"Output Y");
         int size=bounded(in.getInt(),8,64,"Output size");if(outX+size>width||outY+size>height)throw new IllegalArgumentException("Output exceeds grid");

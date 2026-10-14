@@ -29,7 +29,7 @@ try{
   if($LASTEXITCODE -ne 0){throw 'Regional appearance/import UI checks failed.'}
   node scripts/verify-visual-workshop.mjs
   if($LASTEXITCODE -ne 0){throw 'Visual building workshop/preset checks failed.'}
-  foreach($script in @('verify-world-api.mjs','verify-world-workshop.mjs','verify-environment-workshop.mjs','verify-static-models.mjs','verify-static-model-placement.mjs','verify-model-scale.mjs','verify-agent-session.mjs','verify-planning-ui.mjs','verify-import-quality.mjs','verify-building-usability.mjs','verify-native-preview.mjs')){
+  foreach($script in @('verify-world-api.mjs','verify-world-workshop.mjs','verify-environment-workshop.mjs','verify-static-models.mjs','verify-static-model-placement.mjs','verify-model-scale.mjs','verify-agent-session.mjs','verify-planning-ui.mjs','verify-import-quality.mjs','verify-building-usability.mjs','verify-native-preview.mjs','verify-z-levels.mjs')){
    node (Join-Path $PSScriptRoot $script)
    if($LASTEXITCODE -ne 0){throw ('World/mod/model/agent browser check failed: '+$script)}
   }

@@ -28,7 +28,7 @@ public static class NativeLightingGeometry
  }
  static void ValidateCrop(MapProject p,int x,int y,int size,int level)
  {
-  if(size is <8 or >64||x<0||y<0||x>p.Width-size||y>p.Height-size||level is < -16 or >31)throw new ArgumentException("Choose an 8–64 tile lighting area inside the map and a floor from -16 to 31.");
+  if(size is <8 or >64||x<0||y<0||x>p.Width-size||y>p.Height-size||level is < ZLevels.Min or > ZLevels.Max)throw new ArgumentException("Choose an 8–64 tile lighting area inside the map and a floor from -32 to 31.");
  }
  static Scene Build(MapProject selected,MapProject[] projects,int x,int y,int size,int level,bool roomLightsPowered,Func<string,IReadOnlyDictionary<string,string>> properties,CancellationToken cancellation)
  {
@@ -44,7 +44,7 @@ public static class NativeLightingGeometry
    cells.Add((cx,cy),new(p,cx,cy,new(p,cx-p.WorldX,cy-p.WorldY)));
   }
   var min=Math.Min(level,cells.Values.Select(c=>c.Composer.MinLevel).DefaultIfEmpty(0).Min());var max=Math.Max(level,cells.Values.Select(c=>c.Composer.MaxLevel).DefaultIfEmpty(0).Max());
-  if(min< -16||max>31)throw new ArgumentException("Exported lighting geometry exceeds the native signed floor range.");
+  if(min<ZLevels.Min||max>ZLevels.Max)throw new ArgumentException("Exported lighting geometry exceeds the native signed floor range.");
   var warnings=new HashSet<string>(StringComparer.Ordinal){"Native light values are visualized by the editor; the game's FBO, material shaders and model mesh shadows are not rendered.","Sky RGB, ambient strength and room power are controlled inputs. Game time, weather, erosion and live switches are not simulated."};
   var propertyCache=new Dictionary<string,IReadOnlyDictionary<string,string>>(StringComparer.Ordinal);
   IReadOnlyDictionary<string,string> Props(string tile){if(propertyCache.TryGetValue(tile,out var cached))return cached;if(propertyCache.Count>=5000)throw new ArgumentException("The lighting area contains too many distinct tile definitions.");var value=properties(tile)??EmptyProperties;propertyCache.Add(tile,value);return value;}

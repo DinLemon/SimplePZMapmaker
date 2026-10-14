@@ -1,3 +1,4 @@
+import {minZ,maxZ,aboveGroundCount,totalLevels,highestPreviewZ} from './z-levels.js';
 export function validateSourceFootprint(b){if(!b)throw Error('No building specified.');const origin=b.footprintOrigin===undefined?'authored':b.footprintOrigin,rings=b.sourceOutline===undefined?[]:b.sourceOutline;if(!['authored','source-grid','manual-source-edit'].includes(origin)||!Array.isArray(rings)||rings.length>16||rings.some(r=>!Array.isArray(r)||r.length<4||r.length>512||r.some(p=>!p||!Number.isFinite(p.longitude)||!Number.isFinite(p.latitude)||p.longitude< -180||p.longitude>180||p.latitude< -85||p.latitude>85)||r[0].longitude!==r.at(-1).longitude||r[0].latitude!==r.at(-1).latitude))throw Error('Invalid building source footprint metadata.');}
 import {validateAccess} from './building-access.js';
 import {validateDependencies,validateModel,validateModelLayer,modelCells,blockingModel,interactiveModel} from './resource-data.js';
@@ -65,7 +66,8 @@ export function installStairLink(b,lowerIndex,newIndex){
 export function validateDesign(b,requireAccess=true){
  validateSourceFootprint(b);
  const fail=text=>{throw Error(text);};if(!b||!Object.hasOwn(kinds,b.kind)||![b.width,b.height].every(v=>Number.isInteger(v)&&v>=6&&v<=64))fail('Building size: 6–64 tiles.');if(b.attribution!==undefined&&(!Array.isArray(b.attribution)||b.attribution.length>30||b.attribution.some(s=>typeof s!=='string'||s.length>1000)))fail('The template source is corrupted.');validateDependencies(b.requiredMods??[],b.assetSources??{});if(!b.design)return b;
- const d=b.design;if(!['wood','brick','plaster'].includes(d.material)||!['flat','gabled','shed','hipped'].includes(d.roof)||!Object.hasOwn(shapeNames,d.shape)||!Number.isInteger(d.variant)||d.variant< -2147483648||d.variant>2147483647||(d.minLevel!==undefined&&!Number.isInteger(d.minLevel))||!Number.isInteger(minLevel(b))||minLevel(b)<-16||minLevel(b)>0||!Array.isArray(d.floors)||d.floors.length<1||d.floors.length>32||aboveLevels(b)<1||aboveLevels(b)>16)fail('Check material, roof and number of floors: 1-16 floors and 0-16 basements.');
+ const d=b.design;if(!['wood','brick','plaster'].includes(d.material)||!['flat','gabled','shed','hipped','none'].includes(d.roof)||!Object.hasOwn(shapeNames,d.shape)||!Number.isInteger(d.variant)||d.variant< -2147483648||d.variant>2147483647||(d.minLevel!==undefined&&!Number.isInteger(d.minLevel))||!Number.isInteger(minLevel(b))||minLevel(b)<minZ||minLevel(b)>0||!Array.isArray(d.floors)||d.floors.length<1||d.floors.length>totalLevels||aboveLevels(b)<1||aboveLevels(b)>aboveGroundCount)fail('Check material, roof and number of floors: 1–32 floors and 0–32 basements (-32 through 31).');
+ if(d.roof!=='none'&&aboveLevels(b)>maxZ)fail('Floor 32 (z=31) requires No automatic roof; z=32 is outside the game range.');
  if(d.style!==undefined&&(typeof d.style!=='string'||d.style!==''&&!Object.hasOwn(visualStyles,d.style))||d.roofTileset!=null&&(typeof d.roofTileset!=='string'||!/^roofs_30_[0-9]{2}$/.test(d.roofTileset)))fail('Decor kit or roof is damaged.');
  for(const f of d.floors)if(!f||typeof f.cells!=='string'||f.cells.length!==b.width*b.height||!Array.isArray(f.objects)||f.objects.length>512||!Array.isArray(f.edges)||f.edges.length>2*(b.width+1)*(b.height+1)||f.edges.some(e=>!e)||!f.rooms)fail('The floor layer is damaged.');
  for(let z=0;z<d.floors.length;z++){const f=d.floors[z];if(!f.rooms||Array.isArray(f.rooms)||Object.keys(f.rooms).length<1||Object.keys(f.rooms).length>35||Object.entries(f.rooms).some(([key,value])=>!/^[0-9a-z]$/.test(key)||!Object.hasOwn(roomNames,value))||[...f.cells].some(c=>c!=='.'&&!f.rooms[c])||!Array.isArray(f.edges)||f.edges.length>2*(b.width+1)*(b.height+1)||f.objects.length>512)fail(`${floorLabel(b,z)}: check rooms and objects.`);
@@ -81,7 +83,7 @@ export function validateDesign(b,requireAccess=true){
   if(requireAccess&&z<d.floors.length-1&&!f.objects.some(o=>o.kind==='stairs'))fail(`${floorLabel(b,z)}: add stairs.`);
   const stairCells=new Set();for(const stair of f.objects.filter(o=>o.kind==='stairs'))for(let i=0;i<5;i++){const x=stair.x+(stair.direction==='w'?i:0),y=stair.y+(stair.direction==='n'?i:0),index=y*b.width+x;if(stairCells.has(index))fail('Stairs intersect.');stairCells.add(index);if(i>0&&[f,d.floors[z+1]].some(level=>level.edges.some(e=>e.x===x&&e.y===y&&e.edge===stair.direction&&e.kind!=='open')))fail('The staircase crosses a wall or opening.');}
   if(!/[0-9a-z]/.test(f.cells))fail('The floor cannot be empty.');
- }if(requireAccess)validateAccess(b);return b;
+ }if(highestPreviewZ(b)>maxZ)fail('The automatic roof exceeds z=31. Choose a flat roof, fewer floors, or No automatic roof.');if(requireAccess)validateAccess(b);return b;
 }
 export class DraftHistory{
  constructor(){this.past=[];this.future=[];}

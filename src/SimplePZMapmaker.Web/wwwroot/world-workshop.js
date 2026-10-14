@@ -16,7 +16,7 @@ export function placementIssue(world,p,x,y,skipId=null){
  return null;
 }
 export function validateWorld(world,allowEmpty=false){
- if(!world||world.format!=='SimplePZWorld'||![1,2,3].includes(world.version)||!safeId(world.id))throw Error('The world format or identifier is corrupted.');
+ if(!world||world.format!=='SimplePZWorld'||![1,2,3,4].includes(world.version)||!safeId(world.id))throw Error('The world format or identifier is corrupted.');
  if(typeof world.name!=='string'||!world.name.trim()||world.name.length>80||/[\x00-\x1f\x7f]/.test(world.name))throw Error('Enter the name of the world up to 80 characters.');
  if(!Array.isArray(world.maps)||world.maps.length>(128)||(!allowEmpty&&!world.maps.length))throw Error('A world must contain 1–128 sections.');
  const ids=new Set();for(const m of world.maps){if(!m||!safeId(m.id)||ids.has(m.id))throw Error('The world section identifier is invalid or duplicated.');ids.add(m.id);validateProject(m.project);const issue=placementIssue(world,m.project,m.project.worldX,m.project.worldY,m.id);if(issue)throw Error(issue);}

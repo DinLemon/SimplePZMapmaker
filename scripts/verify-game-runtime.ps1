@@ -1,4 +1,4 @@
-param([string]$MapArchive='examples/Pilna/Pilna-B42.zip',[string]$GamePath='',[switch]$Basements,[ValidateRange(-16,-1)][int]$BasementMinLevel=-16)
+param([string]$MapArchive='examples/Pilna/Pilna-B42.zip',[string]$GamePath='',[switch]$Basements,[ValidateRange(-32,-1)][int]$BasementMinLevel=-16)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'WorkspaceEnv.ps1')
 if([string]::IsNullOrWhiteSpace($GamePath)){$GamePath=$env:PZMAP_GAME_PATH}

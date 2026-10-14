@@ -3,6 +3,33 @@ namespace SimplePZMapmaker.Core;
 public static class RoofGeometry
 {
  public readonly record struct RoofPiece(int Depth,int TileIndex);
+ /// <summary>The highest occupied level, including exported ceilings and slope pieces.</summary>
+ public static int MaxLevel(Building building){
+  var design=building.Design??throw new ArgumentException("A roof requires a building design.");
+  var maximum=design.MinLevel+design.Floors.Count-1;
+  if(design.Roof=="none")return maximum;
+  for(var index=0;index<design.Floors.Count;index++){
+   var z=index+design.MinLevel;var floor=design.Floors[index];
+   if(z==-1)continue;
+   for(var y=0;y<building.Height;y++)for(var x=0;x<building.Width;x++){
+    var code=BuildingDesigner.Cell(building,floor,x,y);
+    if(code=='.'||floor.Rooms[code.ToString()]=="balcony"||index+1<design.Floors.Count&&BuildingDesigner.Cell(building,design.Floors[index+1],x,y)!='.')continue;
+    var roofLevel=z+1;
+    if(index==design.Floors.Count-1&&design.Roof!="flat")roofLevel+=Piece(building,floor,x,y).Depth/6;
+    maximum=Math.Max(maximum,roofLevel);
+   }
+  }
+  return maximum;
+ }
+ public static void Validate(Building building){
+  if(MaxLevel(building)>ZLevels.Max)throw new ArgumentException($"Building '{building.Name}': the automatic roof exceeds z={ZLevels.Max}. Choose a flat roof, fewer floors, or 'No automatic roof'.");
+ }
+ /// <summary>Generated/imported plans retain all authored floors while respecting roof headroom.</summary>
+ public static bool SelectSafeAutomaticRoof(Building building){
+  if(MaxLevel(building)<=ZLevels.Max)return false;
+  building.Design!.Roof=building.Design.MinLevel+building.Design.Floors.Count-1>=ZLevels.Max?"none":"flat";
+  return true;
+ }
  public static RoofPiece Piece(Building building,BuildingFloor floor,int x,int y){
   bool Covered(int xx,int yy){var code=BuildingDesigner.Cell(building,floor,xx,yy);return code!='.'&&floor.Rooms[code.ToString()]!="balcony";}
   if(!Covered(x,y))throw new ArgumentException("A roof can only be placed above an indoor tile.");

@@ -119,3 +119,8 @@ All authored interface/errors/docs/examples are English; source OSM tags/proper 
 ## 0.9.0 — 2026-10-14
 
 Exact imported footprint masks preserve concavity and courtyards. Editable linear roads, rivers, sidewalks, ground-level bridge decks and cardinal railway sprites retain original geometry evidence and reversible underlays. Main Game view authors buildings and registered models directly with signed floors and atomic history. Game zones, vehicle distributions, multi-cell collision, keyed native doors, authored lights and procedural loot export to actual native/Lua resources. Native LightingJNI calculation runs inside the editor with controlled scenario inputs and verified engine provenance. Map/template/world formats advance to 9/6/3 only for new authoring. Illustrated English guides cover each workflow.
+
+
+## 0.9.1 — 2026-10-14
+
+Expanded vertical authoring to the installed Build 42 range Z=-32..31: 32 basement and 32 above-ground floors. Generation, OSM level inference, model validation, room access, native export, scene/viewport previews, native lighting and MCP share these bounds. Roof headroom uses actual slope geometry; an explicit roofless cap preserves the highest authored floor without exporting invalid z=32. Extended data uses formats10/7/4. English controls and guides include the verified 64-level screenshot. Template import uses a common bounded 16 MB budget so valid tall templates remain portable.

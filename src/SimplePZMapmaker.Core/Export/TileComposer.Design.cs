@@ -6,10 +6,10 @@ internal sealed partial class TileComposer
  internal int MaxLevel {get;private set;}=1;
  internal int MinLevel {get;private set;}
  internal int RoomAt(int x,int y,int z)=>z==0?RoomIds[y*256+x]:upperRoomIds.GetValueOrDefault(z*65536+y*256+x,-1);
- private void Set(int x,int y,int z,List<string> tiles){if(!InCell(x,y))return;foreach(var tile in tiles)authoredTiles.Add(tile);if(z==0)ground[y*256+x]=tiles;else layers[z*65536+y*256+x]=tiles;}
- private void AddAt(int x,int y,int z,string tile,byte flags=0){if(!InCell(x,y))return;var list=At(x,y,z);if(z==0&&!ground.ContainsKey(y*256+x))ground[y*256+x]=list;else if(z!=0&&!layers.ContainsKey(z*65536+y*256+x))layers[z*65536+y*256+x]=list;authoredTiles.Add(tile);list.Add(tile);if(z==0)Navigation[y*256+x]|=flags;}
+ private void Set(int x,int y,int z,List<string> tiles){if(!ZLevels.Contains(z))throw new ArgumentException("An exported tile exceeds the Build 42 signed floor range (-32 to 31).");if(!InCell(x,y))return;foreach(var tile in tiles)authoredTiles.Add(tile);if(z==0)ground[y*256+x]=tiles;else layers[z*65536+y*256+x]=tiles;}
+ private void AddAt(int x,int y,int z,string tile,byte flags=0){if(!ZLevels.Contains(z))throw new ArgumentException("An exported tile exceeds the Build 42 signed floor range (-32 to 31).");if(!InCell(x,y))return;var list=At(x,y,z);if(z==0&&!ground.ContainsKey(y*256+x))ground[y*256+x]=list;else if(z!=0&&!layers.ContainsKey(z*65536+y*256+x))layers[z*65536+y*256+x]=list;authoredTiles.Add(tile);list.Add(tile);if(z==0)Navigation[y*256+x]|=flags;}
  private void ComposeDesign(Building b){
-  var design=b.Design!;var x0=b.X-ox;var y0=b.Y-oy;var building=new List<int>();MinLevel=Math.Min(MinLevel,design.MinLevel);MaxLevel=Math.Max(MaxLevel,design.Floors.Count+design.MinLevel);
+  var design=b.Design!;var x0=b.X-ox;var y0=b.Y-oy;var building=new List<int>();MinLevel=Math.Min(MinLevel,design.MinLevel);MaxLevel=Math.Max(MaxLevel,RoofGeometry.MaxLevel(b));
   var wallBase=design.Material switch{"brick"=>16,"plaster"=>32,_=>0};
   var style=design.Style.Length>0?VisualStyles.All[design.Style]:null;
   for(var index=0;index<design.Floors.Count;index++){
@@ -47,7 +47,7 @@ internal sealed partial class TileComposer
    var x=x0+o.X+(o.Direction=="w"?i:0);var y=y0+o.Y+(o.Direction=="n"?i:0);if(!InCell(x,y))continue;var tiles=At(x,y,z+1);var upper=design.Floors[index+1];var cellIndex=(y-y0)*b.Width+x-x0;tiles.RemoveAll(t=>t.StartsWith("floors_",StringComparison.Ordinal)||t==upper.FloorTile||upper.FloorTiles.TryGetValue(cellIndex,out var custom)&&t==custom);
   }
   // Exposed lower-floor terraces and the final floor receive weather cover at the next z.
-  for(var index=0;index<design.Floors.Count;index++){
+  for(var index=0;design.Roof!="none"&&index<design.Floors.Count;index++){
    var z=index+design.MinLevel;var f=design.Floors[index];for(var y=0;y<b.Height;y++)for(var x=0;x<b.Width;x++){
     var code=BuildingDesigner.Cell(b,f,x,y);if(code=='.'||f.Rooms[code.ToString()]=="balcony"||index+1<design.Floors.Count&&BuildingDesigner.Cell(b,design.Floors[index+1],x,y)!='.'||z==-1)continue;
     AddAt(x0+x,y0+y,z+1,"floors_interior_tilesandwood_01_40");

@@ -2,11 +2,23 @@
 
 A local visual map and building editor for **Project Zomboid Build 42**, written in C#/.NET 10 with a browser interface. Create maps without programming, assemble rooms from your installed game's resources, import OpenStreetMap geography, and join adjacent sections into one world.
 
-**Current release: 0.9.0.** The Windows x64 download includes the .NET Runtime. The editor supports 24 original editable building plans, up to 16 above-ground levels and basements **−1 to −16**, game/mod sprites and static models, shared buildings across section boundaries, measured DEM elevation, and MCP planning with a review before changes enter your project.
+**Current release: 0.9.1.** The Windows x64 download includes the .NET Runtime. The editor supports 24 original editable building plans, up to 32 above-ground levels and basements **−1 to −32** (64 signed levels, **Z −32…31**), game/mod sprites and static models, shared buildings across section boundaries, measured DEM elevation, and MCP planning with a review before changes enter your project.
 
 [Download releases](https://github.com/DinLemon/SimplePZMapmaker/releases) · [Verification status](docs/STATUS.md) · [Code and data provenance](docs/PROVENANCE.md)
 
 ![The English map editor](docs/screenshots/01-editor.png)
+
+## Full Build 42 vertical range
+
+Use all **64 signed levels, Z=−32…31**: 32 basement levels and 32 above-ground floors, including the ground floor at Z=0. The workshop and main Game view can add connected levels, preserve stairs and models, and preview the first and last signed floors. Native map/world export and lighting checks use the same range; older projects remain readable. The bounds match the [official Build 42 constants](https://projectzomboid.com/modding/constant-values.html#zombie.iso.IsoChunkMap.BOTTOM_LEVEL) and the installed game reader.
+
+**Floor 32 is Z=31, not Z=32.** At this top level, choose **No automatic roof**. Adding the last floor selects this automatically. Pitched roofs also reserve their actual slope height; when adding a level would put a slope above Z=31, the editor selects a flat roof instead. Invalid manual roof choices are rejected without changing the draft.
+
+![All 64 floor buttons, 32 above-ground and 32 underground levels, with Floor 32 displayed using installed game sprites](docs/screenshots/11-full-z-range.png)
+
+Try the editable [full vertical range example](examples/FullVerticalRange/full-z.pzmap.json), or download its [native Build 42 map](examples/FullVerticalRange/FullVerticalRange-B42.zip). It contains one connected building with 32 above-ground floors and 32 basements, and an explicit open roof at Z=31.
+
+Projects using extended levels or no automatic roof save as map format **10**, building template **7**, and world format **4**. Read the [direct editing guide](docs/DIRECT-EDITING.md) for level controls and signed-floor picking.
 
 ## What's new in 0.9.0
 
@@ -52,12 +64,12 @@ Validation for this implementation: **190 C# checks, 129 JavaScript checks and 1
 ### 2. Download the application ZIP
 
 1. Open [GitHub Releases](https://github.com/DinLemon/SimplePZMapmaker/releases).
-2. Select **v0.9.0**, or a newer published release. The project publishes prereleases, so use the release list rather than assuming GitHub's `/latest` page shows the newest build.
-3. Expand **Assets** and download **`SimplePZMapmaker-0.9.0-win-x64.zip`**. Example map ZIPs contain game mods, not the editor. GitHub's automatic **Source code** archives are development sources, not the ready-to-run application.
+2. Select **v0.9.1**, or a newer published release. The project publishes prereleases, so use the release list rather than assuming GitHub's `/latest` page shows the newest build.
+3. Expand **Assets** and download **`SimplePZMapmaker-0.9.1-win-x64.zip`**. Example map ZIPs contain game mods, not the editor. GitHub's automatic **Source code** archives are development sources, not the ready-to-run application.
 4. Optionally download the release checksum file and compare the archive's SHA-256 before extracting it. Run this command from the folder containing the downloaded archive:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath './SimplePZMapmaker-0.9.0-win-x64.zip'
+Get-FileHash -Algorithm SHA256 -LiteralPath './SimplePZMapmaker-0.9.1-win-x64.zip'
 ```
 
 ### 3. Extract the entire archive
@@ -120,7 +132,7 @@ Most example mods use native world origin **100,100**. Enable them **one at a ti
 
 1. Create blank land, a small town or a forest-and-river map. One section is 256–2048 tiles; the seed makes generation repeatable.
 2. Choose terrain/brush width at the left. **B** paints, **A** draws a rectangle, **R** draws a road at the selected width.
-3. **H** places a building with a type, shape, 1–16 above-ground levels and 0–16 basements. Buildings must stay on land without intersecting occupied structures. Native cell boundaries (each cell is 256×256 tiles) are supported.
+3. **H** places a building with a type, shape, 1–32 above-ground levels and 0–32 basements. Floor 1 is Z=0; Floor 32 is Z=31 and uses **No automatic roof**, because an additional roof at Z=32 is outside the game range. Buildings must stay on land without intersecting occupied structures. Native cell boundaries (each cell is 256×256 tiles) are supported.
 4. **V** selects objects for moving, removal or editing. **P** places an outdoor spawn on land; at least one valid spawn must remain in the exported map/world. **Z** paints density 0–255 at 8×8 chunk resolution.
 5. **Ctrl+Z / Ctrl+Shift+Z** undo/redo. Wheel zooms; middle/right dragging or Space pans. Save a `.pzmap.json` before a large replacement/import.
 
@@ -265,7 +277,7 @@ QA downloads/screenshots/logs stay in `work/qa-results/` or `work/logs/`. Develo
 1. Open **Actions** in the GitHub repository and select **Build and verify**.
 2. Choose **Run workflow**, select `develop` or the branch to verify, then start.
 3. Inspect build/startup/browser steps in the run.
-4. Download the completed application artifact for local use. Extract GitHub's outer artifact archive, then extract the contained `SimplePZMapmaker-0.9.0-win-x64.zip` into the application folder and follow the installation steps above. The diagnostic artifact contains startup evidence and screenshots. GitHub may require sign-in for artifacts.
+4. Download the completed application artifact for local use. Extract GitHub's outer artifact archive, then extract the contained `SimplePZMapmaker-0.9.1-win-x64.zip` into the application folder and follow the installation steps above. The diagnostic artifact contains startup evidence and screenshots. GitHub may require sign-in for artifacts.
 
 CI runs on pushes to `develop`, pull requests and manual dispatch. The Windows runner uses its mapped checkout as the workspace and keeps task caches there. Its no-game fallback check does not replace local installed-game probes.
 
