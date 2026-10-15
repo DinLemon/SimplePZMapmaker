@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using SimplePZMapmaker.Core.Export;
 namespace SimplePZMapmaker.Core;
 public static partial class WorldAssembler
@@ -23,10 +23,11 @@ public static partial class WorldAssembler
   }
  }
  public static Building CloneBuilding(Building b)=>JsonSerializer.Deserialize<Building>(JsonSerializer.Serialize(b,NativeMapExporter.JsonOptions),NativeMapExporter.JsonOptions)!;
- public static MapProject ProjectSection(WorldProject world,WorldMapMember member){
+ public static MapProject ProjectSection(WorldProject world,WorldMapMember member,InfrastructureGeometry.Geometry? sharedGeometry=null){
   var p=member.Project;var projected=world.Buildings.Where(b=>b.X<p.WorldX*256+p.Width&&b.Y<p.WorldY*256+p.Height&&b.X+b.Width>=p.WorldX*256&&b.Y+b.Height>=p.WorldY*256).Select(b=>{var copy=CloneBuilding(b);copy.X-=p.WorldX*256;copy.Y-=p.WorldY*256;return copy;}).ToArray();
-  if(projected.Length==0)return p;
-  return new(){Version=Math.Max(6,p.Version),WorldSection=true,Name=p.Name,Width=p.Width,Height=p.Height,Seed=p.Seed,WorldX=p.WorldX,WorldY=p.WorldY,Terrain=p.Terrain,TerrainEdits=p.TerrainEdits,Zombies=p.Zombies,Buildings=[..p.Buildings,..projected],BuildingLibrary=p.BuildingLibrary,ResourcePalettes=p.ResourcePalettes,LinearFeatures=p.LinearFeatures,GameZones=p.GameZones,SurfaceTheme=p.SurfaceTheme,SurfaceRegions=p.SurfaceRegions,SurfaceTiles=p.SurfaceTiles,Decorations=p.Decorations,StaticModels=p.StaticModels,RequiredMods=p.RequiredMods,AssetSources=p.AssetSources,Spawns=p.Spawns,Attribution=p.Attribution,Bounds=p.Bounds,MetresPerTile=p.MetresPerTile,ImportSummary=p.ImportSummary};
+  if(projected.Length==0&&world.LinearFeatures.Count==0)return p;
+  var result=new MapProject(){Version=Math.Max(6,p.Version),WorldSection=true,Name=p.Name,Width=p.Width,Height=p.Height,Seed=p.Seed,WorldX=p.WorldX,WorldY=p.WorldY,Terrain=p.Terrain,TerrainEdits=p.TerrainEdits,Zombies=p.Zombies,Buildings=[..p.Buildings,..projected],BuildingLibrary=p.BuildingLibrary,ResourcePalettes=p.ResourcePalettes,LinearFeatures=p.LinearFeatures,GameZones=p.GameZones,SurfaceTheme=p.SurfaceTheme,SurfaceRegions=p.SurfaceRegions,SurfaceTiles=p.SurfaceTiles,Decorations=p.Decorations,StaticModels=p.StaticModels,RequiredMods=p.RequiredMods,AssetSources=p.AssetSources,Spawns=p.Spawns,Attribution=p.Attribution,Bounds=p.Bounds,MetresPerTile=p.MetresPerTile,ImportSummary=p.ImportSummary};
+  return WorldInfrastructure.Project(world,member,result,sharedGeometry);
  }
  public static IEnumerable<StaticModelExporter.PlacedStaticModel> GatherModels(WorldProject world)=>StaticModelExporter.Gather(new(){WorldX=0,WorldY=0,Buildings=world.Buildings});
  public static WorldProject PutBuilding(WorldProject world,Building building){var copy=Clone(world);var prior=copy.Buildings.FindIndex(b=>b.Id==building.Id);if(prior>=0)copy.Buildings[prior]=CloneBuilding(building);else copy.Buildings.Add(CloneBuilding(building));Validate(copy);return copy;}

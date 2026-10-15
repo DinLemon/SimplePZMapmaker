@@ -1,6 +1,7 @@
 import {objectCells,floorLevel,objectParts} from './building.js';
 import {NativeTransformResolver,copyFloor,pasteFloor,selectObjectArea,selectedObjects,copyObjectGroup,pasteObjectGroup,alignObjectGroup,transformBuilding,transformObjectGroup,validatePalette,resolvePaletteResource} from './building-transform.js';
 import {buildingDiagnostics} from './building-diagnostics.js';
+import {installBuildingAccessDiagnostics} from './access-diagnostics.js';
 const $=id=>document.getElementById(id),clone=value=>structuredClone(value),newId=()=>crypto.randomUUID().replaceAll('-','');
 
 export function installBuildingUsabilityControls(w){
@@ -56,5 +57,5 @@ export function installBuildingUsabilityControls(w){
   canvas.addEventListener('pointercancel',()=>{state.drag=null;w.draw();w.visual.draw();},true);
  }
  $('building-dialog').addEventListener('keydown',e=>{if(!e.ctrlKey&&!e.metaKey||['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return;const key=e.key.toLowerCase();if(key==='c'&&state.selection.length){e.preventDefault();e.stopPropagation();$('be-copy-group').click();}if(key==='v'&&state.objectClipboard){e.preventDefault();e.stopPropagation();$('be-paste-group').click();}});
- updatePaletteList();renderPalette();return state;
+ installBuildingAccessDiagnostics(w);updatePaletteList();renderPalette();return state;
 }

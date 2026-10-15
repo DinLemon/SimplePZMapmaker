@@ -2,11 +2,36 @@
 
 A local visual map and building editor for **Project Zomboid Build 42**, written in C#/.NET 10 with a browser interface. Create maps without programming, assemble rooms from your installed game's resources, import OpenStreetMap geography, and join adjacent sections into one world.
 
-**Current release: 0.10.0.** The Windows x64 download includes the .NET Runtime. The editor supports 24 original editable building plans, up to 32 above-ground levels and basements **−1 to −32** (64 signed levels, **Z −32…31**), game/mod sprites and static models, shared buildings across section boundaries, measured DEM elevation, and MCP planning with a review before changes enter your project.
+**Current release: 0.11.0.** The Windows x64 download includes the .NET Runtime. The editor supports 24 original editable building plans, up to 32 above-ground levels and basements **−1 to −32** (64 signed levels, **Z −32…31**), game/mod sprites and static models, shared buildings across section boundaries, measured DEM elevation, and MCP planning with a review before changes enter your project.
 
 [Download releases](https://github.com/DinLemon/SimplePZMapmaker/releases) · [Verification status](docs/STATUS.md) · [Code and data provenance](docs/PROVENANCE.md)
 
 ![The English map editor](docs/screenshots/01-editor.png)
+
+## What's new in 0.11.0
+
+- **Shared world infrastructure:** author one road, river, railway or elevated bridge across adjacent sections. Decks, stairs, guard rails and underlays are generated together and clipped for native export. [Illustrated instructions](docs/WORLD-INFRASTRUCTURE.md).
+- **Counted apartment buildings:** choose entrances, floors, apartments per entrance, layout and facade. Every generated apartment has actual rooms; entrance modules remain reusable. [Building and street generation](docs/PARAMETRIC-ENSEMBLES.md).
+- **Street ensembles:** preview a coordinated building, access paths, parking, gated fences, greenery, benches and lighting as one bounded proposal. Applying it is one undoable change.
+- **Pedestrian diagnostics:** **Check access** locates unreachable rooms, blocked approaches, broken stairs and unguarded upper edges, with floor-aware overlays and optional routes. [Access guide](docs/ACCESS-DIAGNOSTICS.md).
+- **Checked agent proposals:** 55 MCP tools include isolated design/check/repair tasks, authentic native lighting evidence, bounded repairs, separate commits and visible before/after review. [Agent workflow](docs/MCP.md#checked-design-tasks-0110).
+- **Background native exports:** keep editing while an immutable snapshot exports. Inspect progress, cancel, download completed ZIPs and reuse unchanged section data. [Export queue guide](docs/EXPORT-JOBS.md).
+
+![One shared bridge crossing two world sections](docs/screenshots/17-world-infrastructure.png)
+
+![Counted apartment building generated from reusable entrance modules](docs/screenshots/19-parametric-building.png)
+
+![Coordinated street ensemble preview](docs/screenshots/20-street-ensemble.png)
+
+![Coordinate-based access diagnostics and a pedestrian route](docs/screenshots/21-access.png)
+
+![Background native export progress and reusable section data](docs/screenshots/22-export-jobs.png)
+
+![An isolated proposal with visible rooms, repaired openings and genuine native lighting evidence](docs/screenshots/23-agent-design.png)
+
+Try the synthetic [two-section WorldAuthoring source](examples/WorldAuthoring/world-authoring.pzworld.json) and its [native Build 42 archive](examples/WorldAuthoring/WorldAuthoring-B42.zip). It includes counted apartment houses, reusable modules, a shared river bridge and a clear road underpass. [Example instructions](examples/WorldAuthoring/README.md) explain its fixed coordinates and regeneration.
+
+These checks run inside the editor. Access analysis describes authored pedestrian geometry under explicit door and crop assumptions; native lighting uses the installed game library. No character playthrough is started. Measured DEM remains a reference/export layer; continuous vehicle ramps and the full game renderer remain outside these tools.
 
 ## What's new in 0.10.0
 
@@ -82,12 +107,12 @@ Validation for this implementation: **190 C# checks, 129 JavaScript checks and 1
 ### 2. Download the application ZIP
 
 1. Open [GitHub Releases](https://github.com/DinLemon/SimplePZMapmaker/releases).
-2. Select **v0.10.0**, or a newer published release. The project publishes prereleases, so use the release list rather than assuming GitHub's `/latest` page shows the newest build.
-3. Expand **Assets** and download **`SimplePZMapmaker-0.10.0-win-x64.zip`**. Example map ZIPs contain game mods, not the editor. GitHub's automatic **Source code** archives are development sources, not the ready-to-run application.
+2. Select **v0.11.0**, or a newer published release. The project publishes prereleases, so use the release list rather than assuming GitHub's `/latest` page shows the newest build.
+3. Expand **Assets** and download **`SimplePZMapmaker-0.11.0-win-x64.zip`**. Example map ZIPs contain game mods, not the editor. GitHub's automatic **Source code** archives are development sources, not the ready-to-run application.
 4. Optionally download the release checksum file and compare the archive's SHA-256 before extracting it. Run this command from the folder containing the downloaded archive:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath './SimplePZMapmaker-0.10.0-win-x64.zip'
+Get-FileHash -Algorithm SHA256 -LiteralPath './SimplePZMapmaker-0.11.0-win-x64.zip'
 ```
 
 ### 3. Extract the entire archive
@@ -295,7 +320,7 @@ QA downloads/screenshots/logs stay in `work/qa-results/` or `work/logs/`. Develo
 1. Open **Actions** in the GitHub repository and select **Build and verify**.
 2. Choose **Run workflow**, select `develop` or the branch to verify, then start.
 3. Inspect build/startup/browser steps in the run.
-4. Download the completed application artifact for local use. Extract GitHub's outer artifact archive, then extract the contained `SimplePZMapmaker-0.10.0-win-x64.zip` into the application folder and follow the installation steps above. The diagnostic artifact contains startup evidence and screenshots. GitHub may require sign-in for artifacts.
+4. Download the completed application artifact for local use. Extract GitHub's outer artifact archive, then extract the contained `SimplePZMapmaker-0.11.0-win-x64.zip` into the application folder and follow the installation steps above. The diagnostic artifact contains startup evidence and screenshots. GitHub may require sign-in for artifacts.
 
 CI runs on pushes to `develop`, pull requests and manual dispatch. The Windows runner uses its mapped checkout as the workspace and keeps task caches there. Its no-game fallback check does not replace local installed-game probes.
 

@@ -1,4 +1,4 @@
-namespace SimplePZMapmaker.Core;
+﻿namespace SimplePZMapmaker.Core;
 
 /// <summary>Feature-owned native floors and cardinal stair runs; elevated strokes never repaint ground terrain.</summary>
 public static class InfrastructureGeometry
@@ -7,8 +7,9 @@ public static class InfrastructureGeometry
  public const int MaximumTiles=250000;
  public sealed record Tile(int X,int Y,int Z,string Id,byte Flags=0);
  public sealed record Hole(int X,int Y,int Z);
- public sealed record Geometry(List<Tile> Tiles,List<Hole> Holes);
+ public sealed record Geometry(List<Tile> Tiles,List<Hole> Holes){internal Dictionary<string,HashSet<(int X,int Y)>>? WorldCells {get;init;}}
  public static bool HasAuthoring(LinearFeature f)=>f.Level!=0||f.Access!="none"||f.GuardRails||f.SupportSpacing!=0||f.GroupId is not null;
+ public static bool HasFeatures(MapProject p)=>p.LinearFeatures.Any(f=>f.Level!=0)||p.SharedInfrastructure is {Tiles.Count:>0} or {Holes.Count:>0};
  public static Geometry Build(MapProject p)
  {
   var tiles=new Dictionary<(int,int,int,string),Tile>();var holes=new HashSet<Hole>();var floors=new HashSet<(int X,int Y,int Z)>();var rails=new List<(LinearFeature Feature,HashSet<int> Cells)>();
@@ -31,11 +32,12 @@ public static class InfrastructureGeometry
    if(f.Level<0){for(var z=f.Level;z<0;z++)Add(rx,ry,z,flags==2?"walls_exterior_house_01_1":"walls_exterior_house_01_0",flags);}else Add(rx,ry,f.Level,id,flags);
   }}
   foreach(var hole in holes){tiles.Remove((hole.X,hole.Y,hole.Z,DeckTile));floors.Remove((hole.X,hole.Y,hole.Z));}
+  if(p.SharedInfrastructure is {} shared){foreach(var tile in shared.Tiles)Add(tile.X,tile.Y,tile.Z,tile.Id,tile.Flags);foreach(var hole in shared.Holes){holes.Add(hole);tiles.Remove((hole.X,hole.Y,hole.Z,DeckTile));}}
   return new(tiles.Values.ToList(),holes.ToList());
  }
  public static void Validate(MapProject p)
  {
-  if(!p.LinearFeatures.Any(f=>f.Level!=0))return;var geometry=Build(p);var mask=TerrainEditMask.Decode(p);var groundBlocked=new HashSet<int>();var occupiedBuildings=new HashSet<int>();
+  if(!HasFeatures(p))return;var geometry=Build(p);var mask=TerrainEditMask.Decode(p);var groundBlocked=new HashSet<int>();var occupiedBuildings=new HashSet<int>();
   foreach(var b in p.Buildings)foreach(var i in BuildingDesigner.Occupied(b)){var x=b.X+i%(b.Width+1);var y=b.Y+i/(b.Width+1);occupiedBuildings.Add(y*p.Width+x);}
   foreach(var d in p.Decorations)foreach(var part in d.Parts)groundBlocked.Add((d.Y+part.Dy)*p.Width+d.X+part.Dx);
   foreach(var m in p.StaticModels)foreach(var c in StaticModelPlacement.FootprintCells(m))groundBlocked.Add((m.Y+c.Dy)*p.Width+m.X+c.Dx);

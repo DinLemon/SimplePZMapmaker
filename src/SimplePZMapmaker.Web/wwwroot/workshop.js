@@ -7,6 +7,7 @@ import {VisualWorkshop,nearestEdge,placementCheck} from './visual-workshop.js';
 import {installArchitectureControls} from './building-architecture.js';
 import {installBuildingUsabilityControls} from './building-usability.js';
 import {installBuildingModuleControls} from './building-modules.js';
+import {installParametricBuildingControls} from './parametric-buildings.js';
 const $=id=>document.getElementById(id),colors=['#b6ac83','#6d877c','#9b815e','#ad8c7d','#858aaa','#938c68','#a59883'];
 export class BuildingWorkshop{
  constructor({api,apply,template,download,attribution,resources,preview,getPalettes,savePalettes,getModules,saveModule}){
@@ -51,6 +52,7 @@ export class BuildingWorkshop{
   $('building-dialog').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)){e.preventDefault();e.stopPropagation();$(e.shiftKey?'be-redo':'be-undo').click();}});
   installBuildingUsabilityControls(this);
   installBuildingModuleControls(this);
+  installParametricBuildingControls(this);
  }
  get floor(){return this.draft.design.floors[this.level];}
  async validateForSave(){this.readName();validateDesign(this.draft);const result=await this.api('/api/building/validate',this.draft);this.draft=normalizeBuilding(result.building||this.draft);}

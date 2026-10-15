@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text.Json;
 using SimplePZMapmaker.Core;
 using SimplePZMapmaker.Core.Export;
@@ -16,6 +16,6 @@ public sealed class AgentWorldStore(string directory) {
  public Snapshot Read(string token){lock(gate)return Load(token);}
  public object Status(string token){lock(gate){FileName(token);token=token.ToLowerInvariant();if(statuses.TryGetValue(token,out var status))return status;var s=Load(token);return statuses[token]=new(s.Revision,s.Author,s.Updated);}}
  public Snapshot Mutate(string token,long revision,Action<WorldProject> action,string author="agent"){lock(gate){var s=Load(token);if(s.Revision!=revision)throw new AgentRevisionConflict(s.Revision);action(s.World);WorldAssembler.Validate(s.World);s.Revision++;s.Author=author;s.Updated=DateTimeOffset.UtcNow;Save(s);return s;}}
- public Snapshot Publish(string token,long revision,WorldProject world)=>Mutate(token,revision,w=>{var copy=NeighborhoodPlanner.Copy(world);w.Name=copy.Name;w.Maps=copy.Maps;w.Buildings=copy.Buildings;w.GeoReference=copy.GeoReference;w.Elevation=copy.Elevation;},"browser");
+ public Snapshot Publish(string token,long revision,WorldProject world)=>Mutate(token,revision,w=>{var copy=NeighborhoodPlanner.Copy(world);w.Version=copy.Version;w.Name=copy.Name;w.Maps=copy.Maps;w.LinearFeatures=copy.LinearFeatures;w.Buildings=copy.Buildings;w.GeoReference=copy.GeoReference;w.Elevation=copy.Elevation;},"browser");
  public void Close(string token){lock(gate){RecoveryArchive.Clear(FileName(token));statuses.Remove(token.ToLowerInvariant());}}
 }

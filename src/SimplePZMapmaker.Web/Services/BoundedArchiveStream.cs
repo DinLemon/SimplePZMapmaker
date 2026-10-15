@@ -1,8 +1,8 @@
 namespace SimplePZMapmaker.Web.Services;
 /// <summary>Bounds the final seekable archive during writes, not after filling the disk.</summary>
-public sealed class BoundedArchiveStream(Stream inner,long maximum):Stream
+public sealed class BoundedArchiveStream(Stream inner,long maximum,string? overflowMessage=null):Stream
 {
- void Check(long end){if(end<0||end>maximum)throw new ArgumentException("The native archive exceeds 256 MB. Export selected sections separately.");}
+ void Check(long end){if(end<0||end>maximum)throw new ArgumentException(overflowMessage??"The native archive exceeds 256 MB. Export selected sections separately.");}
  public override bool CanRead=>inner.CanRead;public override bool CanWrite=>inner.CanWrite;public override bool CanSeek=>inner.CanSeek;
  public override long Length=>inner.Length;public override long Position{get=>inner.Position;set{Check(value);inner.Position=value;}}
  public override void Write(byte[] buffer,int offset,int count){Check(checked(Position+count));inner.Write(buffer,offset,count);}

@@ -1,4 +1,4 @@
-namespace SimplePZMapmaker.Core;
+﻿namespace SimplePZMapmaker.Core;
 
 public enum Terrain : byte { Grass, Forest, Road, Water, Sand, Dirt, Pavement }
 public sealed class MapProject
@@ -6,6 +6,8 @@ public sealed class MapProject
     private int version=4;
     public int Version { get=>AuthoringFormats.MapHasInfrastructure(this)&&version<11?11:AuthoringFormats.MapHasExtendedLevels(this)&&version<10?10:AuthoringFormats.MapHasNewAuthoring(this)&&version<9?9:ResourcePalettes?.Count>0&&version<8?8:version==6&&(StaticModels?.Any(m=>m?.Profile!="pickup")==true||(Buildings??[]).Concat(BuildingLibrary??[]).Any(b=>b?.Design?.Floors?.Any(f=>f?.StaticModels?.Any(m=>m?.Profile!="pickup")==true)==true))?7:version;set=>version=value; }
     public bool WorldSection {get;set;}
+    [System.Text.Json.Serialization.JsonIgnore]
+    public InfrastructureGeometry.Geometry? SharedInfrastructure {get;set;}
     public string Name { get; set; }="New map";
     public int Width { get; set; }=256;
     public int Height { get; set; }=256;

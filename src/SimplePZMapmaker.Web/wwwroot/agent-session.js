@@ -1,5 +1,6 @@
 import {changeSummary,drawAgentReview} from './agent-review.js';
 import {installAgentPlanning} from './agent-planning.js';
+import {installAgentDesign} from './agent-design.js';
 export class AgentSession {
  constructor({project,apply,message,busy,world,applyWorld,changeVersion}){this.project=project;this.apply=apply;this.message=message;this.busy=busy;this.world=world;this.applyWorld=applyWorld;this.changeVersion=changeVersion;this.mode='map';this.token=null;this.revision=0;this.remote=0;this.dirty=false;this.running=false;this.suppress=false;this.localRevision=0;this.pendingReview=null;
   const style=document.createElement('link');style.rel='stylesheet';style.href='agent-session.css';document.head.append(style);
@@ -17,7 +18,7 @@ export class AgentSession {
   this.node('config').onclick=()=>{const value={mcpServers:{simplePZMapmaker:{url:location.origin+'/mcp'}}};const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='simple-pz-mcp.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);};
   this.node('end').onclick=()=>this.run(async()=>{await this.request(this.path()+'/close',{});this.clear();this.message('Session closed.');});
   try{const saved=JSON.parse(sessionStorage.getItem('pzmap-agent-session')||'null');if(saved&&/^[a-f0-9]{64}$/.test(saved.token)){this.token=saved.token;this.revision=saved.revision;this.remote=saved.revision;this.mode=saved.mode||'map';this.node('mode').value=this.mode;this.dirty=true;}}catch{}
-  installAgentPlanning(this);this.render();this.timer=setInterval(()=>this.poll(),5000);
+  installAgentPlanning(this);installAgentDesign(this);this.render();this.timer=setInterval(()=>this.poll(),5000);
  }
  async request(path,data){const r=await fetch(path,data===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});const body=await r.json();if(!r.ok){if(r.status===409)this.remote=body.revision;throw Error(body.error||'Agent connection error ('+r.status+').');}return body;}
  async run(action){if(this.running||this.busy())return;this.running=true;this.render();try{await action();}catch(e){this.message(e.message,true);}finally{this.running=false;this.render();}}

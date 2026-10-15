@@ -1,0 +1,10 @@
+using System.Text.Json;
+using SimplePZMapmaker.Core;
+public static class ParametricBuildingTests {
+ public static IEnumerable<(string,Action)> Cases(){
+  yield return ("parametric apartments meet exact counts with independent entrance stairs",()=>{foreach(var layout in new[]{"slab","staggered","courtyard"}){var p=ParametricBuildings.Create(new(){Entrances=2,Floors=3,ApartmentsPerFloor=3,Layout=layout,Seed=123});BuildingDesigner.Validate(p.Building);if(p.TotalApartments!=18||p.Apartments.Count!=18||p.Modules.Count<3||p.Building.Design!.Floors.Take(2).Any(f=>f.Objects.Count(o=>o.Kind=="stairs")!=2))throw new Exception("Requested apartments, reusable sections or stair cores lost");foreach(var m in p.Modules)if(!BuildingModules.IsModule(m))throw new Exception("Module is not reusable");}});
+  yield return ("parametric seed deterministic and layout changes real floor geometry",()=>{var a=ParametricBuildings.Create(new(){Seed=82});var b=ParametricBuildings.Create(new(){Seed=82});if(JsonSerializer.Serialize(a)!=JsonSerializer.Serialize(b))throw new Exception("Same settings changed generation");var c=ParametricBuildings.Create(new(){Seed=83});if(a.Building.Design!.Floors[0].Cells==c.Building.Design!.Floors[0].Cells)throw new Exception("Seed did not vary apartment plan");});
+  yield return ("parametric unsupported capacity clearly rejects",()=>{foreach(var settings in new[]{new ParametricBuildingOptions{Entrances=4,ApartmentsPerFloor=3},new ParametricBuildingOptions{Floors=33},new ParametricBuildingOptions{Entrances=0},new ParametricBuildingOptions{Layout="bad"}}){try{ParametricBuildings.Create(settings);}catch(ArgumentException){continue;}throw new Exception("Invalid generation accepted");}});
+  yield return ("parametric maximum native floor and long valid name survive module capture",()=>{var p=ParametricBuildings.Create(new(){Name=new string('A',100),Floors=32,Entrances=4,ApartmentsPerFloor=2});BuildingDesigner.Validate(p.Building);if(p.Building.Design!.Floors.Count!=32||p.Building.Design.Roof!="none"||p.TotalApartments!=256)throw new Exception("Native top floor or apartment capacity truncated");});
+ }
+}

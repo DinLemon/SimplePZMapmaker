@@ -20,7 +20,8 @@ public static class NativeMapExporter {
         using var output=new MemoryStream();WriteValidatedWorldSection(p,output,token);return output.ToArray();
     }
     public static void ExportToStream(MapProject p,Stream output,CancellationToken token=default){ProjectValidator.Validate(p);if(p.Spawns.Count==0)throw new ArgumentException("Export this section as part of a world with dry-land spawn points.");WriteValidatedWorldSection(p,output,token);}
-    internal static void WriteValidatedWorldSection(MapProject p,Stream output,CancellationToken token=default,MapProject? authoredSource=null,object? sharedContext=null,string? sectionModId=null)
+    public static void ExportWithProgress(MapProject p,Stream output,NativeExportContext context,CancellationToken token=default){ProjectValidator.Validate(p);if(p.Spawns.Count==0)throw new ArgumentException("Export this section as part of a world with dry-land spawn points.");context.Begin(1,p.Width/256*(p.Height/256));context.Section(p.Name);WriteValidatedWorldSection(p,output,token,context:context);context.SectionDone();context.Complete();}
+    internal static void WriteValidatedWorldSection(MapProject p,Stream output,CancellationToken token=default,MapProject? authoredSource=null,object? sharedContext=null,string? sectionModId=null,NativeExportContext? context=null)
     {
         using(var zip=new ZipArchive(output,ZipArchiveMode.Create,true)) {
             var slug=sectionModId??ModId(p);var root=$"{slug}/42/media/maps/{slug}/";
@@ -45,25 +46,29 @@ public static class NativeMapExporter {
             var attribution=p.Attribution.Concat(p.Buildings.Concat(p.BuildingLibrary).SelectMany(b=>b.Attribution)).Distinct();
             Text($"{slug}/ATTRIBUTION.txt",string.Join('\n',attribution.Prepend("Created with SimplePZMapmaker. Native export format: Build 42 (256-cell / 8-chunk)."))+"\n");
             using(var source=zip.CreateEntry($"{slug}/project.pzmap.json",CompressionLevel.Fastest).Open())JsonSerializer.Serialize(source,authoredSource??p,JsonOptions);
-            if(sharedContext is not null)using(var context=zip.CreateEntry($"{slug}/section-world-context.json",CompressionLevel.Fastest).Open())JsonSerializer.Serialize(context,sharedContext,JsonOptions);
+            if(sharedContext is not null)using(var contextEntry=zip.CreateEntry($"{slug}/section-world-context.json",CompressionLevel.Fastest).Open())JsonSerializer.Serialize(contextEntry,sharedContext,JsonOptions);
             Text($"{slug}/INSTALL.txt",$"Extract {slug} into Zomboid/mods. Enable the mod, create a NEW game, and choose the {p.Name} map. Do not add it to an important existing world. The generator does not install the mod automatically. Other maps occupying the same coordinates may conflict. For a server, set Map={slug} and Mods={slug}. This is a B42 export; check compatibility in a separate new save. The identifier depends on the name and seed; changing either creates a different mod.\n");
             var atlas=WorldMap(p);Text(root+"worldmap.xml",new XDocument(new XDeclaration("1.0","UTF-8",null),atlas).ToString());Bytes(root+"worldmap.xml.bin",NativeWorldMapBinary.Write(atlas));
-            WriteCells(p,zip,root,token);
+            WriteCells(p,zip,root,token,context);
         }
     }
-    internal static void WriteCells(MapProject p,ZipArchive zip,string root,CancellationToken token)
+    internal static void WriteCells(MapProject p,ZipArchive zip,string root,CancellationToken token,NativeExportContext? context=null)
     {
-            var infrastructure=p.LinearFeatures.Any(f=>f.Level!=0)?InfrastructureGeometry.Build(p):null;
+        if(context?.Cache is {} cache){var reused=cache.Write(p,zip,root,token,_=>context.Cell(),fragment=>ComposeCells(p,fragment,"",token,context));if(reused)context.Reused();}else ComposeCells(p,zip,root,token,context);
+    }
+    internal static void ComposeCells(MapProject p,ZipArchive zip,string root,CancellationToken token,NativeExportContext? context)
+    {
+            var infrastructure=InfrastructureGeometry.HasFeatures(p)?InfrastructureGeometry.Build(p):null;
             void Bytes(string path,byte[] bytes){var e=zip.CreateEntry(path,CompressionLevel.Fastest);using var s=e.Open();s.Write(bytes);}
             for(var cellY=0;cellY<p.Height/256;cellY++)for(var cellX=0;cellX<p.Width/256;cellX++) {
                 token.ThrowIfCancellationRequested();
                 var composer=new TileComposer(p,cellX,cellY,infrastructure);
                 var names=new HashSet<string>(StringComparer.Ordinal);
-                for(var z=composer.MinLevel;z<=composer.MaxLevel;z++)for(var y=0;y<256;y++)for(var x=0;x<256;x++) foreach(var name in composer.At(x,y,z))names.Add(name);
+                for(var z=composer.MinLevel;z<=composer.MaxLevel;z++)for(var y=0;y<256;y++){token.ThrowIfCancellationRequested();for(var x=0;x<256;x++) foreach(var name in composer.At(x,y,z))names.Add(name);}
                 var tiles=names.Order(StringComparer.Ordinal).ToArray();var ids=tiles.Select((name,id)=>(name,id)).ToDictionary(t=>t.name,t=>t.id);
                 Bytes(root+$"{p.WorldX+cellX}_{p.WorldY+cellY}.lotheader",Header(p,composer,tiles,cellX,cellY));
                 Bytes(root+$"world_{p.WorldX+cellX}_{p.WorldY+cellY}.lotpack",Pack(composer,ids));
-                Bytes(root+$"chunkdata_{p.WorldX+cellX}_{p.WorldY+cellY}.bin",Navigation(composer));
+                Bytes(root+$"chunkdata_{p.WorldX+cellX}_{p.WorldY+cellY}.bin",Navigation(composer));context?.Cell();
             }
     }
     private static string Culture(FormattableString s)=>s.ToString(System.Globalization.CultureInfo.InvariantCulture);

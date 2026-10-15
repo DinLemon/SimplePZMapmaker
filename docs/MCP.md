@@ -25,7 +25,7 @@ In **Connect agent**, choose the current map or the entire world; add sections b
 
 Before receiving changes, inspect the before/after comparison and object list, then explicitly receive the reviewed changes. If the local project or remote revision changes after review, generate a fresh comparison. Undo restores the previous project in one action.
 
-The server exposes 47 tools. `building_template_read` returns the complete original plan. `world_buildings`, `world_building_read`, `world_building_replace` and `world_building_put` read/edit buildings, including shared buildings across sections. Shared positions use absolute game-tile coordinates; section origins use native cell coordinates (256×256 tiles per cell).
+The server exposes 55 tools. `building_template_read` returns the complete original plan. `world_buildings`, `world_building_read`, `world_building_replace` and `world_building_put` read/edit buildings, including shared buildings across sections. Shared positions use absolute game-tile coordinates; section origins use native cell coordinates (256×256 tiles per cell).
 
 `world_section_generate`, `world_section_move`, `world_remove_object`, `world_paint_terrain` and `world_section_preview` edit/inspect worlds; `world_export` produces one combined mod. Section previews include the native parts of shared buildings.
 
@@ -47,3 +47,38 @@ The check creates its own map/world sessions, commits a building draft and neigh
 ## Native lighting and gameplay-zone proposals (0.10.0)
 
 Use `lighting_status`, `lighting_map_check`, `lighting_world_check` and `lighting_draft_check` for authentic installed LightingJNI results, signed levels -32..31, 8–64 tile crops and scene/library fingerprints. Checks are read-only, cancelable and revision-protected; no game session is started. `gameplay_catalog` supplies supported zones and literal registered vehicle/loot distributions. `gameplay_zones_read`, `gameplay_zones_plan`, `gameplay_zones_plan_read` and `gameplay_zones_plan_commit` separate exact 1–64 rectangle proposals from atomic revision-protected commits. World entries use a section memberId and local tile coordinates. Review the zone rectangles in Connect agent before receiving the updated session. See the [illustrated guide](EDITOR-EXPANSION.md#agent-lighting-and-gameplay-zones).
+
+## Checked design tasks (0.11.0)
+
+The following tools add a complete bounded proposal/check/repair workflow. A task has its own `taskRevision` and an immutable source `baseRevision`. Checking or repairing a task does not change the connected map/world.
+
+1. Call `design_parametric_building` to generate actual apartment rooms and reusable entrance modules, or prepare a complete building draft with the existing building tools. Choose local tile coordinates inside the design rectangle. Apartment options count units **per entrance per floor**; there are at most eight units per floor because the native room code table holds 35 entries.
+2. Call `design_task_create` with `sessionToken`, `expectedRevision`, `scope`, `constraints` and optional `replacements`. A world task also needs a section `memberId`. Existing and replacement building bounds must both fit inside the task rectangle, including exterior edges. Optional `neighborhood` constraints generate a bounded neighborhood in that candidate first. Shared buildings and infrastructure are included when a world candidate is checked.
+3. Call `design_task_check` with its ID and exact task revision. Access checks include authored wall/window/door edges, full blocking footprints, locked model doors, dry ground and actual stair landings. The report states crop and node coverage. Unsafe upper edges are warnings; they remain visible for manual review.
+4. Call `design_task_repair` to try the explicitly permitted changes. The loop can add doors through unedited walls and supported stairs, then selected registered native lights. It preserves furniture, door locks and geometry outside the rectangle. Set `allowEditedEdges` only when replacing manually authored facade edges is intended. A lamp requires `allowLights=true` and an explicit registered `lampModelId`; use resource discovery to choose the visible object.
+5. Read `design_task_read` and inspect **Checked design proposals** in **Connect agent**. Review before/after images, the exact fixes, access coverage, lighting scenario and engine fingerprints. Recheck if either revision changed. `design_task_update` replaces bounded drafts and clears prior checks.
+6. Call `design_task_commit` separately. It accepts only the latest passing complete check at the original source revision and revalidates assets. A changed lighting library/JAR/adapter requires another check. Then review and receive the new agent session revision through the existing editor controls. Receiving it is one undoable operation.
+
+`design_access_check` also checks a source revision directly, with optional local `start`/`end` coordinates and signed Z levels. It changes neither the source nor a task.
+
+Example constraints for a building near local tile 16,16:
+
+```json
+{
+  "x": 0, "y": 0, "width": 96, "height": 96,
+  "maximumIterations": 6, "maximumChanges": 10,
+  "allowNewDoors": true, "allowStairs": true, "allowEditedEdges": false,
+  "requireLighting": true,
+  "lightingX": 8, "lightingY": 8, "lightingSize": 48, "lightingLevel": 0,
+  "skyRgb": [0.2, 0.2, 0.2], "ambient": 0.2,
+  "minimumLight": 0.15,
+  "roomLightsPowered": true,
+  "allowLights": false
+}
+```
+
+Lighting covers **one explicit signed floor and crop**, not the entire world. Its minimum, average and dark fraction measure the native RGB mean on authored interior cells in that crop. Set `roomLightsPowered=false` to test authored point lights without the room-power assumption. Inaccessible drafts block the strict native scene calculation until repaired. Missing native libraries, an empty interior crop, incomplete access coverage or an unmet brightness threshold do not produce a passing result. `requireLighting=false` explicitly requests access-only checking; it is never displayed as a native-lighting pass.
+
+Tasks use `work/agent-design-tasks/`: eight proposals per session, 48 MB per proposal and 192 MB per session. There are at most eight repair iterations per invocation, 16 accepted changes per task and 32 recorded checks. Cancellation or a stale revision leaves the connected source untouched. Closing the session removes its checked-design proposals. These are static authoring checks under stated assumptions; no game session or character traversal is used.
+
+![Detailed source/proposal room geometry and recorded genuine lighting evidence](screenshots/23-agent-design.png)

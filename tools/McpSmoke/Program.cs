@@ -14,6 +14,7 @@ try{
   var result=await client.CallToolAsync("project_summary",new Dictionary<string,object?>{{"sessionToken",token}});Check(result.IsError!=true,"Summary failed");
   Console.WriteLine($"PASS MCP {protocol}: discovery, schema and project summary ({tools.Count} tools)");
   await VerifyGameplay(client,http);
+  await VerifyCheckedDesign(client,http);
   if(protocol!="2026-07-28")continue;
   var draft=Read(await client.CallToolAsync("building_draft_create",new Dictionary<string,object?>{{"sessionToken",token},{"templateId","village-izba"}}));var id=draft.GetProperty("id").GetString();
   var commit=await client.CallToolAsync("building_draft_commit",new Dictionary<string,object?>{{"sessionToken",token},{"draftId",id},{"expectedRevision",1},{"x",30},{"y",30}});Check(commit.IsError!=true,"Draft commit failed");
@@ -77,3 +78,24 @@ static async Task VerifyGameplay(McpClient client,HttpClient http){
  }finally{using var close=await http.PostAsJsonAsync("/api/agent/session/"+token+"/close",new{});close.EnsureSuccessStatusCode();}
 }
 static WorldProject WorldTestsForSmoke(){var w=new WorldProject();for(var i=0;i<2;i++){var p=MapGenerator.Generate(new(){Kind="blank"});p.WorldX=100+i;w.Maps.Add(new(){Project=p});}return w;}
+static async Task VerifyCheckedDesign(McpClient client,HttpClient http){
+ var p=MapGenerator.Generate(new(){Kind="blank",Name="Checked design SDK"});var b=new Building{X=8,Y=8};b.Design=BuildingDesigner.Generate(b,1,42,"rect");foreach(var f in b.Design.Floors)f.Objects.Clear();p.Buildings.Add(b);
+ using var created=await http.PostAsJsonAsync("/api/agent/session",p);created.EnsureSuccessStatusCode();var token=JsonSerializer.Deserialize<JsonElement>(await created.Content.ReadAsStringAsync()).GetProperty("token").GetString()!;
+ try{
+  var parametric=Read(await client.CallToolAsync("design_parametric_building",new Dictionary<string,object?>{{"options",new{entrances=3,floors=3,apartmentsPerFloor=2,layout="staggered",facade="brick",seed=41,name="SDK apartment block"}}}));Check(parametric.GetProperty("totalApartments").GetInt32()==18,"Counted MCP apartments missing");
+  var replacement=NeighborhoodPlanner.Copy(b);foreach(var edge in replacement.Design!.Floors[0].Edges.Where(e=>e.Kind=="door"))edge.Kind="wall";
+  var available=Read(await client.CallToolAsync("lighting_status",new Dictionary<string,object?>())).GetProperty("available").GetBoolean();
+  var constraints=new{width=64,height=64,maximumIterations=8,maximumChanges=12,requireLighting=available,lightingX=8,lightingY=8,lightingSize=16,minimumLight=0};
+  var task=Read(await client.CallToolAsync("design_task_create",new Dictionary<string,object?>{{"sessionToken",token},{"expectedRevision",1},{"constraints",constraints},{"replacements",new[]{replacement}}}));var id=task.GetProperty("id").GetString();
+  Check((await client.CallToolAsync("design_task_commit",new Dictionary<string,object?>{{"sessionToken",token},{"taskId",id},{"expectedTaskRevision",1}})).IsError==true,"Unchecked candidate committed");
+  var checkedTask=Read(await client.CallToolAsync("design_task_check",new Dictionary<string,object?>{{"sessionToken",token},{"taskId",id},{"expectedTaskRevision",1}}));Check(!checkedTask.GetProperty("passed").GetBoolean(),"Sealed draft passed");
+  Check((await client.CallToolAsync("design_task_repair",new Dictionary<string,object?>{{"sessionToken",token},{"taskId",id},{"expectedTaskRevision",1}})).IsError==true,"Stale task revision accepted");
+  var repaired=Read(await client.CallToolAsync("design_task_repair",new Dictionary<string,object?>{{"sessionToken",token},{"taskId",id},{"expectedTaskRevision",2}}));Check(repaired.GetProperty("passed").GetBoolean()&&repaired.GetProperty("changes").GetArrayLength()>0,"Bounded repair did not restore access");
+  if(available){var last=repaired.GetProperty("iterations").EnumerateArray().Last();Check(last.GetProperty("lightingStatus").GetString()=="checked"&&last.GetProperty("provenance").GetProperty("engine").GetString()=="Project Zomboid LightingJNI","Repair substituted lighting estimate");}
+  Check(Read(await client.CallToolAsync("project_summary",new Dictionary<string,object?>{{"sessionToken",token}})).GetProperty("revision").GetInt64()==1,"Candidate mutated source before commit");
+  var route=Read(await client.CallToolAsync("design_access_check",new Dictionary<string,object?>{{"sessionToken",token},{"expectedRevision",1},{"options",new{width=64,height=64,start=new{x=1,y=1,z=0},end=new{x=63,y=63,z=0}}}}));Check(route.GetProperty("path").GetArrayLength()>0,"MCP route absent");
+  Check((await client.CallToolAsync("design_task_commit",new Dictionary<string,object?>{{"sessionToken",token},{"taskId",id},{"expectedTaskRevision",3}})).IsError!=true,"Checked candidate commit failed");
+  Check((await client.CallToolAsync("design_task_commit",new Dictionary<string,object?>{{"sessionToken",token},{"taskId",id},{"expectedTaskRevision",3}})).IsError==true,"Stale source checked candidate committed");
+  Console.WriteLine("PASS MCP counted parametric building, isolated design/check/repair, access route, genuine evidence and stale task/source rejection");
+ }finally{using var close=await http.PostAsJsonAsync("/api/agent/session/"+token+"/close",new{});close.EnsureSuccessStatusCode();}
+}

@@ -1,3 +1,19 @@
+# Verification status — 0.11.0, 2026-10-15
+
+## Shared worlds, counted buildings, access and checked agent design
+
+- Shared world infrastructure is authored once in absolute coordinates and projected into independent sections. Browser preview/apply/remove/history, native seam sprites, an independent LOT decoder, section workspace recovery, OSM preserve and agent publication are verified. Shared road underpasses remain clear of bridge piers; railway providers are checked.
+- Parametric generation produces actual apartment units, independent entrances/stairs and reusable modules. Slab, staggered and courtyard layouts, all 32 above-ground floors and the eight-apartment native floor limit are covered. Real catalog ensembles supply complete prop footprints, gated access, parking, greenery and native lights. Standalone and world-section browser tests verify terrain, metadata, save/reload and atomic undo/redo.
+- Pedestrian diagnostics report coordinates, signed floors, complete/partial crop coverage, full furniture/model footprints, native directional fences, locked doors, supported stairs, unreachable/fully blocked rooms and unsafe upper edges. Optional routes, overlays, issue focus, draft checks and stale invalidation pass browser checks. Clipped stair fragments cannot claim complete coverage.
+- Official SDK clients discover **55 tools** under both protocols and verify isolated design/check/repair, genuine LightingJNI evidence, revision-protected task/source commits, world-section repair and before/after editor review. A real powered-off scenario accepts three chosen native lamps and improves measured RGB while retaining a failing result when the requested threshold remains unmet. No light estimate substitutes for unavailable native evidence.
+- Native export jobs preserve immutable snapshots, progress/cancel/download and restart status. Cache tests prove unchanged sections skip expensive composition and that terrain, shared buildings, provider ownership, shared decks and height changes invalidate the appropriate data. Cancellation/corruption/eviction cases pass; actual browser queue/reload/cancellation/reuse flows pass.
+- The new two-section WorldAuthoring example passes independent native readback and the installed game classes:2,048 chunks, 54 rooms, 36 upper rooms and 24 recognized stair tiles. No game session or character traversal is started.
+- Final local checks pass: **264 C# tests, 168 JavaScript tests and 23 authentic installed-library lighting scenarios**; Release build has zero warnings/errors. The published self-contained application starts with no installed game or shared .NET runtime, serves the English editor, saves/reopens projects and exports independently readable native data. Package/privacy/publication evidence is recorded in PROGRESS.md.
+
+Access analysis is a bounded static authoring graph, with doors assumed openable unless locked and no climbing/demolition. Native lighting checks one selected crop/floor/scenario; browser material rendering remains an editor preview. Roads/decks have discrete native floors and pedestrian stairs, not continuous vehicle ramps. DEM remains a measured reference layer. Section-only mode preserves shared source metadata; load the complete world to edit shared geometry. No gameplay save or multiplayer validation is claimed.
+
+## Earlier release evidence
+
 # Verification status — 0.10.0, 2026-10-14
 
 ## Materials, modules, infrastructure, MCP and section workspaces

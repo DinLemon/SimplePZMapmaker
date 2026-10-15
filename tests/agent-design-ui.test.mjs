@@ -1,0 +1,6 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {designReviewGuard,designIterationLabel} from '../src/SimplePZMapmaker.Web/wwwroot/agent-design.js';
+const task={id:'a'.repeat(32),baseRevision:3,taskRevision:7,passed:true};
+test('checked design commit requires matching source task and editor review revisions',()=>{const guard=designReviewGuard(task,{token:'token',localRevision:4,changeVersion:'map:2'});assert.equal(guard.matches({...task},3,{token:'token',localRevision:4,changeVersion:'map:2'}),true);for(const [t,revision,context] of [[{...task,taskRevision:8},3,{}],[task,4,{}],[task,3,{token:'token',localRevision:5,changeVersion:'map:2'}],[task,3,{token:'other',localRevision:4,changeVersion:'map:2'}],[{...task,passed:false},3,{token:'token',localRevision:4,changeVersion:'map:2'}]])assert.equal(guard.matches(t,revision,context),false);});
+test('iteration labels distinguish incomplete access and missing native lighting',()=>{assert.match(designIterationLabel({number:1,passed:false,access:{complete:false,issues:[]},lightingStatus:'unavailable'}),/incomplete/i);assert.match(designIterationLabel({number:2,passed:true,access:{complete:true,issues:[]},lightingStatus:'not-requested'}),/passed/i);});

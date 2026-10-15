@@ -2,7 +2,7 @@ namespace SimplePZMapmaker.Core;
 public static class AuthoringFormats
 {
  public static bool MapHasInfrastructure(MapProject p)=>p.LinearFeatures?.Any(f=>f is not null&&(f.Level!=0||f.Access!="none"||f.GuardRails||f.SupportSpacing!=0||f.GroupId is not null))==true;
- public static bool WorldHasInfrastructure(WorldProject w)=>w.Maps?.Any(m=>m?.Project is {} p&&MapHasInfrastructure(p))==true;
+ public static bool WorldHasInfrastructure(WorldProject w)=>w.LinearFeatures?.Count>0||w.Maps?.Any(m=>m?.Project is {} p&&MapHasInfrastructure(p))==true;
  // Earlier editor formats supported occupied levels -16..15 and had no explicit open roof option.
  public static bool BuildingHasExtendedLevels(Building? b)=>b?.Design is {} d&&(d.MinLevel< -16||(long)d.MinLevel+(d.Floors?.Count??0)-1>15||d.Roof=="none");
  public static bool MapHasExtendedLevels(MapProject p)=>(p.Buildings??[]).Concat(p.BuildingLibrary??[]).Any(BuildingHasExtendedLevels);
