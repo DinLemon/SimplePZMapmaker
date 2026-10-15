@@ -8,7 +8,7 @@ public sealed record ModDiagnostic(string Code,string Message,string? ModId=null
 public static class ModRegistry
 {
  public static string WorkshopRoot=>Environment.GetEnvironmentVariable("PZMAP_WORKSHOP_ROOT")??"";
- public static string SafePath(string path){var full=Path.GetFullPath(path);if(!full.StartsWith(@"G:\",StringComparison.OrdinalIgnoreCase))throw new ArgumentException("Mod resources must be located on drive G:.");var cursor=full;while(cursor.Length>3){if((File.Exists(cursor)||Directory.Exists(cursor))&&(File.GetAttributes(cursor)&FileAttributes.ReparsePoint)!=0)throw new ArgumentException("Links to external resource folders are not supported.");cursor=Path.GetDirectoryName(cursor)!;}return full;}
+ public static string SafePath(string path){var full=GameInstallationDiscovery.Normalize(path);string? cursor=full;while(!string.IsNullOrEmpty(cursor)){if((File.Exists(cursor)||Directory.Exists(cursor))&&(File.GetAttributes(cursor)&FileAttributes.ReparsePoint)!=0)throw new ArgumentException("Links to external resource folders are not supported.");var parent=Path.GetDirectoryName(cursor);if(parent==cursor)break;cursor=parent;}return full;}
  public static (Dictionary<string,ModDescriptor> Mods,List<ModDiagnostic> Diagnostics) Discover(IEnumerable<string> roots,string gameVersion)
  {
   if(!System.Version.TryParse(gameVersion,out var game)||game.Major!=42)throw new ArgumentException("Specify a Build 42 game version, for example 42.20.0.");

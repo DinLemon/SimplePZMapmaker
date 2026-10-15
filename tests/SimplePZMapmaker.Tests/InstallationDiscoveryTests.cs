@@ -1,0 +1,32 @@
+using SimplePZMapmaker.Web.Services;
+using System.Text.Json;
+public static class InstallationDiscoveryTests {
+ public static IEnumerable<(string,Action)> Cases(){
+  yield return("resource paths accept any absolute drive and pasted quotes without changing workspace",()=>{
+   if(!OperatingSystem.IsWindows())return;var p=ModRegistry.SafePath("\"P:\\Games and Mods\\ProjectZomboid\"");Check(p==@"P:\Games and Mods\ProjectZomboid","Another drive or quoted path was rejected");Reject(()=>ModRegistry.SafePath("relative/mods"));Reject(()=>ModRegistry.SafePath(""));
+  });
+  yield return("automatically discovered game can cache its first atlas before manual selection",()=>Fixture(root=>{
+   var game=Game(root,"ProjectZomboid");var png=Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jG2kAAAAASUVORK5CYII=");
+   using(var writer=new BinaryWriter(File.Create(Path.Combine(game,"media","texturepacks","Tiles2x.pack")))){void Text(string value){var bytes=System.Text.Encoding.ASCII.GetBytes(value);writer.Write(bytes.Length);writer.Write(bytes);}writer.Write("PZPK"u8);writer.Write(1);writer.Write(1);Text("first-atlas");writer.Write(1);writer.Write(0);Text("discoveryfixture_0");foreach(var v in new[]{0,0,1,1,0,0,1,1})writer.Write(v);writer.Write(png.Length);writer.Write(png);}
+   var workspace=Path.Combine(root,"fresh-editor");var assets=new GameAssetCatalog(workspace,"",new GameInstallationDiscovery([root],false));var key=assets.Get("discoveryfixture_0").Page??throw new Exception("Synthetic atlas not indexed");Check(assets.Page(key).SequenceEqual(png),"First automatic preview could not cache the PNG");Check(Directory.GetFiles(Path.Combine(workspace,"work","assets"),"*.png").Length==1,"Preview escaped the workspace cache");
+  }));
+  yield return("Steam discovery follows modern and legacy libraries and actual manifest install folder",()=>Fixture(root=>{
+   var steam=Path.Combine(root,"Steam");var library=Path.Combine(root,"Other library");Directory.CreateDirectory(Path.Combine(steam,"steamapps"));var game=Game(library,"Custom PZ folder");Directory.CreateDirectory(Path.Combine(library,"steamapps","workshop","content","108600"));
+   File.WriteAllText(Path.Combine(steam,"steamapps","libraryfolders.vdf"),"\"libraryfolders\" { \"0\" { \"path\" "+Q(steam)+" } \"1\" { \"path\" "+Q(library)+" \"apps\" {\"108600\" \"123\"} } }");
+   var discovery=new GameInstallationDiscovery([steam],false);var found=discovery.Find();Check(found.Installations.Count==1&&found.Installations[0].GamePath==game,"Modern Steam library or manifest folder lost");Check(found.ModRoots.Contains(Path.Combine(library,"steamapps","workshop","content","108600")),"Workshop library not suggested");
+   File.WriteAllText(Path.Combine(steam,"steamapps","libraryfolders.vdf"),"\"LibraryFolders\" { \"1\" "+Q(library)+" }");Check(discovery.Find().Installations.Single().GamePath==game,"Legacy Steam library lost");
+   using var saved=new MemoryStream();var assets=new GameAssetCatalog(Path.Combine(root,"editor"),"",discovery);Check(assets.Ready&&assets.GamePath==game,"Startup failed to load discovered game");Check(JsonSerializer.SerializeToElement(assets.ModsStatus()).GetProperty("roots").EnumerateArray().Any(r=>r.GetString()==Path.Combine(library,"steamapps","workshop","content","108600")),"Discovered Workshop root not used");
+  }));
+  yield return("saved manual game folder survives restart and broken selection retains working catalog",()=>Fixture(root=>{
+   var game=Game(root,"Manual folder");var workspace=Path.Combine(root,"editor");var assets=new GameAssetCatalog(workspace,game);Check(assets.Ready,"Fixture did not load");assets.Refresh("\""+game+"\"");var again=new GameAssetCatalog(workspace,"");Check(again.Ready&&again.GamePath==game,"Manual game folder not remembered");Reject(()=>again.Refresh(Path.Combine(root,"missing")));Check(again.Ready&&again.GamePath==game,"Bad selection erased game catalog");
+   var saved=Path.Combine(workspace,"work","assets","source.json");File.WriteAllText(saved,"{ broken");var recovered=new GameAssetCatalog(workspace,Path.Combine(root,"stale-configured-path"),new GameInstallationDiscovery([root],false));Check(recovered.Ready,"Broken remembered or configured path prevented Steam discovery");
+  }));
+  yield return("malformed Steam metadata is bounded and never invents a game location",()=>Fixture(root=>{
+   Directory.CreateDirectory(Path.Combine(root,"steamapps"));File.WriteAllText(Path.Combine(root,"steamapps","libraryfolders.vdf"),"\"libraryfolders\" { \"1\" { \"path\" \"unterminated");File.WriteAllText(Path.Combine(root,"steamapps","appmanifest_108600.acf"),"\"AppState\" { \"installdir\" \"../../escape\" }");var result=new GameInstallationDiscovery([root],false).Find();Check(result.Installations.Count==0,"Malformed metadata invented an installation");var assets=new GameAssetCatalog(Path.Combine(root,"editor"),"",new GameInstallationDiscovery([],false));Check(!assets.Ready&&assets.GamePath=="","Empty discovery invented a machine path");
+  }));
+ }
+ static string Q(string s)=>JsonSerializer.Serialize(s).Replace("\\u002B","+");
+ static string Game(string library,string name){var apps=Path.Combine(library,"steamapps");var root=Path.Combine(apps,"common",name);Directory.CreateDirectory(Path.Combine(root,"media","texturepacks"));File.WriteAllText(Path.Combine(root,"media","newtiledefinitions.tiles.txt"),"// discoveryfixture_0\ntile\n{\nsolidfloor = true\n}\n");Directory.CreateDirectory(apps);File.WriteAllText(Path.Combine(apps,"appmanifest_108600.acf"),"\"AppState\" { \"appid\" \"108600\" \"installdir\" "+Q(name)+" }");return root;}
+ static void Fixture(Action<string> body){var root=Path.Combine(Environment.CurrentDirectory,"work","installation-tests",Guid.NewGuid().ToString("N"));Directory.CreateDirectory(root);var workshop=Environment.GetEnvironmentVariable("PZMAP_WORKSHOP_ROOT");try{Environment.SetEnvironmentVariable("PZMAP_WORKSHOP_ROOT",null);body(root);}finally{Environment.SetEnvironmentVariable("PZMAP_WORKSHOP_ROOT",workshop);var absolute=Path.GetFullPath(root);if(!absolute.StartsWith(Path.GetFullPath(Path.Combine(Environment.CurrentDirectory,"work","installation-tests"))+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))throw new Exception("Unsafe fixture path");Directory.Delete(absolute,true);}}
+ static void Check(bool ok,string message){if(!ok)throw new Exception(message);}static void Reject(Action action){try{action();}catch(ArgumentException){return;}throw new Exception("Expected rejection");}
+}

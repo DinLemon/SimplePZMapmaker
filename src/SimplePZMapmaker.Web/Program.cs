@@ -15,7 +15,7 @@ builder.Services.ConfigureHttpJsonOptions(o=>{o.SerializerOptions.MaxDepth=48;})
 var workspace=Environment.GetEnvironmentVariable("PZMAP_WORKSPACE") ?? Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath,"../.."));
 builder.Services.AddSingleton(new OsmClient(Path.Combine(workspace,"work","geodata-cache")));
 builder.Services.AddSingleton(new RecoveryStore(Path.Combine(workspace,"work","recovery")));
-builder.Services.AddSingleton(new GameAssetCatalog(workspace,Environment.GetEnvironmentVariable("PZMAP_GAME_PATH")??""));
+builder.Services.AddSingleton(new GameAssetCatalog(workspace,Environment.GetEnvironmentVariable("PZMAP_GAME_PATH")??"",Environment.GetEnvironmentVariable("PZMAP_DISABLE_GAME_DISCOVERY")=="1"?null:new GameInstallationDiscovery()));
 builder.Services.AddSingleton<GameplayCatalog>();builder.Services.AddSingleton<StaticModelCatalog>();
 builder.Services.AddSingleton<MapSceneStore>();
 builder.Services.AddSingleton(service=>new NativeLightingService(workspace,service.GetRequiredService<GameAssetCatalog>(),service.GetRequiredService<StaticModelCatalog>()));
@@ -56,6 +56,7 @@ app.MapWorldInfrastructure();app.MapGenerationEndpoints();app.MapExportJobEndpoi
 app.MapWalkabilityEndpoints();app.MapAgentDesignEndpoints();
 app.MapWorldWorkspaceEndpoints();app.MapAgentGameplayEndpoints();app.MapBuildingModuleEndpoints();app.MapNativeLightingEndpoints();app.MapGameplayAuthoringEndpoints();app.MapLinearEditingEndpoints();app.MapMapSceneEndpoints();app.MapAgentEndpoints();app.MapAgentPlanningEndpoints();app.MapRecoveryVersionEndpoints();app.MapAssetsModEndpoints();app.MapStaticModelEndpoints();app.MapWorldEndpoints();app.MapOsmWorldImportEndpoints();
 app.MapGet("/api/assets/status",(GameAssetCatalog assets)=>assets.Status());
+app.MapGet("/api/assets/installations",(GameAssetCatalog assets)=>assets.FindInstallations());
 app.MapGet("/api/assets/search",(GameAssetCatalog assets,string? q,string? category,string? source,int? offset,int? limit)=>assets.Search(q,category,offset??0,limit??72,source));
 app.MapGet("/api/assets/item/{id}",(GameAssetCatalog assets,string id)=>{var a=assets.Get(id);return new{a.Id,a.Category,a.Name,a.Group,a.Facing,a.Grid,a.Blocking,a.Floor,a.Page,a.Sprite,a.Properties,a.Source,a.ModId,a.Requirements};});
 app.MapGet("/api/assets/placement/{id}",(GameAssetCatalog assets,string id)=>assets.PlacementFor(id));
@@ -71,7 +72,7 @@ app.MapPost("/api/building/presets/{id}",(string id,GameAssetCatalog assets)=>{v
 app.MapPost("/api/preview/cell",(GameAssetCatalog assets,StaticModelCatalog models,CellPreviewRequest request)=>{if(request.Project.Spawns.Count==0&&!request.Project.WorldSection)request.Project.Spawns.Add(MapGenerator.FindSafeSpawn(request.Project));AssetRules.Project(request.Project,assets);models.Validate(request.Project);return NativeScene.Cell(request.Project,request.X,request.Y,request.Width,request.Height,request.Level,request.X,request.Y,request.CellX,request.CellY);});
 app.MapPost("/api/preview/appearance",(GameAssetCatalog assets,AppearancePreviewRequest request)=>{AppearanceDesigner.Apply(request.Project,request.SurfaceTheme,request.Region,request.StyleBuildings);AssetRules.Project(request.Project,assets);return NativeScene.Cell(request.Project,request.X,request.Y,48,48,request.Level,request.X,request.Y,request.CellX,request.CellY);});
 app.MapPost("/api/styles/apply",(GameAssetCatalog assets,StyleApplyRequest request)=>{if(!assets.Ready)throw new ArgumentException("To apply appearance styles, locate the game installation under Game resources.");var changed=AppearanceDesigner.Apply(request.Project,request.SurfaceTheme,request.Region,request.StyleBuildings);AssetRules.Project(request.Project,assets);return new{project=request.Project,changed};});
-app.MapGet("/api/environment",(GameAssetCatalog assets)=>new {version="0.11.1",runtime=System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,selfContained=File.Exists(Path.Combine(AppContext.BaseDirectory,"coreclr.dll")),target="Project Zomboid Build 42",gameFound=assets.Ready,gamePath=assets.GamePath,cellSize=256,chunkSize=8,minLevel=ZLevels.Min,maxLevel=ZLevels.Max,maximumAboveGroundFloors=ZLevels.AboveGroundCount,maximumBasements=ZLevels.BasementCount,workspace});
+app.MapGet("/api/environment",(GameAssetCatalog assets)=>new {version="0.11.2",runtime=System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,selfContained=File.Exists(Path.Combine(AppContext.BaseDirectory,"coreclr.dll")),target="Project Zomboid Build 42",gameFound=assets.Ready,gamePath=assets.GamePath,cellSize=256,chunkSize=8,minLevel=ZLevels.Min,maxLevel=ZLevels.Max,maximumAboveGroundFloors=ZLevels.AboveGroundCount,maximumBasements=ZLevels.BasementCount,workspace});
 app.MapGet("/api/examples/pilna",async(CancellationToken token)=>{
     var file=Path.Combine(workspace,"examples","Pilna","pilna.pzmap.json");
     if(!File.Exists(file))file=Path.Combine(AppContext.BaseDirectory,"examples","Pilna","pilna.pzmap.json");

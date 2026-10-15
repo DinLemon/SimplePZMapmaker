@@ -2,11 +2,21 @@
 
 A local visual map and building editor for **Project Zomboid Build 42**, written in C#/.NET 10 with a browser interface. Create maps without programming, assemble rooms from your installed game's resources, import OpenStreetMap geography, and join adjacent sections into one world.
 
-**Current release: 0.11.1.** The Windows x64 download includes the .NET Runtime. The editor supports 24 original editable building plans, up to 32 above-ground levels and basements **−1 to −32** (64 signed levels, **Z −32…31**), game/mod sprites and static models, shared buildings across section boundaries, measured DEM elevation, and MCP planning with a review before changes enter your project.
+**Current release: 0.11.2.** The Windows x64 download includes the .NET Runtime. The editor supports 24 original editable building plans, up to 32 above-ground levels and basements **−1 to −32** (64 signed levels, **Z −32…31**), game/mod sprites and static models, shared buildings across section boundaries, measured DEM elevation, and MCP planning with a review before changes enter your project.
 
 [Download releases](https://github.com/DinLemon/SimplePZMapmaker/releases) · [Verification status](docs/STATUS.md) · [Code and data provenance](docs/PROVENANCE.md)
 
 ![The English map editor](docs/screenshots/01-editor.png)
+
+## What's new in 0.11.2
+
+- **Automatic game discovery:** startup reads Steam's registered libraries and installation manifests, including libraries on other drives. Stale saved paths fall back to detected installations.
+- **Explicit manual connection:** open **Game resources**, paste a game folder and choose **Load folder** or press Enter. **Find installed game** lets you select a detected installation. Quoted paths and a pasted game executable path are accepted.
+- **Resources on any drive:** game installations, Workshop folders and local mods can use different drives or accessible network shares. Resources are read only; caches/settings stay in the editor workspace. A failed folder choice retains the working catalog.
+
+![Game resources loaded through a different drive](docs/screenshots/24-installation-folder.png)
+
+![A local mod discovered and enabled on a separate drive](docs/screenshots/25-mod-folder.png)
 
 ## What's new in 0.11.1
 
@@ -107,12 +117,12 @@ Validation for this implementation: **190 C# checks, 129 JavaScript checks and 1
 ### 2. Download the application ZIP
 
 1. Open [GitHub Releases](https://github.com/DinLemon/SimplePZMapmaker/releases).
-2. Select **v0.11.1**, or a newer published release. The project publishes prereleases, so use the release list rather than assuming GitHub's `/latest` page shows the newest build.
-3. Expand **Assets** and download **`SimplePZMapmaker-0.11.1-win-x64.zip`**. Example map ZIPs contain game mods, not the editor. GitHub's automatic **Source code** archives are development sources, not the ready-to-run application.
+2. Select **v0.11.2**, or a newer published release. The project publishes prereleases, so use the release list rather than assuming GitHub's `/latest` page shows the newest build.
+3. Expand **Assets** and download **`SimplePZMapmaker-0.11.2-win-x64.zip`**. Example map ZIPs contain game mods, not the editor. GitHub's automatic **Source code** archives are development sources, not the ready-to-run application.
 4. Optionally download the release checksum file and compare the archive's SHA-256 before extracting it. Run this command from the folder containing the downloaded archive:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath './SimplePZMapmaker-0.11.1-win-x64.zip'
+Get-FileHash -Algorithm SHA256 -LiteralPath './SimplePZMapmaker-0.11.2-win-x64.zip'
 ```
 
 ### 3. Extract the entire archive
@@ -136,9 +146,10 @@ The server listens only on your computer's loopback interface. Another workspace
 ### 5. Connect the game resources
 
 1. Open **Game resources**.
-2. Check the game folder, change it to the actual installation if needed, and refresh the catalog.
-3. Search for a floor, wall or piece of furniture. A successful load shows real thumbnails from the game's `.pack` files.
-4. Open **Building editor**, choose a building or new template, and use the game view to place resources visually.
+2. Startup automatically tries the saved selection, `PZMAP_GAME_PATH` and installed Steam libraries. Choose **Find installed game** to repeat discovery. If several installations are found, choose one from **Detected installations** and click **Load folder**.
+3. For a copied or unregistered installation, paste the absolute folder containing `media/texturepacks` into **Installed game folder**. Click **Load folder** or press Enter. Paths may be on any drive or an accessible network share; surrounding quotes are accepted. Pasting the full path to `ProjectZomboid64.exe` or `ProjectZomboid32.exe` also selects its parent folder.
+4. Search for a floor, wall or piece of furniture. A successful load shows real thumbnails from the game's `.pack` files.
+5. Open **Building editor**, choose a building or new template, and use the game view to place resources visually.
 
 The tested installation supplied 30,256 resources; this varies with the game version and mods. Catalog reads do not modify the game. Extracted atlas caches stay in `work/assets/` and are excluded from releases and exported mods.
 
@@ -151,7 +162,7 @@ No installation path is built into the application. Catalog selections are saved
 ### 6. Enable optional Workshop resources
 
 1. In **Game resources**, open the mod-resource controls.
-2. Set the Workshop root to `<Steam library>\steamapps\workshop\content\108600` or the corresponding installation folder. Additional roots are entered one per line; the current build accepts mod roots on G:.
+2. Set the Workshop root to `<Steam library>\steamapps\workshop\content\108600` or the corresponding installation folder. Existing Workshop/local mod folders are suggested automatically. Additional absolute roots are entered one per line and may be on any drive or an accessible network share.
 3. Enter the installed game version and discover mods. The verified installation reports 42.21, represented by `42.21.0` in the compatibility field.
 4. Select and activate the desired mods. Dependencies load first. A missing/incompatible dependency produces an actionable diagnostic and retains the working catalog.
 5. Filter resources by game, all active mods or a particular mod. Static models have a textured 3D viewer.
@@ -320,7 +331,7 @@ QA downloads/screenshots/logs stay in `work/qa-results/` or `work/logs/`. Develo
 1. Open **Actions** in the GitHub repository and select **Build and verify**.
 2. Choose **Run workflow**, select `develop` or the branch to verify, then start.
 3. Inspect build/startup/browser steps in the run.
-4. Download the completed application artifact for local use. Extract GitHub's outer artifact archive, then extract the contained `SimplePZMapmaker-0.11.1-win-x64.zip` into the application folder and follow the installation steps above. The diagnostic artifact contains startup evidence and screenshots. GitHub may require sign-in for artifacts.
+4. Download the completed application artifact for local use. Extract GitHub's outer artifact archive, then extract the contained `SimplePZMapmaker-0.11.2-win-x64.zip` into the application folder and follow the installation steps above. The diagnostic artifact contains startup evidence and screenshots. GitHub may require sign-in for artifacts.
 
 CI runs on pushes to `develop`, pull requests and manual dispatch. The Windows runner uses its mapped checkout as the workspace and keeps task caches there. Its no-game fallback check does not replace local installed-game probes.
 
@@ -332,7 +343,7 @@ CI runs on pushes to `develop`, pull requests and manual dispatch. The Windows r
 - **Port 48765 occupied / stale server:** stop the corresponding `SimplePZMapmaker.Web.exe` and restart the desired workspace. Do not stop unrelated .NET processes.
 - **Blank browser / startup timeout:** inspect `work/logs/server.log` and `server-errors.log`, check extraction, and open the loopback address manually.
 - **Missing game images:** verify game path and refresh the catalog. Basic editing/saving work without the game; resource-aware operations need the owning catalog.
-- **Mod activation failed:** follow the missing dependency chain, add its root on the supported G: drive/install it or select the right version. The previous catalog remains active.
+- **Mod activation failed:** follow the missing dependency chain, add its root or install it or select the right version. The previous catalog remains active.
 - **OSM 504 / timeout:** retry later, use the Smolensk regional source when applicable, or import saved geography. Failed/cancelled imports retain the project.
 - **Building cannot apply/export:** inspect disconnected rooms, entrances, stairs/landings, furniture/model overlap, water and section coverage. Drafts remain editable.
 - **Agent conflict:** read the current revision and generate a new review; only the reviewed revision can be received.

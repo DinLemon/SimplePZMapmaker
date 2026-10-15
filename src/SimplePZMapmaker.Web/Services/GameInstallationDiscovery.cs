@@ -1,0 +1,36 @@
+using Microsoft.Win32;
+using System.Text;
+namespace SimplePZMapmaker.Web.Services;
+
+public sealed record GameInstallation(string GamePath,string Source);
+public sealed record InstallationSearch(List<GameInstallation> Installations,List<string> ModRoots);
+/// <summary>Reads Steam's registered libraries and manifests. Never scans whole drives or writes game files.</summary>
+public sealed class GameInstallationDiscovery(IEnumerable<string>? steamRoots=null,bool includeSystem=true) {
+ readonly string[] supplied=steamRoots?.ToArray()??[];
+ public InstallationSearch Find(string? selectedPath=null){
+  var roots=new HashSet<string>(StringComparer.OrdinalIgnoreCase);var libraries=new HashSet<string>(StringComparer.OrdinalIgnoreCase);var games=new Dictionary<string,GameInstallation>(StringComparer.OrdinalIgnoreCase);var mods=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+  void Root(string? path){if(string.IsNullOrWhiteSpace(path))return;try{var p=Normalize(path);if(Path.GetFileName(p).Equals("steam.exe",StringComparison.OrdinalIgnoreCase))p=Path.GetDirectoryName(p)!;if(Directory.Exists(p)&&roots.Count<64)roots.Add(p);}catch(Exception e) when(IsPathError(e)){}}
+  void Game(string? path,string source){if(string.IsNullOrWhiteSpace(path))return;try{var p=Normalize(path);if(LooksLikeGame(p))games.TryAdd(p,new(p,source));}catch(Exception e) when(IsPathError(e)){}}
+  if(!string.IsNullOrWhiteSpace(selectedPath)){try{var selected=Normalize(selectedPath);Game(selected,"Selected folder");var common=Path.GetDirectoryName(selected);var apps=common is null?null:Path.GetDirectoryName(common);if(common is not null&&Path.GetFileName(common).Equals("common",StringComparison.OrdinalIgnoreCase)&&apps is not null&&Path.GetFileName(apps).Equals("steamapps",StringComparison.OrdinalIgnoreCase))Root(Path.GetDirectoryName(apps));}catch(Exception e) when(IsPathError(e)){}}
+  foreach(var root in supplied)Root(root);
+  if(includeSystem){if(OperatingSystem.IsWindows()){
+    foreach(var hive in new[]{RegistryHive.CurrentUser,RegistryHive.LocalMachine})foreach(var view in new[]{RegistryView.Registry64,RegistryView.Registry32})try{using var baseKey=RegistryKey.OpenBaseKey(hive,view);using var key=baseKey.OpenSubKey(@"Software\Valve\Steam",false);foreach(var name in new[]{"SteamPath","InstallPath","SteamExe"})Root(key?.GetValue(name) as string);}catch(Exception e) when(e is System.Security.SecurityException or IOException or UnauthorizedAccessException){}
+   }
+   foreach(var folder in new[]{Environment.SpecialFolder.ProgramFilesX86,Environment.SpecialFolder.ProgramFiles}){var basePath=Environment.GetFolderPath(folder);if(!string.IsNullOrWhiteSpace(basePath))Root(Path.Combine(basePath,"Steam"));}
+  }
+  foreach(var root in roots){libraries.Add(root);foreach(var relative in new[]{"steamapps/libraryfolders.vdf","config/libraryfolders.vdf"})try{var node=Read(Path.Combine(root,relative));var list=node.Children.GetValueOrDefault("libraryfolders")??node;foreach(var (key,value) in list.Values)if(int.TryParse(key,out _))Library(value);foreach(var (key,value) in list.Children)if(int.TryParse(key,out _))Library(value.Values.GetValueOrDefault("path"));}catch(Exception e) when(IsPathError(e)){}}
+  void Library(string? path){if(string.IsNullOrWhiteSpace(path)||libraries.Count>=64)return;try{var p=Normalize(path);if(Directory.Exists(p))libraries.Add(p);}catch(Exception e) when(IsPathError(e)){}}
+  foreach(var library in libraries){var apps=Path.Combine(library,"steamapps");var workshop=Path.Combine(apps,"workshop","content","108600");if(Directory.Exists(workshop))mods.Add(workshop);try{var state=Read(Path.Combine(apps,"appmanifest_108600.acf")).Children.GetValueOrDefault("AppState");var folder=state?.Values.GetValueOrDefault("installdir");if(folder is not null&&folder.Length<=180&&folder is not("." or "..")&&folder.IndexOfAny(['\\','/',':','\0'])<0)Game(Path.Combine(apps,"common",folder),"Steam library");}catch(Exception e) when(IsPathError(e)){}Game(Path.Combine(apps,"common","ProjectZomboid"),"Steam library");}
+  if(includeSystem){var profile=Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);if(!string.IsNullOrWhiteSpace(profile)){var local=Path.Combine(profile,"Zomboid","mods");if(Directory.Exists(local))mods.Add(local);}}
+  return new(games.Values.ToList(),mods.ToList());
+ }
+ public static string Normalize(string path){if(string.IsNullOrWhiteSpace(path))throw new ArgumentException("Enter an absolute game or mod folder path.");var value=Environment.ExpandEnvironmentVariables(path.Trim().Trim('"'));if(!Path.IsPathFullyQualified(value)||value.StartsWith(@"\\.\",StringComparison.Ordinal)||value.StartsWith(@"\\?\GLOBALROOT",StringComparison.OrdinalIgnoreCase))throw new ArgumentException("Enter an absolute folder path, such as a drive folder or network share.");var full=Path.TrimEndingDirectorySeparator(Path.GetFullPath(value));var name=Path.GetFileName(full);if(name.Equals("ProjectZomboid64.exe",StringComparison.OrdinalIgnoreCase)||name.Equals("ProjectZomboid32.exe",StringComparison.OrdinalIgnoreCase))full=Path.GetDirectoryName(full)!;return full;}
+ public static bool LooksLikeGame(string root)=>Directory.Exists(Path.Combine(root,"media","texturepacks"))&&File.Exists(Path.Combine(root,"media","newtiledefinitions.tiles.txt"));
+ static bool IsPathError(Exception e)=>e is ArgumentException or IOException or UnauthorizedAccessException or System.Security.SecurityException or NotSupportedException;
+ sealed class Node {public Dictionary<string,string> Values=new(StringComparer.OrdinalIgnoreCase);public Dictionary<string,Node> Children=new(StringComparer.OrdinalIgnoreCase);}
+ static Node Read(string path){if(!File.Exists(path))return new();if(new FileInfo(path).Length>1024*1024)throw new ArgumentException("Steam metadata exceeds 1 MB.");var text=File.ReadAllText(path);var at=0;var tokens=0;
+  string? Token(){while(at<text.Length){if(char.IsWhiteSpace(text[at])||text[at]=='\ufeff'){at++;continue;}if(text[at]=='/'&&at+1<text.Length&&text[at+1]=='/'){while(at<text.Length&&text[at]!='\n')at++;continue;}break;}if(at==text.Length)return null;if(++tokens>100000)throw new ArgumentException("Steam metadata contains too many entries.");var c=text[at++];if(c is '{' or '}')return c.ToString();if(c!='"')throw new ArgumentException("Invalid Steam metadata token.");var value=new StringBuilder();while(at<text.Length){c=text[at++];if(c=='"')return value.ToString();if(c=='\\'&&at<text.Length&&text[at] is '\\' or '"')c=text[at++];value.Append(c);}throw new ArgumentException("Unterminated Steam metadata string.");}
+  Node Parse(int depth){if(depth>16)throw new ArgumentException("Steam metadata nesting is too deep.");var result=new Node();while(Token() is {} key){if(key=="}"){if(depth==0)throw new ArgumentException("Unmatched Steam metadata brace.");return result;}if(key=="{")throw new ArgumentException("Missing Steam metadata key.");var value=Token()??throw new ArgumentException("Missing Steam metadata value.");if(value=="{")result.Children[key]=Parse(depth+1);else if(value!="}")result.Values[key]=value;else throw new ArgumentException("Missing Steam metadata value.");}if(depth>0)throw new ArgumentException("Unclosed Steam metadata block.");return result;}
+  return Parse(0);
+ }
+}

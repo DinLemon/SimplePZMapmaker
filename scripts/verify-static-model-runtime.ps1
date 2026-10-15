@@ -4,7 +4,6 @@ $ErrorActionPreference='Stop'
 if([string]::IsNullOrWhiteSpace($GamePath)){$GamePath=$env:PZMAP_GAME_PATH}
 if([string]::IsNullOrWhiteSpace($GamePath)){throw 'Specify -GamePath or set PZMAP_GAME_PATH to your Build 42 installation.'}
 $GamePath=[IO.Path]::GetFullPath($GamePath)
-if(-not $GamePath.StartsWith('G:\',[StringComparison]::OrdinalIgnoreCase)){throw 'Game resources must be located on drive G:.'}
 if(-not(Test-Path -LiteralPath (Join-Path $GamePath 'jre64\bin\java.exe')) -or -not(Test-Path -LiteralPath (Join-Path $GamePath 'projectzomboid.jar'))){throw 'Installed game JRE/JAR not found at the supplied game path.'}
 $probeRoot=Join-Path $taskRoot 'work\static-model-game-probe'
 $classes=Join-Path $probeRoot 'classes'

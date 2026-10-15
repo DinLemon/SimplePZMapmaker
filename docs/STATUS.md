@@ -1,3 +1,13 @@
+# Verification status — 0.11.2, 2026-10-15
+
+## Game installation and resource paths
+
+- Steam discovery reads registered installations, modern/legacy library metadata and the game's actual manifest folder. Synthetic fixtures verify library selection, malformed metadata, saved manual choices and fallback from stale configured paths.
+- A real browser loads installed game atlases through one alternate drive and a generated mod's tile definitions and OBJ model through another. Manual quoted input, Enter, Find installed game, activation and catalog retention after an invalid selection pass with no browser runtime errors. The temporary drive mappings target existing workspace/game folders; no game files are changed.
+- The resource path validator no longer imposes a drive letter. Absolute paths, quoted input and game executable paths are accepted; relative paths and filesystem links remain unsupported. Network shares are supported by path handling but were not exercised against a live remote server.
+- Local regression coverage is **270 C# tests, 168 JavaScript tests and 23 authentic installed-library lighting scenarios**. The self-contained Windows build starts without an installed game/shared .NET Runtime, serves the editor, saves/reopens projects and exports independently readable native maps, including a shared bridge.
+- README and the mod-resource guide include the new connection controls and screenshots24–25. Cache and settings locations remain under the editor workspace.
+
 # Verification status — 0.11.1, 2026-10-15
 
 ## Shared worlds, counted buildings, access and checked agent design

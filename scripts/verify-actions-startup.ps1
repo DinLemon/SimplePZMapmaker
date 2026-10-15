@@ -6,11 +6,12 @@ $exe=Join-Path ([IO.Path]::GetFullPath($ApplicationDirectory,$taskRoot)) 'Simple
 if(-not(Test-Path -LiteralPath $exe)){throw 'Publish the application before running the startup check.'}
 New-Item -ItemType Directory -Path $qaRoot -Force | Out-Null
 $saved=@{}
-foreach($key in @('PZMAP_WORKSPACE','PZMAP_GAME_PATH','PZMAP_WORKSHOP_ROOT','PZMAP_LISTEN_URL','PZMAP_TEST_URL','DOTNET_ROOT','DOTNET_MULTILEVEL_LOOKUP')){$saved[$key]=[Environment]::GetEnvironmentVariable($key)}
+foreach($key in @('PZMAP_WORKSPACE','PZMAP_GAME_PATH','PZMAP_DISABLE_GAME_DISCOVERY','PZMAP_WORKSHOP_ROOT','PZMAP_LISTEN_URL','PZMAP_TEST_URL','DOTNET_ROOT','DOTNET_MULTILEVEL_LOOKUP')){$saved[$key]=[Environment]::GetEnvironmentVariable($key)}
 $process=$null
 try {
  $env:PZMAP_WORKSPACE=$qaRoot
  $env:PZMAP_GAME_PATH=Join-Path $qaRoot 'no-game-installed'
+ $env:PZMAP_DISABLE_GAME_DISCOVERY='1'
  $env:PZMAP_WORKSHOP_ROOT=''
  $env:PZMAP_LISTEN_URL="http://127.0.0.1:$Port"
  $env:PZMAP_TEST_URL=$env:PZMAP_LISTEN_URL
@@ -22,7 +23,7 @@ try {
   if($process.HasExited){throw 'Published application exited before becoming ready.'}
   try{$state=Invoke-RestMethod -Uri ($env:PZMAP_TEST_URL+'/api/environment') -TimeoutSec 1;break}catch{Start-Sleep -Milliseconds 250}
  }
- if(-not $state -or $state.version -ne '0.11.1' -or -not $state.selfContained -or $state.gameFound -or [IO.Path]::GetFullPath($state.workspace) -ne [IO.Path]::GetFullPath($qaRoot)){throw 'Unexpected published application environment.'}
+ if(-not $state -or $state.version -ne '0.11.2' -or -not $state.selfContained -or $state.gameFound -or [IO.Path]::GetFullPath($state.workspace) -ne [IO.Path]::GetFullPath($qaRoot)){throw 'Unexpected published application environment.'}
  $state | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $qaRoot 'environment.json')
  $map=Invoke-RestMethod -Uri ($env:PZMAP_TEST_URL+'/api/generate') -Method Post -ContentType application/json -Body '{"kind":"blank","size":256,"name":"Actions startup check"}'
  $json=$map|ConvertTo-Json -Depth 48 -Compress
