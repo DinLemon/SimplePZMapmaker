@@ -84,6 +84,7 @@ public static class BuildingDesigner
   [System.Diagnostics.CodeAnalysis.DoesNotReturn] void Fail(string text)=>throw new ArgumentException($"Building '{b.Name}': {text}");
   if(d.Material is not("wood" or "brick" or "plaster")||d.Roof is not("none" or "flat" or "gabled" or "shed" or "hipped")||d.Shape is not("rect" or "l" or "t" or "courtyard" or "annex" or "custom")||d.Floors is null||d.MinLevel is <ZLevels.Min or >0||d.Floors.Count is <1 or >ZLevels.Total||d.Floors.Count+d.MinLevel is <1 or >ZLevels.AboveGroundCount)Fail("invalid material, roof, or floor count: 1-32 above-ground floors and 0-32 basement levels, within z=-32 to 31.");
   if(d.Style is null||d.Style.Length>0&&!VisualStyles.All.ContainsKey(d.Style)||d.RoofTileset is not null&&!System.Text.RegularExpressions.Regex.IsMatch(d.RoofTileset,@"^roofs_30_[0-9]{2}$"))Fail("invalid appearance style or roof tileset.");
+  if(d.FlatRoofTile is not null&&!VisualStyles.TileId(d.FlatRoofTile))Fail("invalid flat roof surface resource.");
   if(d.Floors.Any(f=>f is null||f.Cells is null||f.Cells.Length!=b.Width*b.Height||f.Objects is null||f.Objects.Count>512||f.Edges is null||f.Edges.Count>2*(b.Width+1)*(b.Height+1)||f.Edges.Any(e=>e is null)||f.Rooms is null))Fail("invalid floor layer.");
   for(var z=0;z<d.Floors.Count;z++){
    var f=d.Floors[z];if(f is null||f.Cells is null||f.Cells.Length!=b.Width*b.Height||f.Rooms is null||f.Rooms.Count is <1 or >35||f.Rooms.Any(r=>r.Key.Length!=1||!"0123456789abcdefghijklmnopqrstuvwxyz".Contains(r.Key[0])||!RoomNames.Contains(r.Value))||f.Cells.Any(c=>c!='.'&&!f.Rooms.ContainsKey(c.ToString()))||!f.Cells.Any(c=>c!='.')||f.Edges is null||f.Edges.Count>2*(b.Width+1)*(b.Height+1)||f.Objects is null||f.Objects.Count>512)Fail($"invalid level {z+d.MinLevel}.");
@@ -120,7 +121,7 @@ public static class BuildingDesigner
   foreach(var b in project.Buildings.Where(b=>id is null?!b.Modified:b.Id==id)){
    var old=b.Design;var design=Generate(b,old is null?1:old.Floors.Count+old.MinLevel,unchecked((old?.Variant??project.Seed)+1),old?.Shape is "custom"?"rect":old?.Shape??"rect",-(old?.MinLevel??0));
    if(old is not null){
-    design.Style=old.Style;design.RoofTileset=old.RoofTileset;
+    design.Style=old.Style;design.RoofTileset=old.RoofTileset;design.FlatRoofTile=old.FlatRoofTile;
     for(var z=0;z<design.Floors.Count;z++){
      var f=design.Floors[z];var cells=f.Cells.ToCharArray();for(var i=0;i<cells.Length;i++)if(old.Floors[z].Cells[i]=='.')cells[i]='.';
      f.Objects.Clear();foreach(var stair in old.Floors[z].Objects.Where(o=>o.Kind=="stairs"))f.Objects.Add(new(){Kind="stairs",X=stair.X,Y=stair.Y,Direction=stair.Direction});

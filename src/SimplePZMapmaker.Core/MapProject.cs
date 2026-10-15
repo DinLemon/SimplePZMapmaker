@@ -77,6 +77,7 @@ public sealed class BuildingDesign {
     public int Variant {get;set;}
     public string Style {get;set;}="";
     public string? RoofTileset {get;set;}
+    public string? FlatRoofTile {get;set;}
     public List<BuildingFloor> Floors {get;set;}=[];
 }
 public sealed class BuildingFloor {

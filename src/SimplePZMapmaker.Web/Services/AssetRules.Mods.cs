@@ -15,7 +15,7 @@ public static partial class AssetRules
   var explicitTiles=b.Design?.Floors.SelectMany(f=>f.FloorTiles.Values.Concat(f.FloorTile is null?[]:new[]{f.FloorTile}).Concat(f.Edges.SelectMany(e=>new[]{e.WallTile,e.OpeningTile}.OfType<string>())).Concat(f.Objects.SelectMany(o=>o.Kind=="asset"?o.Parts.Select(p=>p.Tile):[])))??[];
   // Compose through the native implementation, so generated walls, roofs and furniture
   // carry the same provider as the actual exported building.
-  var ids=NativeScene.BuildingResourceIds(b).Concat(explicitTiles).Distinct().ToArray();
+  var ids=NativeScene.BuildingResourceIds(b).Concat(explicitTiles).Concat(b.Design?.FlatRoofTile is {} roof?[roof]:Array.Empty<string>()).Distinct().ToArray();
   b.AssetSources=StampSources(ids,b.AssetSources,assets);b.RequiredMods=assets.ResolveRequirements(ids).Select(m=>m.ModId).Concat(b.Design?.Floors.SelectMany(f=>f.StaticModels).SelectMany(m=>m.RequiredMods)??[]).Distinct(StringComparer.Ordinal).ToList();
  }
  public static void StampDependencies(MapProject p,GameAssetCatalog assets)

@@ -1,0 +1,9 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {normalizeBuilding,usesAssets,validateDesign,refreshEdges,DraftHistory} from '../src/SimplePZMapmaker.Web/wwwroot/building.js';
+import {blank,validateProject} from '../src/SimplePZMapmaker.Web/wwwroot/editor.js';
+import {NativeTransformResolver} from '../src/SimplePZMapmaker.Web/wwwroot/building-transform.js';
+const house=()=>{const b={id:'roof',name:'Roof',kind:'house',x:40,y:40,width:6,height:6,design:{material:'brick',roof:'flat',shape:'rect',variant:0,floors:[{cells:'1'.repeat(36),rooms:{1:'livingroom'},edges:[],objects:[]}]}};refreshEdges(b,0);return b;};
+test('optional flat roof normalizes consistently and survives browser draft undo and JSON roundtrip',()=>{const b=normalizeBuilding(house());assert.equal(b.design.flatRoofTile,null);const history=new DraftHistory();b.design.flatRoofTile='fixture_roof_0';history.save(b);b.design.flatRoofTile='fixture_roof_1';const restored=history.undo(b);assert.equal(restored.design.flatRoofTile,'fixture_roof_0');assert.equal(JSON.parse(JSON.stringify(restored)).design.flatRoofTile,'fixture_roof_0');});
+test('flat roof rejects malformed IDs and opts into the existing appearance format',()=>{const b=house();b.design.flatRoofTile='bad / tile';assert.throws(()=>validateDesign(b));b.design.flatRoofTile='fixture_roof_0';validateDesign(b);assert.equal(usesAssets(b),true);const p=blank();p.version=3;p.buildings=[b];assert.throws(()=>validateProject(p));});
+test('building transforms verify flat roof resource ownership before touching geometry',async()=>{const b=house();b.design.flatRoofTile='fixture_roof_0';b.assetSources={'fixture_roof_0':'original-mod'};const resolver=new NativeTransformResolver(async()=>({id:'fixture_roof_0',sprite:{},page:'test',modId:'replacement-mod'}));await assert.rejects(()=>resolver.verifyBuilding(b),/owner changed/);});

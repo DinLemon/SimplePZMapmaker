@@ -9,6 +9,16 @@ public static class ModAssetTests
 {
  public static IEnumerable<(string Name,Action Run)> Cases()
  {
+  yield return("custom flat roof stamps and prunes its mod provider and rejects wet roof tiles",()=>WithFixture(root=>{
+   var game=Environment.GetEnvironmentVariable("PZMAP_GAME_PATH")??"";if(!Directory.Exists(Path.Combine(game,"media"))){Console.WriteLine("SKIP installed-game flat roof dependency fixture: game absent");return;}
+   Info(root,"roof",null);var media=Path.Combine(root,"roof","media");Directory.CreateDirectory(media);File.AppendAllText(Path.Combine(root,"roof","mod.info"),"tiledef=roof 902\n");
+   using(var w=new BinaryWriter(File.Create(Path.Combine(media,"roof.tiles")),Encoding.Latin1)){w.Write("tdef"u8);w.Write(1);w.Write(1);Line(w,"fixture_roof");Line(w,"fixture.png");w.Write(2);w.Write(1);w.Write(902);w.Write(2);w.Write(1);Line(w,"solidfloor");Line(w,"");w.Write(2);Line(w,"solidfloor");Line(w,"");Line(w,"water");Line(w,"");}
+   var assets=new GameAssetCatalog(root,game);assets.DiscoverMods([root],"42.0.0");assets.ActivateMods(["roof"]);
+   var b=new Building{Width=6,Height=6};BuildingDesigner.Generate(b,1,42);var node=JsonSerializer.SerializeToNode(b,NativeMapExporter.JsonOptions)!;node["design"]!["flatRoofTile"]="fixture_roof_0";b=node.Deserialize<Building>(NativeMapExporter.JsonOptions)!;
+   AssetRules.Building(b,assets);Check(b.RequiredMods.SequenceEqual(new[]{"roof"})&&b.AssetSources.GetValueOrDefault("fixture_roof_0")=="roof","Custom flat roof provider was not stamped");
+   node=JsonSerializer.SerializeToNode(b,NativeMapExporter.JsonOptions)!;node["design"]!["flatRoofTile"]="fixture_roof_1";Reject(()=>AssetRules.Building(node.Deserialize<Building>(NativeMapExporter.JsonOptions)!,assets));
+   node["design"]!["flatRoofTile"]=null;b=node.Deserialize<Building>(NativeMapExporter.JsonOptions)!;assets.ActivateMods([]);AssetRules.Building(b,assets);Check(b.RequiredMods.Count==0&&!b.AssetSources.ContainsKey("fixture_roof_0"),"Removed roof retained its mod requirement");
+  }));
   yield return("unconfigured game and Workshop roots stay empty with working basic editing",()=>WithFixture(root=>{
    var workshop=Environment.GetEnvironmentVariable("PZMAP_WORKSHOP_ROOT");try{Environment.SetEnvironmentVariable("PZMAP_WORKSHOP_ROOT",null);var assets=new GameAssetCatalog(root,"");Check(!assets.Ready&&assets.GamePath==""&&assets.Error?.Contains("Choose your Project Zomboid Build 42 installation")==true,"Missing game silently chose a machine-specific location");Check(JsonSerializer.SerializeToElement(assets.ModsStatus()).GetProperty("roots").GetArrayLength()==0,"Missing Workshop root silently chose a machine-specific location");Check(JsonSerializer.SerializeToElement(new StaticModelCatalog(assets).Search()).GetProperty("total").GetInt32()==0,"Missing game resolved models from a relative working folder");var p=MapGenerator.Generate(new(){Kind="blank"});AssetRules.Project(p,assets);Check(NativeMapExporter.Export(p).Length>0,"Basic editing or export requires an unconfigured game");}finally{Environment.SetEnvironmentVariable("PZMAP_WORKSHOP_ROOT",workshop);}
   }));

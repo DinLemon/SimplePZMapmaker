@@ -76,7 +76,7 @@ public static class AssetTests
   yield return ("texture pack rejects truncated or unreasonable pages",()=>{foreach(var data in new[]{Array.Empty<byte>(),"PZPK"u8.ToArray(),"PZPK\x01\x00\x00\x00\xff\xff\xff\x7f"u8.ToArray()}){try{TexturePackIndex.Read(new MemoryStream(data),"bad");}catch(ArgumentException){continue;}throw new Exception("Invalid pack accepted");}});
  }
  static void Text(BinaryWriter w,string s){var bytes=Encoding.ASCII.GetBytes(s);w.Write(bytes.Length);w.Write(bytes);}
- static List<string> NativeTiles(ZipArchive archive,MapProject p,int x,int y,int z){
+ internal static List<string> NativeTiles(ZipArchive archive,MapProject p,int x,int y,int z){
   var root=$"{NativeMapExporter.ModId(p)}/42/media/maps/{NativeMapExporter.ModId(p)}/";var cx=p.WorldX+x/256;var cy=p.WorldY+y/256;
   using var header=archive.GetEntry(root+$"{cx}_{cy}.lotheader")!.Open();using var h=new BinaryReader(header);h.ReadBytes(8);var names=new List<string>();var count=h.ReadInt32();for(var i=0;i<count;i++){var bytes=new List<byte>();byte value;while((value=h.ReadByte())!=10)bytes.Add(value);names.Add(Encoding.ASCII.GetString(bytes.ToArray()));}h.ReadInt32();h.ReadInt32();var min=h.ReadInt32();
   using var source=archive.GetEntry(root+$"world_{cx}_{cy}.lotpack")!.Open();using var data=new MemoryStream();source.CopyTo(data);using var r=new BinaryReader(data);
