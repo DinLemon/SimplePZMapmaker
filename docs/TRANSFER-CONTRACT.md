@@ -1,6 +1,6 @@
 # Real-place transfer contract, version 1
 
-This contract fixes the data that crosses the boundary between a real-place survey pipeline (GeoJSON produced outside the editor) and SimplePZMapmaker (import, world assembly, editing, export). Both sides implement against it; a change to any section below raises the contract version. The first consumer is the Pilna village transfer (`neovolgan/pilnamappz`), which must assemble 13 sections into one `PilnaVillage` world without losses at section seams.
+This contract fixes the data that crosses the boundary between a real-place survey pipeline (GeoJSON produced outside the editor) and SimplePZMapmaker (import, world assembly, editing, export). Both sides implement against it; a change to any section below raises the contract version. The first consumer is the Pilna village transfer (`neovolgan/pilnamappz`), which must assemble all of its sections into one `PilnaVillage` world without losses at section seams.
 
 | Area | Implements | Section |
 |---|---|---|
@@ -166,7 +166,7 @@ Pipeline-generated verge wrecks are emitted as `pz:zone=Vehicle` polygons with `
 
 ## Acceptance
 
-`PilnaVillage` is built from 13 section scenes of real Pilna data. It is accepted when all of the following hold:
+`PilnaVillage` is built from the section scenes of real Pilna data: 21 sections of 1024 tiles under the rotated reference (the earlier, pre-rotated frame had 13). It is accepted when all of the following hold:
 - `WorldAssembler.Validate` passes;
 - the seam check reports zero lost or duplicated source features;
 - every fence that crosses a section edge is continuous in the exported cells;
