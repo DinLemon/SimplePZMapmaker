@@ -17,6 +17,11 @@ public static class GenerationQualityEndpoints {
  }
  public static void MapGenerationQualityEndpoints(this WebApplication app){
   app.MapPost("/api/generation/quality",(GenerationQualityRequest request,GameAssetCatalog assets,CancellationToken token)=>
-   Analyze(request,token,assets.Ready?id=>assets.Get(id).Properties:null));
+   AnalyzeResources(request,assets,token));
+ }
+ public static GenerationQualityReport AnalyzeResources(GenerationQualityRequest request,GameAssetCatalog assets,CancellationToken token=default){
+  var report=Analyze(request,token,assets.Ready?id=>assets.Get(id).Properties:null);
+  if(!assets.Ready){report.Complete=false;if(report.Status=="pass")report.Status="warning";report.Notes.Add(GenerationResourceValidation.OfflineNote);}
+  return report;
  }
 }

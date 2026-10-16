@@ -3,9 +3,10 @@
 - Contextual districts cover era, land use, density, setbacks, floors and courts; legacy new-map generation remains available. Actual pedestrian audits verify mixed seeds and every era/use combination with three floors. Generated fallback buildings use clear stair halls and doors; enclosed generated courts have a usable ground gate.
 - Protected fill/regeneration preserves imported, authored, edited, pinned and boundary-crossing buildings plus protected terrain and resources. An explicit regression removes all 29 eligible generated buildings despite their own entrance paving while preserving manually authored paving.
 - Server-owned bounded previews are fingerprint-bound to the raw map and optional world snapshot. Section previews/audits include shared crossing buildings, roads, rivers and bridges without persisting projections. Projection retains generation metadata.
-- Fresh local suites: **315 C# tests and 178 JavaScript tests pass**. Actual browser workflows verify district controls, drawing a rectangle, provenance, pins/areas, two alternatives, failed/cancelled preview invalidation, audit navigation, apply/undo/redo/save/reload and shared-world section history.
+- Fresh local suites: **316 C# tests and 178 JavaScript tests pass**. Actual browser workflows verify district controls, drawing a rectangle, provenance, pins/areas, two alternatives, failed/cancelled preview invalidation, audit navigation, apply/undo/redo/save/reload and shared-world section history.
 - A newly generated district exports successfully. An independent native decoder and installed game reader accept **1,024 chunks, 295 rooms, 82 upper rooms, 34 basement rooms and 81 stair tiles**. No game session or character walkthrough was started.
 - The illustrated [Generation studio guide](GENERATION-STUDIO.md) describes controls, retained content, incomplete diagnostic coverage and troubleshooting. Art references and private assets remain outside public Git data.
+- The self-contained runtime also passes an isolated no-game/no-shared-runtime check: 12 generated buildings, protected regeneration/apply, zero structural errors, and explicitly incomplete native-resource coverage. Mod resources and static model definitions still require their catalogs.
 
 # Verification status — 0.11.2, 2026-10-15
 

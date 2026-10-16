@@ -6,6 +6,24 @@ public static class GenerationStudioTests
 {
     public static IEnumerable<(string, Action)> Cases()
     {
+        yield return ("offline generation validates structural templates while resource coverage stays incomplete", () =>
+        {
+            var root = Path.Combine(Environment.CurrentDirectory, "work", "offline-generation-tests", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            var assets = new GameAssetCatalog(root, "", new GameInstallationDiscovery([], false));
+            if (assets.Ready) throw new Exception("Offline fixture found unexpected game resources.");
+            var models = new StaticModelCatalog(assets);
+            var p = MapGenerator.Generate(new() { Seed = 7, Rules = new() { Preset = "contextual", Era = "soviet", LandUse = "residential" } });
+            GenerationResourceValidation.Map(p, assets, models);
+            var preview = GenerationStudio.Preview(p, Full(), 8, mode: "regenerate");
+            GenerationResourceValidation.Map(preview.Project, assets, models);
+            var store = new GenerationProposalStore(); var saved = store.Add(preview); var applied = store.Apply(p, saved.ProposalId);
+            GenerationResourceValidation.Map(applied.Project, assets, models);
+            var report = GenerationQualityEndpoints.AnalyzeResources(new(applied.Project), assets);
+            if (report.Complete || !report.Notes.Contains(GenerationResourceValidation.OfflineNote)) throw new Exception("Missing native resource coverage was presented as complete.");
+            var broken = NeighborhoodPlanner.Copy(p); broken.Terrain = []; Reject(() => GenerationResourceValidation.Map(broken, assets, models));
+            var modded = NeighborhoodPlanner.Copy(p); modded.RequiredMods.Add("unavailable-mod"); Reject(() => GenerationResourceValidation.Map(modded, assets, models));
+        });
         yield return ("selective generation records contextual rules and rejects unsupported explicit legacy mode", () =>
         {
             var p = Fixture();

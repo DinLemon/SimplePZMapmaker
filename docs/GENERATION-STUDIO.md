@@ -63,6 +63,8 @@ The audit is structural: unlocked doors may open; collisions, locked model doors
 
 Default limits are 128 buildings, 512 tiles per side / 262,144 ground tiles, 2 million aggregate building-access nodes and 2,048 visible issues. Additional geometry work has explicit caps too. Every exhausted cap marks coverage incomplete; choose a smaller rectangle and run more checks. Road components and outdoor routes are local to the inspected area; a connection outside it may be intentional.
 
+Without an installed game catalog, base-game structural generation and preview/apply remain available. Sprite materials and native physical properties are not verified in that mode: previews state this limitation and quality coverage is marked incomplete. Connect the game to verify resources. Projects requiring mod resources or static model definitions still need their catalogs.
+
 ## Work in a world
 
 Open the world, select a section and choose **Edit section**, then use the studio. Preview, apply and quality checks include projected shared buildings, shared roads/rivers and elevated infrastructure. Those projections remain transient; they are not copied into the raw section. A shared-world geometry change invalidates an older proposal even if the local section did not change.
