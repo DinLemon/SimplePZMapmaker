@@ -138,7 +138,7 @@ public static class SettlementGenerator
   b.Design!.Variant=seed;
   var style=zone=="industrial"?"industrial":era=="modern"?"modern":era=="soviet"?"modern":b.Kind=="house"?"cottage":"brick";
   VisualStyles.Apply(b,style);
-  foreach(var f in b.Design.Floors)foreach(var e in f.Edges){e.WallTile=null;e.OpeningTile=null;}
+  foreach(var f in b.Design.Floors)foreach(var e in f.Edges){e.WallTile=null;e.OpeningTile=null;e.OverlayTile=null;}
   return b;
  }
  static int Hash(int seed,int x,int y,int salt){unchecked{uint h=(uint)seed^0x9e3779b9u;h=(h^(uint)x)*0x85ebca6bu;h=(h^(uint)y)*0xc2b2ae35u;h=(h^(uint)salt)*0x27d4eb2du;h^=h>>16;return(int)h;}}

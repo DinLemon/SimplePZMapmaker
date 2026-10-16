@@ -66,7 +66,7 @@ public static class ProjectValidator
         if(p.ImportSummary is { } summary && (summary.SourceFeatures is <0 or >30000||summary.SourceBuildings is <0 or >30000||summary.PlacedBuildings is <0 or >4000||summary.SkipReasons is null||summary.SkipReasons.Count>20||summary.SkipReasons.Any(s=>s.Key.Length>100||s.Value is <0 or >30000)))Fail("Invalid import report.");
         if(p.ImportSummary is { } report&&(report.Notes is null||report.Notes.Count>20||report.Notes.Any(s=>s is null||s.Length>1000)))Fail("Invalid import notes.");
     }
-    public static bool UsesAssets(Building? b)=>b?.Design is {} d&&(d.Style!=""||d.RoofTileset is not null||d.FlatRoofTile is not null||d.Floors?.Any(f=>f is not null&&(f.FloorTile is not null||f.FloorTiles?.Count>0||f.Edges?.Any(e=>e?.WallTile is not null||e?.OpeningTile is not null)==true||f.Objects?.Any(o=>o is not null&&(o.Kind=="asset"||o.Style!=""||o.Asset is not null||o.Parts?.Count>0))==true))==true);
+    public static bool UsesAssets(Building? b)=>b?.Design is {} d&&(d.Style!=""||d.RoofTileset is not null||d.FlatRoofTile is not null||d.Floors?.Any(f=>f is not null&&(f.FloorTile is not null||f.FloorTiles?.Count>0||f.Edges?.Any(e=>e?.WallTile is not null||e?.OpeningTile is not null||e?.OverlayTile is not null)==true||f.Objects?.Any(o=>o is not null&&(o.Kind=="asset"||o.Style!=""||o.Asset is not null||o.Parts?.Count>0))==true))==true);
     public static void ValidateBounds(GeoBounds b)
     {
         if(b is null)throw new ArgumentException("No area selected. Specify the boundary coordinates.");
