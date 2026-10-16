@@ -83,6 +83,7 @@ export class BuildingWorkshop{
     if(old.wallTile)value.wallTile=old.wallTile;
     if(this.tool!=='wall'&&old.openingTile)value.openingTile=old.openingTile;
    }
+   if(old?.overlayTile&&this.tool!=='open')value.overlayTile=old.overlayTile;
    if(this.tool==='wall'&&this.wallPair)value.wallTile=this.wallPair[edge];
    if(this.tool==='door'&&this.doorPair)value.openingTile=this.doorPair[edge];
    if(this.tool==='window'&&this.windowPair)value.openingTile=this.windowPair[edge];

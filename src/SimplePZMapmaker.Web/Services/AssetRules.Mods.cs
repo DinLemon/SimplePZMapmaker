@@ -12,7 +12,7 @@ public static partial class AssetRules
  public static void StampDependencies(Building b,GameAssetCatalog assets)
  {
   if(!assets.HasActiveMods&&b.AssetSources.Count==0&&b.RequiredMods.Count==0&&b.Design?.Floors.Any(f=>f.StaticModels.Any(m=>m.Profile!="pickup"))!=true)return;
-  var explicitTiles=b.Design?.Floors.SelectMany(f=>f.FloorTiles.Values.Concat(f.FloorTile is null?[]:new[]{f.FloorTile}).Concat(f.Edges.SelectMany(e=>new[]{e.WallTile,e.OpeningTile}.OfType<string>())).Concat(f.Objects.SelectMany(o=>o.Kind=="asset"?o.Parts.Select(p=>p.Tile):[])))??[];
+  var explicitTiles=b.Design?.Floors.SelectMany(f=>f.FloorTiles.Values.Concat(f.FloorTile is null?[]:new[]{f.FloorTile}).Concat(f.Edges.SelectMany(e=>new[]{e.WallTile,e.OpeningTile,e.OverlayTile}.OfType<string>())).Concat(f.Objects.SelectMany(o=>o.Kind=="asset"?o.Parts.Select(p=>p.Tile):[])))??[];
   // Compose through the native implementation, so generated walls, roofs and furniture
   // carry the same provider as the actual exported building.
   var ids=NativeScene.BuildingResourceIds(b).Concat(explicitTiles).Concat(b.Design?.FlatRoofTile is {} roof?[roof]:Array.Empty<string>()).Distinct().ToArray();

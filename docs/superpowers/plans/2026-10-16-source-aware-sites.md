@@ -23,4 +23,4 @@
 - [x] Frontend: source/site controls, grouped history, overlays, diagnostics/evidence focus and opt-in live checks; JS tests and real browser scenarios.
 - [x] Delivery: full suites, import/native/runtime verification, screenshots/guide, app package, independent review, public-path audit and GitHub integration.
 
-Verification: 334 C# / 183 JS; self-contained browser with 1,954 real Smolensk source records; native decoder and installed-class reader passed. Independent review findings were fixed and covered by regression cases. Publication checked separately against Git status and remote refs.
+Verification: 336 C# / 183 JS; self-contained browser with 1,954 real Smolensk source records; native decoder and installed-class reader passed. Independent review findings were fixed and covered by regression cases. Publication checked separately against Git status and remote refs.
