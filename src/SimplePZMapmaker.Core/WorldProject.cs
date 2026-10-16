@@ -6,7 +6,7 @@ public sealed class WorldProject
 {
  public string Format {get;set;}="SimplePZWorld";
  private int version=1;
- public int Version {get=>LinearFeatures?.Count>0&&version<6?6:version<5&&AuthoringFormats.WorldHasInfrastructure(this)?5:version<4&&AuthoringFormats.WorldHasExtendedLevels(this)?4:version<3&&AuthoringFormats.WorldHasNewAuthoring(this)?3:version==1&&(Buildings?.Count>0||Elevation is not null||Maps?.Any(m=>m?.Project?.Version==7)==true)?2:version;set=>version=value;}
+ public int Version {get=>GeoReference?.RotationDegrees is not(null or 0)&&version<7?7:LinearFeatures?.Count>0&&version<6?6:version<5&&AuthoringFormats.WorldHasInfrastructure(this)?5:version<4&&AuthoringFormats.WorldHasExtendedLevels(this)?4:version<3&&AuthoringFormats.WorldHasNewAuthoring(this)?3:version==1&&(Buildings?.Count>0||Elevation is not null||Maps?.Any(m=>m?.Project?.Version==7)==true)?2:version;set=>version=value;}
  public string Id {get;set;}=Guid.NewGuid().ToString("N");
  public string Name {get;set;}="New world";
  public List<WorldMapMember> Maps {get;set;}=[];
@@ -24,7 +24,7 @@ public static partial class WorldAssembler
 {
  public sealed record Bounds(int X,int Y,int Width,int Height,int Cells);
  public static Bounds Validate(WorldProject world){
-  if(world is null||world.Format!="SimplePZWorld"||world.Version is not(1 or 2 or 3 or 4 or 5 or 6)||!SafeId(world.Id)||string.IsNullOrWhiteSpace(world.Name)||world.Name.Length>80||world.Name.Any(char.IsControl)||world.Maps is null||world.Maps.Count is <1 or >128)throw new ArgumentException("Invalid world project: 1-128 maps are required.");
+  if(world is null||world.Format!="SimplePZWorld"||world.Version is not(1 or 2 or 3 or 4 or 5 or 6 or 7)||!SafeId(world.Id)||string.IsNullOrWhiteSpace(world.Name)||world.Name.Length>80||world.Name.Any(char.IsControl)||world.Maps is null||world.Maps.Count is <1 or >128)throw new ArgumentException("Invalid world project: 1-128 maps are required.");
   if(world.GeoReference is {} geographic)WorldGeoReference.Validate(geographic);
   var ids=new HashSet<string>();var cells=new HashSet<(int,int)>();var minX=int.MaxValue;var minY=int.MaxValue;var maxX=0;var maxY=0;
   foreach(var member in world.Maps){if(member is null||!SafeId(member.Id)||!ids.Add(member.Id))throw new ArgumentException("Invalid world section ID.");var p=member.Project;ProjectValidator.Validate(p);
