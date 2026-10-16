@@ -59,6 +59,30 @@ public static class FenceLineTests
             foreach(var cell in new[]{"100_100","101_100"}){var entry=zip.Entries.Single(e=>e.Name==$"{cell}.lotheader");using var r=new StreamReader(entry.Open(),Encoding.Latin1);Check(r.ReadToEnd().Contains("fencing_01_41"),$"Cell {cell} lost its part of the fence");}
             world.Maps[1].Project.FenceStyles=[new(){Id="sheet",W="fencing_01_40",N="fencing_01_44"}];Reject(()=>WorldAssembler.Validate(world));
         });
+        yield return("barrier lines import as staircase fence lines with styles, posts and gates",()=>{
+            var walk=GeographicImporter.FenceStaircase([(10.2,10.4),(30.1,10.3),(40.4,22.6)]);
+            Check(walk.First()==new FencePoint(10,10)&&walk.Last()==new FencePoint(40,23)&&walk.Zip(walk.Skip(1)).All(v=>v.First.X==v.Second.X^v.First.Y==v.Second.Y),"Fence walk is not a grid staircase");
+            Check(walk.Take(2).SequenceEqual([new FencePoint(10,10),new FencePoint(30,10)]),"A straight run was not kept as one segment");
+            foreach(var v in walk.Skip(1)){var t=(v.X-30.1)/(40.4-30.1);if(t is >0 and <1)Check(Math.Abs(v.Y-(10.3+t*12.3))<=1.5,"Staircase strays from the diagonal");}
+            var reference=new WorldGeoReference{Bounds=new(){West=32,East=32.01,South=54,North=54.01},MetresPerTile=1,OriginCellX=100,OriginCellY=100};var projection=new GeographicProjection(reference,100,100);
+            double[] At(double x,double y){var g=projection.Geographic(x,y);return[g.Longitude,g.Latitude];}
+            var json=JsonSerializer.Serialize(new{type="FeatureCollection",pzTransfer=1,features=new object[]{
+                new{type="Feature",id="osm-way-7",properties=new Dictionary<string,string>{{"barrier","fence"},{"fence_type","metal_sheet"},{"pz:posts","4"},{"pz:gates","[{\"at\": 5, \"width\": 1, \"opens\": \"left\"}]"}},geometry=new{type="LineString",coordinates=new[]{At(20.2,40.1),At(60.3,40.2),At(70.1,52.4)}}},
+                new{type="Feature",id="osm-way-8",properties=new Dictionary<string,string>{{"barrier","fence"},{"pz:fence","not-a-style"}},geometry=new{type="LineString",coordinates=new[]{At(20.1,80.2),At(20.3,100.1)}}},
+                new{type="Feature",id="osm-node-9",properties=new Dictionary<string,string>{{"barrier","gate"}},geometry=new{type="Point",coordinates=At(40.5,40.1)}}}});
+            var p=GeographicImporter.Import(json,MapGenerator.Generate(new(){Kind="blank"}),reference.Bounds,projection:projection).Project;
+            Check(p.Fences.Count==2&&p.Version==12,"Barrier lines did not become fence lines");
+            var sheet=p.Fences.Single(f=>f.SourceId=="geo-osm-way-7");var planks=p.Fences.Single(f=>f.SourceId=="geo-osm-way-8");
+            Check(sheet.Style=="vanilla-sheet"&&planks.Style=="vanilla-planks"&&sheet.PostSpacing==4,"Fence looks were not taken from fence_type / defaults");
+            Check(sheet.Gates.Count==2&&sheet.Gates.Any(g=>g.At==5&&g.OpensTo=="left")&&sheet.Gates.Any(g=>g.At==20),"pz:gates (5 m along) or the barrier=gate node did not become gates on their edges");
+            Check(p.FenceStyles.Select(s=>s.Id).Order().SequenceEqual(["vanilla-planks","vanilla-sheet"])&&p.GateStyles.Single().Id=="vanilla-wicket","Only the used default styles should be added");
+            Check(Math.Abs(sheet.SourcePath[0].Longitude-At(20.2,40.1)[0])<1e-12,"Real source path was not kept");
+            var pieces=FenceLines.Compose(p.Fences,p.FenceStyles,p.GateStyles,p.Width,p.Height,blocked:FenceLines.Blocker(p)).Pieces;Check(pieces.Count(x=>x.Tile=="fixtures_doors_fences_01_13")==2,"Imported gates are not drawn");
+            // Preserve edits: authored fences stay, source fences are refreshed rather than duplicated
+            p.Fences.Add(new(){Id="authored",Style="vanilla-planks",Points=[new(100,100),new(110,100)]});
+            var again=GeographicImporter.Import(json,p,p.Bounds,preserveEdits:true,projection:projection).Project;
+            Check(again.Fences.Count==3&&again.Fences.Count(f=>f.SourceId=="geo-osm-way-7")==1&&again.Fences.Any(f=>f.Id=="authored"),"Reimport duplicated or lost fences");
+        });
     }
     static string Lotheader(byte[] archive,int x,int y){using var zip=new ZipArchive(new MemoryStream(archive));var entry=zip.Entries.Single(e=>e.Name==$"{x}_{y}.lotheader");using var r=new StreamReader(entry.Open(),Encoding.Latin1);return r.ReadToEnd();}
     static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
