@@ -107,7 +107,7 @@ public static partial class GeographicImporter {
             }
             if(w>64||h>64||!MapGenerator.CanPlace(p,b)){
                 skipped++;
-                var reason=w>64||h>64?"Outline too large":b.X<1||b.Y<1||b.X+b.Width>=p.Width||b.Y+b.Height>=p.Height?"Outside the map":b.X/256!=(b.X+b.Width)/256||b.Y/256!=(b.Y+b.Height)/256?"Cell boundary":p.Buildings.Any(a=>b.X<a.X+a.Width+1&&b.X+b.Width+1>a.X&&b.Y<a.Y+a.Height+1&&b.Y+b.Height+1>a.Y)?"Building overlap":"Water or road";
+                var reason=w>64||h>64?"Outline too large":b.X<1||b.Y<1||b.X+b.Width>=p.Width||b.Y+b.Height>=p.Height?"Outside the map":p.Buildings.Any(a=>b.X<a.X+a.Width+1&&b.X+b.Width+1>a.X&&b.Y<a.Y+a.Height+1&&b.Y+b.Height+1>a.Y)?"Building overlap":p.Decorations.Any(d=>d.Parts.Any(part=>d.X+part.Dx>=b.X&&d.X+part.Dx<=b.X+b.Width&&d.Y+part.Dy>=b.Y&&d.Y+part.Dy<=b.Y+b.Height))?"Environment object":"Water or road";
                 skipReasons[reason]=skipReasons.GetValueOrDefault(reason)+1;if(skippedOutlines.Count<256)skippedOutlines.Add(new(b.SourceId,b.Name,reason,x,y,w,h));continue;
             }
             p.Buildings.Add(b);imported++;
