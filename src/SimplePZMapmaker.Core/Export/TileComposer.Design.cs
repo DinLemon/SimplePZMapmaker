@@ -33,6 +33,7 @@ internal sealed partial class TileComposer
     if(balcony&&e.Kind=="wall"){AddAt(x0+e.X,y0+e.Y,z,e.WallTile??$"carpentry_02_{(north?101:100)}",north?(byte)2:(byte)4);continue;}
     AddAt(x0+e.X,y0+e.Y,z,e.WallTile??$"{style?.Wall??"walls_exterior_house_01"}_{tile}",north?(byte)2:(byte)4);
     if(e.Kind is "door" or "window")AddAt(x0+e.X,y0+e.Y,z,e.OpeningTile??$"fixtures_{(e.Kind=="door"?"doors":"windows")}_01_{(north?1:0)+(e.Kind=="door"?style?.DoorBase??0:style?.WindowBase??0)}");
+    if(e.OverlayTile is not null)AddAt(x0+e.X,y0+e.Y,z,e.OverlayTile);
    }
    foreach(var o in floor.Objects){
     if(o.Kind=="stairs"){

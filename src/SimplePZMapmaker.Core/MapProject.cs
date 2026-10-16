@@ -97,6 +97,9 @@ public sealed class BuildingEdge {
     public bool Edited {get;set;}
     public string? WallTile {get;set;}
     public string? OpeningTile {get;set;}
+    // Optional decoration drawn on the same wall edge after the wall and opening: window surrounds (наличники),
+    // shutters, facade lettering. Uses tiles with the WallOverlay property for the matching N/W orientation.
+    public string? OverlayTile {get;set;}
 }
 public sealed class BuildingObject {
     public int X {get;set;} public int Y {get;set;}
