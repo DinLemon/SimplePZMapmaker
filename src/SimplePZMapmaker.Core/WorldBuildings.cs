@@ -27,6 +27,7 @@ public static partial class WorldAssembler
   var p=member.Project;var projected=world.Buildings.Where(b=>b.X<p.WorldX*256+p.Width&&b.Y<p.WorldY*256+p.Height&&b.X+b.Width>=p.WorldX*256&&b.Y+b.Height>=p.WorldY*256).Select(b=>{var copy=CloneBuilding(b);copy.X-=p.WorldX*256;copy.Y-=p.WorldY*256;return copy;}).ToArray();
   if(projected.Length==0&&world.LinearFeatures.Count==0)return p;
   var result=new MapProject(){Version=Math.Max(6,p.Version),WorldSection=true,Name=p.Name,Width=p.Width,Height=p.Height,Seed=p.Seed,WorldX=p.WorldX,WorldY=p.WorldY,Terrain=p.Terrain,TerrainEdits=p.TerrainEdits,Zombies=p.Zombies,Buildings=[..p.Buildings,..projected],BuildingLibrary=p.BuildingLibrary,ResourcePalettes=p.ResourcePalettes,LinearFeatures=p.LinearFeatures,GameZones=p.GameZones,SurfaceTheme=p.SurfaceTheme,SurfaceRegions=p.SurfaceRegions,SurfaceTiles=p.SurfaceTiles,Decorations=p.Decorations,StaticModels=p.StaticModels,RequiredMods=p.RequiredMods,AssetSources=p.AssetSources,Spawns=p.Spawns,Attribution=p.Attribution,Bounds=p.Bounds,MetresPerTile=p.MetresPerTile,ImportSummary=p.ImportSummary};
+  result.Generation=p.Generation is null?null:JsonSerializer.Deserialize<GenerationControl>(JsonSerializer.Serialize(p.Generation));
   return WorldInfrastructure.Project(world,member,result,sharedGeometry);
  }
  public static IEnumerable<StaticModelExporter.PlacedStaticModel> GatherModels(WorldProject world)=>StaticModelExporter.Gather(new(){WorldX=0,WorldY=0,Buildings=world.Buildings});

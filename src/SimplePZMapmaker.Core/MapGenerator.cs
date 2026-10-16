@@ -3,6 +3,7 @@ public static class MapGenerator
 {
     public static MapProject Generate(GenerationOptions o)
     {
+        SettlementRules.Validate(o.Rules);
         if(o.Size is <256 or >2048 || o.Size%256!=0 || o.Kind is not ("town" or "wilderness" or "blank") || o.ForestDensity is <0 or >100 || o.BuildingDensity is <0 or >100 || o.ZombieDensity is <0 or >255) throw new ArgumentException("Check the map size, type, and object density.");
         var n=o.Size; var p=new MapProject {Name=o.Name,Width=n,Height=n,Seed=o.Seed,SurfaceTheme=o.SurfaceTheme,Terrain=new Terrain[n*n],Zombies=new int[n*n/64]};
         var random=new Random(o.Seed);
@@ -16,8 +17,14 @@ public static class MapGenerator
                 else if(Math.Abs(x-river)<8) p.Terrain[y*n+x]=Terrain.Sand;
             }
             if(o.Kind=="town") {
-                for(var y=24;y<n-16;y+=48) for(var x=8;x<n-8;x++) PaintRoad(p,x,y,5);
-                for(var x=24;x<n*0.70;x+=48) for(var y=8;y<n-8;y++) PaintRoad(p,x,y,5);
+                var streetSpacing=o.Rules.Preset=="contextual"?96:48;
+                for(var y=24;y<n-16;y+=streetSpacing) for(var x=8;x<n-8;x++) PaintRoad(p,x,y,5);
+                for(var x=24;x<n*0.70;x+=streetSpacing) for(var y=8;y<n-8;y++) PaintRoad(p,x,y,5);
+                if(o.Rules.Preset=="contextual"){
+                    SettlementGenerator.Populate(p,o.Rules,o.Seed,o.BuildingDensity);
+                    p.Generation=new(){Rules=NeighborhoodPlanner.Copy(o.Rules),LastSeed=o.Seed,LastMode="fill",GeneratedBuildingIds=p.Buildings.Select(b=>b.Id).ToList()};
+                }
+                else
                 for(var y=34;y<n-24;y+=24) for(var x=34;x<n*0.7-20;x+=24) {
                     if(random.Next(100)>=o.BuildingDensity) continue;
                     var kind=BuildingDesigner.Kinds[random.Next(BuildingDesigner.Kinds.Length)];

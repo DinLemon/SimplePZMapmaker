@@ -15,6 +15,7 @@ public static class ProjectValidator
         if(string.IsNullOrWhiteSpace(p.Name) || p.Name.Length>80 || p.Name.Any(char.IsControl)) Fail("Name: 1-80 characters without line breaks.");
         if(p.WorldX is <0 or >1000 || p.WorldY is <0 or >1000) Fail("World coordinates: 0 to 1,000 cells.");
         if(p.Terrain is null || p.Terrain.Length!=p.Width*p.Height || p.Terrain.Any(t=>!Enum.IsDefined(t))) Fail("Invalid terrain layer.");
+        GenerationControl.Validate(p);
         TerrainEditMask.Decode(p);if(p.Version<6&&p.TerrainEdits.Length>0)Fail("The manual terrain mask requires project format version 6.");
         if(p.Zombies is null || p.Zombies.Length!=p.Width*p.Height/64 || p.Zombies.Any(z=>z is <0 or >255)) Fail("Invalid zombie layer.");
         if(p.WorldSection&&p.Version<6)Fail("World sections require project format version 6.");

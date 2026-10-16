@@ -8,6 +8,16 @@ A local visual map and building editor for **Project Zomboid Build 42**, written
 
 ![The English map editor](docs/screenshots/01-editor.png)
 
+## Generation studio (development branch)
+
+- **Context-aware districts:** era, land use, density, road setbacks, floors and courtyards; road-facing buildings with connected entrance paths.
+- **Selective completion and regeneration:** fill empty OSM areas, preserve source/manual content, pin buildings or protect rectangles, compare two reproducible variants and apply one undoable change.
+- **Visible evidence and quality:** distinguish source geometry from generated assumptions; inspect room/stair access, facade relationships, roads, courtyards, spawn routes and game zones with explicit coverage limits. Shared world geometry participates in section previews and checks.
+
+[Step-by-step generation studio guide](docs/GENERATION-STUDIO.md)
+
+![Generation studio with two alternatives and coordinate-based quality findings](docs/screenshots/27-generation-studio.png)
+
 ## What's new in 0.11.2
 
 - **Automatic game discovery:** startup reads Steam's registered libraries and installation manifests, including libraries on other drives. Stale saved paths fall back to detected installations.

@@ -34,6 +34,7 @@ public sealed class MapProject
     public GeoBounds? Bounds { get; set; }
     public double? MetresPerTile { get; set; }
     public ImportSummary? ImportSummary {get;set;}
+    public GenerationControl? Generation {get;set;}
 }
 public sealed class ImportSummary
 {
@@ -120,6 +121,7 @@ public sealed class SpawnPoint { public int X { get; set; } public int Y { get; 
 public sealed class GeoBounds { public double South { get; set; } public double West { get; set; } public double North { get; set; } public double East { get; set; } }
 public sealed class GenerationOptions
 {
+    public SettlementRules Rules {get;set;}=new();
     public int Size { get; set; }=256;
     public int Seed { get; set; }=42;
     public string Kind { get; set; }="town";
