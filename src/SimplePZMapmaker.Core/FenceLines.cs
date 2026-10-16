@@ -46,7 +46,7 @@ public sealed class FenceLine
 }
 public static class FenceLines
 {
- public const int MaximumLines=20000,MaximumPoints=512,MaximumEdges=250000,MaximumStyles=128;
+ public const int MaximumLines=100000,MaximumPoints=512,MaximumEdges=250000,MaximumStyles=128;
  /// <summary>One placed fence tile. Flags are the native navigation edge bits (2 north, 4 west).</summary>
  public sealed record Piece(int X,int Y,string Tile,byte Flags,string Line);
  public sealed record Composition(List<Piece> Pieces,Dictionary<string,int> Skipped);
