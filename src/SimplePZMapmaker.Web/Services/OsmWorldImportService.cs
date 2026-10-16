@@ -4,7 +4,7 @@ using SimplePZMapmaker.Core;
 using SimplePZMapmaker.Core.Export;
 namespace SimplePZMapmaker.Web.Services;
 
-public sealed record OsmWorldImportRequest(GeoBounds Bounds,double MetresPerTile=1,int SectionSize=1024,int OriginCellX=100,int OriginCellY=100,int Seed=42,string Name="OpenStreetMap world",WorldProject? ExistingWorld=null,bool PreserveEdits=false);
+public sealed record OsmWorldImportRequest(GeoBounds Bounds,double MetresPerTile=1,int SectionSize=1024,int OriginCellX=100,int OriginCellY=100,int Seed=42,string Name="OpenStreetMap world",WorldProject? ExistingWorld=null,bool PreserveEdits=false,double RotationDegrees=0);
 public sealed record OsmWorldPlan(WorldGeoReference GeoReference,int Columns,int Rows,int SectionSize,int Cells,int Width,int Height);
 public sealed class OsmWorldImportService(OsmClient client,GameAssetCatalog assets,string directory,StaticModelCatalog? models=null):IDisposable
 {
@@ -13,7 +13,7 @@ public sealed class OsmWorldImportService(OsmClient client,GameAssetCatalog asse
  private readonly ConcurrentDictionary<string,Job> jobs=new();private readonly object admission=new();private bool disposed;
  public static OsmWorldPlan Plan(OsmWorldImportRequest request){
   if(request is null||string.IsNullOrWhiteSpace(request.Name)||request.Name.Length>80||request.Name.Any(char.IsControl)||request.SectionSize is <256 or >2048||request.SectionSize%256!=0)throw new ArgumentException("Specify a name and section dimensions of 256-2,048 tiles, in multiples of 256.");
-  var reference=new WorldGeoReference{Bounds=request.Bounds,MetresPerTile=request.MetresPerTile,OriginCellX=request.OriginCellX,OriginCellY=request.OriginCellY};var size=GeographicProjection.RequiredTiles(reference);var columns=Math.Max(1,(int)Math.Ceiling(size.Width/(double)request.SectionSize));var rows=Math.Max(1,(int)Math.Ceiling(size.Height/(double)request.SectionSize));var cells=checked(columns*rows*(request.SectionSize/256)*(request.SectionSize/256));if(columns*rows>128||cells>8192)throw new ArgumentException("The area requires more than 128 maps or 8,192 native cells. Increase the tile scale or reduce the bounds.");
+  var reference=new WorldGeoReference{Bounds=request.Bounds,MetresPerTile=request.MetresPerTile,OriginCellX=request.OriginCellX,OriginCellY=request.OriginCellY,RotationDegrees=request.RotationDegrees};var size=GeographicProjection.RequiredTiles(reference);var columns=Math.Max(1,(int)Math.Ceiling(size.Width/(double)request.SectionSize));var rows=Math.Max(1,(int)Math.Ceiling(size.Height/(double)request.SectionSize));var cells=checked(columns*rows*(request.SectionSize/256)*(request.SectionSize/256));if(columns*rows>128||cells>8192)throw new ArgumentException("The area requires more than 128 maps or 8,192 native cells. Increase the tile scale or reduce the bounds.");
   // A native world can be larger; a single browser import has a separate bounded memory budget.
   if(cells>768)throw new ArgumentException("This import exceeds the world project's 128 MB budget. Reduce the area or increase the tile size; assemble larger worlds from separately saved sections.");
   if(request.OriginCellX+(columns-1)*request.SectionSize/256>1000||request.OriginCellY+(rows-1)*request.SectionSize/256>1000)throw new ArgumentException("The import exceeds the editor's supported cell coordinates.");

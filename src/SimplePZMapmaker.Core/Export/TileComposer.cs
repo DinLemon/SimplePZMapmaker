@@ -26,6 +26,7 @@ internal sealed partial class TileComposer
         }
         foreach(var b in p.Buildings.Where(b=>b.X<ox+256&&b.Y<oy+256&&b.X+b.Width>=ox&&b.Y+b.Height>=oy)){if(b.Design is null)Compose(b);else ComposeDesign(b);}
         foreach(var d in p.Decorations)foreach(var part in d.Parts){var x=d.X+part.Dx-ox;var y=d.Y+part.Dy-oy;if(x>=0&&y>=0&&x<256&&y<256)Add(x,y,part.Tile,part.Flags);}
+        if(p.Fences.Count>0){var blocked=FenceLines.Blocker(p);foreach(var piece in FenceLines.Compose(p.Fences,p.FenceStyles,p.GateStyles,256,256,-ox,-oy,(x,y)=>blocked(x+ox,y+oy)).Pieces)Add(piece.X,piece.Y,piece.Tile,piece.Flags);}
         ComposeInfrastructure(infrastructure);
     }
     private bool Tree(int x,int y) => !decorationCells.Contains(y*256+x)&&((uint)((ox+x)*73856093)^((uint)(oy+y)*19349663)^(uint)project.Seed)%19==0 && !project.Spawns.Any(s=>Math.Abs(s.X-ox-x)<=2&&Math.Abs(s.Y-oy-y)<=2);
