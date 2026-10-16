@@ -7,7 +7,7 @@ This contract fixes the data that crosses the boundary between a real-place surv
 | Rotated geographic reference | Claude | [1](#1-coordinates) |
 | Stable identities | both (rules here) | [2](#2-stable-identities) |
 | Section bounds and seam ownership | editor storage/streaming: ChatGPT; import rules: Claude | [3](#3-sections-and-seams) |
-| Fence and gate lines | core: Claude; editor UI: ChatGPT | [4](#4-fences-and-gates) |
+| Fence and gate layer | core: Claude; editor UI: ChatGPT | [4](#4-fences-and-gates) |
 | Building appearance tags | Claude | [5](#5-building-appearance-tags) |
 | Small and attached buildings | core: Claude; editor UI: ChatGPT | [6](#6-small-and-attached-buildings) |
 | Game zones | data, checks, export, UI: ChatGPT; source tag mapping: agreed here | [7](#7-game-zones) |
@@ -71,7 +71,7 @@ A rebuild from the same source must reproduce the same identities, so that **Pre
 
 - A section is a world member with `WorldX`, `WorldY` in cells and `Width`, `Height` in tiles, each a multiple of 256 from 256 to 2048. Sections of different sizes may coexist; they must be cell-aligned and must not overlap (existing validation). A dense centre may use 512-tile sections next to 1024-tile ones.
 - A section covers global tiles [`WorldX`·256, `WorldX`·256 + `Width`) × [`WorldY`·256, `WorldY`·256 + `Height`).
-- **Ownership:** an object whose whole footprint lies inside one section belongs to that section. An object crossing a section edge belongs to the world: buildings go to `WorldProject.Buildings`, and lines (roads, fences) go to `WorldProject.LinearFeatures`. A section never contains a clipped part of an object.
+- **Ownership:** an object whose whole footprint lies inside one section belongs to that section. An object crossing a section edge belongs to the world: buildings go to `WorldProject.Buildings`, and lines (roads, fences) go to `WorldProject.LinearFeatures`, and fences go to `WorldProject.Fences`. A section never contains a clipped part of an object.
 - **No silent loss.** Every imported source feature ends in exactly one of three places:
   - placed in one section;
   - placed at world level;
@@ -82,33 +82,32 @@ A rebuild from the same source must reproduce the same identities, so that **Pre
 
 ## 4. Fences and gates
 
-Fences are line features, not decorations, so a fence edge never competes with a plant, bench or lamp for the one-decoration-per-cell slot, and fences are continuous across sections when stored at world level.
+Fences are their own layer, not decorations and not `LinearFeature`s (which are limited to 64 per map). A fence edge therefore never competes with a plant, bench or lamp for a cell's single decoration slot, and a world fence is continuous across sections. `MapProject` and `WorldProject` both carry `Fences`, `FenceStyles` and `GateStyles`; world fences use global tile coordinates.
 
-`LinearFeature` with `Kind = "fence"`:
+`FenceLine`:
 
 | Field | Meaning |
 |---|---|
-| `Points` | tile coordinates of the fence line, which runs along cell edges; X and Y are integers. Segments are axis-aligned; a diagonal source line is turned into a staircase by the importer. |
-| `Width` | 1 |
-| `Fence.Style` | id of a fence style in the resource palette (see below) |
-| `Fence.PostSpacing` | 0 = no posts, otherwise a post tile every N tiles and at every corner |
-| `Fence.Gates` | list of openings: `{ "At": tiles from the first point, "Width": 1 (wicket) … 4, "Style": gate style id, "OpensTo": "left" or "right" of the line direction, "Open": false }` |
-| `SourceId`, `SourceTags` | as for other lines (`barrier=fence|wall|gate`, `fence_type`, `colour`, `material`) |
+| `Id`, `SourceId`, `SourceTags`, `SourcePath` | identity and retained source (`barrier=fence|wall|gate`, `fence_type`, `colour`, `material`; real lon/lat path) |
+| `Points` | grid vertices; vertex (X, Y) is the north-west corner of cell (X, Y). Runs are horizontal or vertical along cell edges; a diagonal source line is turned into a staircase by the importer. |
+| `Style` | id of a `FenceStyle` |
+| `PostSpacing` | 0 = no posts; otherwise a post at every corner and every N edges |
+| `Gates` | `{ "At": edges from the first point, "Style": gate style id, "OpensTo": "left" or "right" of the line direction, "Open": false }`; a gate stays on one straight run |
 
-A fence style names the tiles:
-- `w`, `n`: the edge tiles;
-- `nw`: the corner tile;
-- `post`, optional;
-- `w-alt`, `n-alt`, optional: alternative edges, used for a style that repeats every N tiles, such as forged sections between brick pillars.
+`FenceStyle`:
+- `W`, `N`: the edge tiles;
+- `NW`: optional corner tile;
+- `Post`: optional post tile;
+- `WAlt`, `NAlt` with `AltEvery`: optional alternative edges, used for a style that repeats every N edges, such as a brick pillar between forged sections.
 
-A gate style names `closed-w`, `closed-n`, `open-w` and `open-n`. Vanilla example: `fixtures_doors_fences_01_12` and `_13`, the solid wooden wicket. Styles may come from game tiles or from a resource mod; in the second case the mod id goes to `RequiredMods`.
+`GateStyle`: `Width` 1–8 edges, `ClosedW`, `ClosedN` and optional `OpenW`, `OpenN`, each with one piece per edge in line direction. `OpensTo = "left"` mirrors the order. Vanilla example: `fixtures_doors_fences_01_12`…`15`, the solid wooden wicket (closed W, closed N, open W, open N). Tiles from a resource mod add that mod to `RequiredMods`. A style ID used by both the world and a section must mean the same tiles.
 
 Rasterisation:
-- a horizontal run between (x, y) and (x + 1, y) puts the `n` edge on cell (x, y);
-- a vertical run between (x, y) and (x, y + 1) puts the `w` edge on cell (x, y);
-- a cell holding both edges gets `nw`.
+- a horizontal run between (x, y) and (x + 1, y) puts the `N` edge on cell (x, y);
+- a vertical run between (x, y) and (x, y + 1) puts the `W` edge on cell (x, y);
+- when both edges of one style are plain, the cell gets `NW`.
 
-Gate cells replace the edge tile with the gate tile; a gate opens into the side given by `OpensTo`. Fence tiles occupy the cell's wall slot and are exported as wall objects. They are skipped on building footprints and on road or pavement cells, and each skip is counted in the import report.
+Edge pieces carry the native navigation edge bits (2 for N, 4 for W); gates carry none. Edges on building footprints or water are skipped and counted per reason; overlaps are counted too. A fence layer raises the map format to 12 and the world format to 7.
 
 GeoJSON input (pipeline → importer):
 
@@ -162,7 +161,7 @@ Pipeline-generated verge wrecks are emitted as `pz:zone=Vehicle` polygons with `
 ## 8. Versions
 
 - Input GeoJSON declares `"pzTransfer": 1` at the FeatureCollection level. Without it, `pz:*` keys are still read, and the import report notes the missing declaration.
-- Writing `RotationDegrees ≠ 0`, a `fence` line, a small building or an attached building raises the saved map/world format version through `AuthoringFormats`, as other new authoring features do. An older editor refuses such files instead of silently dropping data, and files without these features keep their current version.
+- Writing `RotationDegrees ≠ 0` or a fence layer raises the world format to 7, and a fence layer raises the map format to 12. Small and attached buildings will raise it again when they land. All of this goes through `AuthoringFormats`, as for other new authoring features. An older editor refuses such files instead of silently dropping data, and files without these features keep their current version.
 - This document is versioned with the code. Incompatible changes create `TRANSFER-CONTRACT.md` version 2 and keep version 1 readable.
 
 ## Acceptance
