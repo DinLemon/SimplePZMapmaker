@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using SimplePZMapmaker.Core.Export;
 namespace SimplePZMapmaker.Core;
 
@@ -22,15 +22,16 @@ public static class WorldInfrastructure
  }
  static WorldMapMember Covered(WorldProject world,int x,int y)=>WorldAssembler.MemberAt(world,x,y)??throw new ArgumentException($"A shared path reaches an unmapped world tile ({x},{y}). Add an adjacent section or move the path.");
  static Terrain Ground(WorldProject world,int x,int y){var p=Covered(world,x,y).Project;return p.Terrain[(y-p.WorldY*256)*p.Width+x-p.WorldX*256];}
- public static InfrastructureGeometry.Geometry Build(WorldProject world){
+ public static InfrastructureGeometry.Geometry Build(WorldProject world,Func<int,int,Terrain>? readGround=null){
+  Terrain Sample(int x,int y)=>readGround is null?Ground(world,x,y):readGround(x,y);
   var worldCells=new Dictionary<string,HashSet<(int X,int Y)>>();var tiles=new Dictionary<(int,int,int,string),InfrastructureGeometry.Tile>();var holes=new HashSet<InfrastructureGeometry.Hole>();var floors=new HashSet<(int X,int Y,int Z)>();var paths=new List<(LinearFeature Feature,HashSet<(int X,int Y)> Cells)>();long total=0;
   void Add(int x,int y,int z,string tile,byte flags=0){Covered(world,x,y);if(!ZLevels.Contains(z)||tiles.Count>=InfrastructureGeometry.MaximumTiles)throw new ArgumentException("Shared infrastructure exceeds the native tile or signed floor budget.");tiles.TryAdd((x,y,z,tile),new(x,y,z,tile,flags));}
   void Floor(int x,int y,int z){floors.Add((x,y,z));Add(x,y,z,InfrastructureGeometry.DeckTile);}
   foreach(var feature in world.LinearFeatures){var cells=Rasterize(feature);worldCells.Add(feature.Id,cells);total+=cells.Count;if(total>100000)throw new ArgumentException("Shared paths exceed 100,000 managed world tiles.");foreach(var (x,y) in cells)Covered(world,x,y);}
   bool SharedGroundRoad(int x,int y)=>world.LinearFeatures.Any(f=>f.Level==0&&f.Kind is "road" or "bridge" or "sidewalk"&&worldCells[f.Id].Contains((x,y)));
   foreach(var feature in world.LinearFeatures.Where(f=>f.Level!=0)){var cells=worldCells[feature.Id];paths.Add((feature,cells));foreach(var (x,y) in cells)Floor(x,y,feature.Level);
-   if(feature.Access=="stairs"){var x=(int)Math.Floor(feature.Points[0].X);var anchor=(int)Math.Floor(feature.Points[0].Y)-(feature.Level<0?-4*feature.Level:0);var low=Math.Min(0,feature.Level);var high=Math.Max(0,feature.Level);for(var z=low;z<high;z++){var y=anchor+4*(high-z-1);Floor(x,y,z+1);Floor(x,y+4,z);for(var step=1;step<=3;step++){Add(x,y+step,z,$"carpentry_02_{99-step}");Covered(world,x,y+step);holes.Add(new(x,y+step,z+1));}}var ground=feature.Level>0?anchor+4*feature.Level:anchor;if(Ground(world,x,ground)==Terrain.Water)throw new ArgumentException("Shared pedestrian stairs require a dry ground landing.");}
-   if(feature.SupportSpacing>0){var horizontal=Math.Abs(feature.Points[^1].X-feature.Points[0].X)>=Math.Abs(feature.Points[^1].Y-feature.Points[0].Y);foreach(var (x,y) in cells){if((horizontal?x:y)%feature.SupportSpacing!=0||cells.Contains(horizontal?(x,y-1):(x-1,y))||Ground(world,x,y) is Terrain.Road or Terrain.Pavement||SharedGroundRoad(x,y))continue;for(var z=0;z<feature.Level;z++){Add(x,y,z,"walls_exterior_house_01_0",4);Add(x,y,z,"walls_exterior_house_01_1",2);}}}
+   if(feature.Access=="stairs"){var x=(int)Math.Floor(feature.Points[0].X);var anchor=(int)Math.Floor(feature.Points[0].Y)-(feature.Level<0?-4*feature.Level:0);var low=Math.Min(0,feature.Level);var high=Math.Max(0,feature.Level);for(var z=low;z<high;z++){var y=anchor+4*(high-z-1);Floor(x,y,z+1);Floor(x,y+4,z);for(var step=1;step<=3;step++){Add(x,y+step,z,$"carpentry_02_{99-step}");Covered(world,x,y+step);holes.Add(new(x,y+step,z+1));}}var ground=feature.Level>0?anchor+4*feature.Level:anchor;if(Sample(x,ground)==Terrain.Water)throw new ArgumentException("Shared pedestrian stairs require a dry ground landing.");}
+   if(feature.SupportSpacing>0){var horizontal=Math.Abs(feature.Points[^1].X-feature.Points[0].X)>=Math.Abs(feature.Points[^1].Y-feature.Points[0].Y);foreach(var (x,y) in cells){if((horizontal?x:y)%feature.SupportSpacing!=0||cells.Contains(horizontal?(x,y-1):(x-1,y))||Sample(x,y) is Terrain.Road or Terrain.Pavement||SharedGroundRoad(x,y))continue;for(var z=0;z<feature.Level;z++){Add(x,y,z,"walls_exterior_house_01_0",4);Add(x,y,z,"walls_exterior_house_01_1",2);}}}
   }
   foreach(var (feature,cells) in paths.Where(p=>p.Feature.GuardRails))foreach(var (x,y) in cells)foreach(var (dx,dy,tile,flags) in new[]{(0,-1,"fencing_01_1",(byte)2),(-1,0,"fencing_01_2",(byte)4),(0,1,"fencing_01_1",(byte)2),(1,0,"fencing_01_2",(byte)4)}){
    if(floors.Contains((x+dx,y+dy,feature.Level)))continue;var rx=x+(dx==1?1:0);var ry=y+(dy==1?1:0);if(holes.Any(h=>h.X==rx&&Math.Abs(h.Y-ry)<=1&&h.Z==feature.Level)||feature.Access=="stairs"&&rx==(int)Math.Floor(feature.Points[0].X)&&Math.Abs(ry-feature.Points[0].Y)<=Math.Ceiling(feature.Width/2)+1)continue;

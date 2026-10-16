@@ -1,4 +1,4 @@
-﻿namespace SimplePZMapmaker.Core;
+namespace SimplePZMapmaker.Core;
 
 public enum Terrain : byte { Grass, Forest, Road, Water, Sand, Dirt, Pavement }
 public sealed class MapProject
@@ -22,6 +22,9 @@ public sealed class MapProject
     public List<ResourcePalette> ResourcePalettes {get;set;}=[];
     public List<LinearFeature> LinearFeatures {get;set;}=[];
     public List<GameZone> GameZones {get;set;}=[];
+    public List<ZombieDensityRegion> ZombieDensityRegions {get;set;}=[];
+    public ZombieDensityState? ZombieDensityState {get;set;}
+    public List<RoomRegionRule> RoomRegionRules {get;set;}=[];
     public List<GeographicFeature> SourceFeatures {get;set;}=[];
     public List<SiteParcel> Sites {get;set;}=[];
     public string SurfaceTheme {get;set;}="legacy";

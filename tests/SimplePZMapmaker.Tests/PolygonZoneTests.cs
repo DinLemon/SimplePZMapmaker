@@ -1,0 +1,15 @@
+using SimplePZMapmaker.Core;
+using SimplePZMapmaker.Core.Export;
+using System.Text.Json;
+public static class PolygonZoneTests
+{
+ public static IEnumerable<(string,Action)> Cases()
+ {
+  yield return("shared building respects concave vehicle polygon actual coverage",()=>{var world=WorldTests.Fixture(1);var p=world.Maps[0].Project;var zone=new GameZone{X=16,Y=16,Width=24,Height=24,Type="Vehicle",VehicleDistribution="parkingstall",Polygon=[new(16,16),new(40,16),new(40,20),new(20,20),new(20,40),new(16,40)]};p.GameZones.Add(zone);var b=new Building{X=p.WorldX*256+24,Y=p.WorldY*256+24,Width=6,Height=6};world.Buildings.Add(b);WorldAssembler.Validate(world);b.X=p.WorldX*256+18;Reject(()=>WorldAssembler.Validate(world));});
+  yield return("polygon zone permits water and other zones in concave empty area",()=>{var p=MapGenerator.Generate(new(){Kind="blank"});var z=new GameZone{X=0,Y=0,Width=8,Height=8,Type="Vehicle",VehicleDistribution="parkingstall"};SetPolygon(z);p.GameZones.Add(z);p.Terrain[6*p.Width+6]=Terrain.Water;p.GameZones.Add(new(){X=3,Y=3,Width=3,Height=3,Type="Vehicle",VehicleDistribution="parkingstall"});GameZones.ValidateProject(p);p.Terrain[p.Width+1]=Terrain.Water;Reject(()=>GameZones.ValidateProject(p));});
+  yield return("polygon geometry rejects crossing mismatched bounds and zero tile coverage",()=>{var z=new GameZone{X=0,Y=0,Width=8,Height=8,Polygon=[new(0,0),new(8,8),new(0,8),new(8,0)]};Reject(()=>GameZone.Validate(z,256,256));SetPolygon(z);z.Width=9;Reject(()=>GameZone.Validate(z,256,256));z.Width=z.Height=1;z.Polygon=[new(0,0),new(1,0),new(0,1)];Reject(()=>GameZone.Validate(z,256,256));});
+  yield return("polygon native export covers only actual cells with nonoverlapping rectangles",()=>{var p=MapGenerator.Generate(new(){Kind="blank"});var z=new GameZone{Name="Concave",Type="Farm",X=0,Y=0,Width=8,Height=8};SetPolygon(z);p.GameZones.Add(z);var lua=GameZonesExporter.ObjectsLua(p);var matches=System.Text.RegularExpressions.Regex.Matches(lua,"name=\\\"Concave\\\".*?x=(\\d+), y=(\\d+), z=0, width=(\\d+), height=(\\d+)");var cells=new HashSet<(int,int)>();foreach(System.Text.RegularExpressions.Match m in matches){var x=int.Parse(m.Groups[1].Value)-p.WorldX*256;var y=int.Parse(m.Groups[2].Value)-p.WorldY*256;for(var yy=y;yy<y+int.Parse(m.Groups[4].Value);yy++)for(var xx=x;xx<x+int.Parse(m.Groups[3].Value);xx++)if(!cells.Add((xx,yy)))throw new Exception("Overlapping polygon rectangles");}if(cells.Count!=28||cells.Contains((4,4))||!cells.Contains((1,7)))throw new Exception("Native polygon coverage changed");});
+ }
+ static void SetPolygon(GameZone z){var property=typeof(GameZone).GetProperty("Polygon")??throw new Exception("Polygon geometry is unavailable");property.SetValue(z,JsonSerializer.Deserialize("[{\"X\":0,\"Y\":0},{\"X\":8,\"Y\":0},{\"X\":8,\"Y\":2},{\"X\":2,\"Y\":2},{\"X\":2,\"Y\":8},{\"X\":0,\"Y\":8}]",property.PropertyType));}
+ static void Reject(Action a){try{a();}catch(ArgumentException){return;}throw new Exception("Invalid polygon accepted");}
+}

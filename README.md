@@ -8,6 +8,16 @@ A local visual map and building editor for **Project Zomboid Build 42**, written
 
 ![The English map editor](docs/screenshots/01-editor.png)
 
+## Streamed world editor (development branch)
+
+- **Work on one section:** save a world as a section workspace, browse its manifest and open only the section being edited. Switching saves committed edits first; stale revisions retain the local copy and offer an explicit reload/discard action.
+- **See neighbouring geometry:** section outlines distinguish loaded and unloaded terrain. Crossing buildings and infrastructure remain visible and reserved; shared geometry is read-only in an isolated section.
+- **Control editing layers:** hide or lock terrain, roads, paths, buildings, objects, models, spawns and authoring zones. Annotation order is adjustable; physical sprites keep their depth order.
+- **Draw and review:** finish geometry drafts before applying them. Author polygon game/vehicle zones, reversible zombie-density regions and reviewed whole-room mappings. Unsupported fence lines stay downloadable drafts; the current building adapter accepts footprints from 6×6 tiles.
+- **Export a saved revision:** section and world export jobs read immutable section data in sequence. Compatibility whole-world JSON loading retains its separate size limit.
+
+[Step-by-step section, layer and polygon guide](docs/STREAMED-WORLD-EDITOR.md) · [Zone semantics and API](docs/ZONE-AUTHORING.md) · [Core/editor integration contract](docs/SPZM-SCENE-CONTRACT.md)
+
 ## Accurate real-place transfer (development branch)
 
 - **Source evidence:** retain original geographic geometry, stable source identities, addresses, entrance/access tags, observed facilities and barriers across OSM, tiled requests, regional PBF and GeoJSON point/polygon imports.

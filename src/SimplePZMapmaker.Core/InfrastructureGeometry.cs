@@ -1,4 +1,4 @@
-﻿namespace SimplePZMapmaker.Core;
+namespace SimplePZMapmaker.Core;
 
 /// <summary>Feature-owned native floors and cardinal stair runs; elevated strokes never repaint ground terrain.</summary>
 public static class InfrastructureGeometry
@@ -38,7 +38,7 @@ public static class InfrastructureGeometry
  public static void Validate(MapProject p)
  {
   if(!HasFeatures(p))return;var geometry=Build(p);var mask=TerrainEditMask.Decode(p);var groundBlocked=new HashSet<int>();var occupiedBuildings=new HashSet<int>();
-  foreach(var b in p.Buildings)foreach(var i in BuildingDesigner.Occupied(b)){var x=b.X+i%(b.Width+1);var y=b.Y+i/(b.Width+1);occupiedBuildings.Add(y*p.Width+x);}
+  foreach(var b in p.Buildings)foreach(var i in BuildingDesigner.Occupied(b)){var x=b.X+i%(b.Width+1);var y=b.Y+i/(b.Width+1);if(x>=0&&y>=0&&x<p.Width&&y<p.Height)occupiedBuildings.Add(y*p.Width+x);}
   foreach(var d in p.Decorations)foreach(var part in d.Parts)groundBlocked.Add((d.Y+part.Dy)*p.Width+d.X+part.Dx);
   foreach(var m in p.StaticModels)foreach(var c in StaticModelPlacement.FootprintCells(m))groundBlocked.Add((m.Y+c.Dy)*p.Width+m.X+c.Dx);
   foreach(var s in p.Spawns)groundBlocked.Add(s.Y*p.Width+s.X);

@@ -19,11 +19,15 @@ public sealed class MapSceneStore:IDisposable
 }
 public static class MapSceneEndpoints
 {
- public sealed record OpenRequest(MapProject? Project,WorldProject? World,string? MemberId);
+ public sealed record OpenRequest(MapProject? Project,WorldProject? World,string? MemberId,string? WorkspaceId=null,long? ExpectedRevision=null);
  public static void MapMapSceneEndpoints(this WebApplication app){
-  app.MapPost("/api/map-scene",(OpenRequest request,MapSceneStore store,GameAssetCatalog assets,StaticModelCatalog models,McpPlanningTools tools,CancellationToken cancellation)=>{
+  app.MapPost("/api/map-scene",async(OpenRequest request,MapSceneStore store,WorldStore worlds,GameAssetCatalog assets,StaticModelCatalog models,McpPlanningTools tools,CancellationToken cancellation)=>{
    cancellation.ThrowIfCancellationRequested();if((request.Project is null)==(request.World is null))throw new ArgumentException("Provide either a map or a world section for the native view.");
-   NativeViewportScene scene;if(request.World is {} world){if(string.IsNullOrEmpty(request.MemberId))throw new ArgumentException("Select a world section.");tools.ValidateWorld(world);scene=NativeViewportScene.FromWorld(world,request.MemberId);}else{var project=request.Project!;AssetRules.Project(project,assets);models.Validate(project);scene=NativeViewportScene.FromProject(project);}cancellation.ThrowIfCancellationRequested();return store.Open(scene);
+   NativeViewportScene scene;if(request.WorkspaceId is {} workspace){
+    if(request.World is not null||request.Project is null||string.IsNullOrEmpty(request.MemberId)||request.ExpectedRevision is null)throw new ArgumentException("Provide the authored section, member ID and expected workspace revision.");
+    using var lease=await worlds.PinAsync(workspace,cancellation);if(lease.Manifest.Revision!=request.ExpectedRevision)throw new ArgumentException("The workspace revision changed. Save or reload the active section before refreshing the native view.");
+    var metadata=await lease.ReadMetadataAsync(cancellation);var source=new WorkspaceExportSource(lease,metadata,assets,models);AssetRules.Project(request.Project,assets);models.Validate(request.Project);var projected=await source.ProjectSectionAsync(request.MemberId,request.Project,cancellation);scene=NativeViewportScene.FromValidatedProjection(projected);
+   }else if(request.World is {} world){if(string.IsNullOrEmpty(request.MemberId))throw new ArgumentException("Select a world section.");tools.ValidateWorld(world);scene=NativeViewportScene.FromWorld(world,request.MemberId);}else{var project=request.Project!;AssetRules.Project(project,assets);models.Validate(project);scene=NativeViewportScene.FromProject(project);}cancellation.ThrowIfCancellationRequested();return store.Open(scene);
   });
   app.MapGet("/api/map-scene/{id}",(string id,int x,int y,int size,int stride,int? level,MapSceneStore store,CancellationToken cancellation)=>store.Read(id,x,y,size,stride,level,cancellation));
   app.MapPost("/api/map-scene/{id}/close",(string id,MapSceneStore store)=>{store.Close(id);return new{closed=true};});

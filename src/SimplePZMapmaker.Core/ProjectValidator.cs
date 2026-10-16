@@ -62,7 +62,7 @@ public static class ProjectValidator
             if(otherX<0||otherY<0||blockingModels.Contains(model.Y*p.Width+model.X)||blockingModels.Contains(otherY*p.Width+otherX)||decorationCells.Contains(model.Y*p.Width+model.X)||decorationCells.Contains(otherY*p.Width+otherX)||occupied.Contains(otherY*p.Width+otherX)||p.Terrain[otherY*p.Width+otherX]==Terrain.Water)Fail("A model door needs a clear approach on both sides of its edge.");
         }
         LinearFeatureEditor.Validate(p);GameZones.ValidateProject(p);
-        SiteModel.Validate(p);
+        SiteModel.Validate(p);ZombieDensityRegions.ValidateProject(p);RoomRegionRules.ValidateProject(p);
         if(p.Bounds is not null) ValidateBounds(p.Bounds);
         if(p.MetresPerTile is double metres && (!double.IsFinite(metres)||metres<=0||metres>100000))Fail("Invalid geographic data scale.");
         if(p.ImportSummary is { } summary && (summary.SourceFeatures is <0 or >30000||summary.SourceBuildings is <0 or >30000||summary.PlacedBuildings is <0 or >4000||summary.SkipReasons is null||summary.SkipReasons.Count>20||summary.SkipReasons.Any(s=>s.Key.Length>100||s.Value is <0 or >30000)))Fail("Invalid import report.");

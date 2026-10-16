@@ -1,0 +1,20 @@
+/* Compact controls follow the existing muted-green map workbench. */
+.map-layers-workbench,.geographic-authoring-workbench{background:#172623;border:1px solid #40584b;border-radius:5px;margin:10px 0;color:#e7dfc9;font:inherit;overflow:hidden}
+.map-layers-workbench>summary,.geographic-authoring-workbench>summary{cursor:pointer;padding:10px;font-size:13px;font-weight:600;background:#233b32}
+.map-layers-workbench[open]>summary,.geographic-authoring-workbench[open]>summary{border-bottom:1px solid #40584b}
+.map-layer-row{display:flex;gap:4px;align-items:center;padding:5px 8px;border-top:1px solid #30473b;min-height:32px}
+.map-layer-row>label{display:flex;align-items:center;gap:6px;flex:1;min-width:0;font-size:11px;margin:0;color:#e7dfc9}
+.map-layer-row input{width:15px;height:15px;padding:0;margin:0;accent-color:#edc57e;flex-shrink:0}
+.map-layer-row>button,.geographic-tool-actions>button,.geometry-draft-list button{font:inherit;font-size:11px;padding:5px 7px;min-height:30px;background:#233b32;border:1px solid #526a56;color:#e7dfc9;border-radius:3px}
+.map-layer-row>.map-layer-order{font-size:10px;padding:4px;min-width:29px}
+.map-layer-row>button[aria-pressed=true],.geometry-draft-list button[aria-pressed=true],.geographic-tool-actions>button[aria-pressed=true]{border-color:#edc57e;color:#edc57e;background:#344937}
+.map-layers-workbench button:disabled,.geographic-authoring-workbench button:disabled{opacity:.45;cursor:default}
+.map-layers-workbench :focus-visible,.geographic-authoring-workbench :focus-visible{outline:2px solid #edc57e;outline-offset:2px}
+.map-layer-hint,.geometry-draft-status{font-size:11px;line-height:1.5;margin:8px 10px;color:#c5cbb8;overflow-wrap:anywhere}
+.geometry-draft-status{color:#edc57e;min-height:32px}
+.geographic-tool-actions{display:flex;flex-wrap:wrap;gap:5px;padding:7px 9px}
+.geographic-tool-actions>button{flex:1 1 auto;white-space:normal;text-align:center}
+.geometry-draft-list{list-style:none;margin:0;padding:0 9px;max-height:180px;overflow:auto}
+.geometry-draft-list>li{margin:4px 0}
+.geometry-draft-list button{width:100%;text-align:left;line-height:1.4}
+@media(max-width:500px){.map-layer-row{flex-wrap:wrap}.map-layer-row>label{min-width:110px}.geographic-tool-actions>button{min-height:36px}}

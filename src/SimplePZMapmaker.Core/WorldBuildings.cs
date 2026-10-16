@@ -18,7 +18,7 @@ public static partial class WorldAssembler
     if(!occupied.Add(point))throw new ArgumentException($"'{b.Name}': walls or rooms overlap another building.");
     if(BuildingDesigner.Occupies(b,point.X-b.X,point.Y-b.Y)&&p.Terrain[y*p.Width+x]==Terrain.Water)throw new ArgumentException($"'{b.Name}': part of the building stands on water.");
     if(p.Spawns.Any(s=>s.X==x&&s.Y==y)||p.StaticModels.Any(s=>StaticModelPlacement.FootprintCells(s).Any(c=>s.X+c.Dx==x&&s.Y+c.Dy==y))||p.Decorations.Any(d=>d.Parts.Any(part=>d.X+part.Dx==x&&d.Y+part.Dy==y)))throw new ArgumentException($"'{b.Name}': the building overlaps a spawn point or an environment object.");
-    if(BuildingDesigner.OccupiesAbove(b,point.X-b.X,point.Y-b.Y)&&p.GameZones.Any(z=>z.Vehicle&&x>=z.X&&x<z.X+z.Width&&y>=z.Y&&y<z.Y+z.Height))throw new ArgumentException($"'{b.Name}': a vehicle zone overlaps a shared building.");
+    if(BuildingDesigner.OccupiesAbove(b,point.X-b.X,point.Y-b.Y)&&p.GameZones.Any(z=>z.Vehicle&&ZoneGeometry.Covers(z,x,y)))throw new ArgumentException($"'{b.Name}': a vehicle zone overlaps a shared building.");
    }
   }
  }
@@ -27,6 +27,7 @@ public static partial class WorldAssembler
   var p=member.Project;var projected=world.Buildings.Where(b=>b.X<p.WorldX*256+p.Width&&b.Y<p.WorldY*256+p.Height&&b.X+b.Width>=p.WorldX*256&&b.Y+b.Height>=p.WorldY*256).Select(b=>{var copy=CloneBuilding(b);copy.X-=p.WorldX*256;copy.Y-=p.WorldY*256;return copy;}).ToArray();
   if(projected.Length==0&&world.LinearFeatures.Count==0)return p;
   var result=new MapProject(){Version=Math.Max(6,p.Version),WorldSection=true,Name=p.Name,Width=p.Width,Height=p.Height,Seed=p.Seed,WorldX=p.WorldX,WorldY=p.WorldY,Terrain=p.Terrain,TerrainEdits=p.TerrainEdits,Zombies=p.Zombies,Buildings=[..p.Buildings,..projected],BuildingLibrary=p.BuildingLibrary,ResourcePalettes=p.ResourcePalettes,LinearFeatures=p.LinearFeatures,GameZones=p.GameZones,SurfaceTheme=p.SurfaceTheme,SurfaceRegions=p.SurfaceRegions,SurfaceTiles=p.SurfaceTiles,Decorations=p.Decorations,StaticModels=p.StaticModels,RequiredMods=p.RequiredMods,AssetSources=p.AssetSources,Spawns=p.Spawns,Attribution=p.Attribution,Bounds=p.Bounds,MetresPerTile=p.MetresPerTile,ImportSummary=p.ImportSummary};
+  result.ZombieDensityRegions=NeighborhoodPlanner.Copy(p.ZombieDensityRegions);result.ZombieDensityState=NeighborhoodPlanner.Copy(p.ZombieDensityState);result.RoomRegionRules=NeighborhoodPlanner.Copy(p.RoomRegionRules);
   result.SourceFeatures=NeighborhoodPlanner.Copy(p.SourceFeatures);result.Sites=NeighborhoodPlanner.Copy(p.Sites);
   result.Generation=p.Generation is null?null:JsonSerializer.Deserialize<GenerationControl>(JsonSerializer.Serialize(p.Generation));
   return WorldInfrastructure.Project(world,member,result,sharedGeometry);
