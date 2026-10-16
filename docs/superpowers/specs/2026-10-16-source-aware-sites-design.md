@@ -1,0 +1,11 @@
+# Source-aware sites and real settlement transfer
+
+The user prioritizes correct transfer of real cities, towns and villages. This next stage starts with editable sites/compounds, real source evidence and transfer checks. Decorative architectural families and speculative aging remain secondary; absence of source data must never turn into a factual reconstruction claim.
+
+- Preserve bounded OSM/GeoJSON original geometry, IDs and relevant tags for buildings, land-use/site polygons, entrances, gates, addresses and amenity/shop nodes. Import nodes through normal, tiled and regional-extract paths. Do not call residential land-use polygons cadastral/property boundaries.
+- Retain the existing projection and game scale. Associate buildings only through actual polygon containment, not bounding-box overlap; keep holes and report boundary-crossing/ambiguous cases.
+- Imported sites become editable named groups with selectable building/prop/model/contained-path members. Save/rename/pin/translate/copy groups atomically through existing history. Original source evidence stays unchanged when a group is edited; derived geometry is explicitly authored. Protect locked sites from generation.
+- Source entrance nodes are retained and matched to actual exterior edges where supported. Ambiguous, unsupported-level and sealed entrances remain visible evidence with explicit outcomes. Preserve imported addresses, actual service tags and original floor/roof evidence.
+- Offer a source/edited/generated comparison and transfer diagnostics: missing/moved source buildings, footprint quantization, source entry mapping, precision/scale, source service locations and coverage unknowns. Report limits rather than inventing missing services or plots.
+- Provide an opt-in debounced live quality/transfer overlay, location focus and visible incomplete/stale states. Imported sites and evidence survive save/load, undo/redo, geographic preserve-edits reimport and world-section projection/export.
+- All writes/temp stay within the existing workspace. Keep generated art private. Do not alter game files or start an in-game character walkthrough. Validate actual browser import, grouped edits/history/reimport, source diagnostics and native export; document with authentic screenshots.

@@ -16,6 +16,7 @@ public static class ProjectValidator
         if(p.WorldX is <0 or >1000 || p.WorldY is <0 or >1000) Fail("World coordinates: 0 to 1,000 cells.");
         if(p.Terrain is null || p.Terrain.Length!=p.Width*p.Height || p.Terrain.Any(t=>!Enum.IsDefined(t))) Fail("Invalid terrain layer.");
         GenerationControl.Validate(p);
+        GeographicEvidence.Validate(p);
         TerrainEditMask.Decode(p);if(p.Version<6&&p.TerrainEdits.Length>0)Fail("The manual terrain mask requires project format version 6.");
         if(p.Zombies is null || p.Zombies.Length!=p.Width*p.Height/64 || p.Zombies.Any(z=>z is <0 or >255)) Fail("Invalid zombie layer.");
         if(p.WorldSection&&p.Version<6)Fail("World sections require project format version 6.");
@@ -61,6 +62,7 @@ public static class ProjectValidator
             if(otherX<0||otherY<0||blockingModels.Contains(model.Y*p.Width+model.X)||blockingModels.Contains(otherY*p.Width+otherX)||decorationCells.Contains(model.Y*p.Width+model.X)||decorationCells.Contains(otherY*p.Width+otherX)||occupied.Contains(otherY*p.Width+otherX)||p.Terrain[otherY*p.Width+otherX]==Terrain.Water)Fail("A model door needs a clear approach on both sides of its edge.");
         }
         LinearFeatureEditor.Validate(p);GameZones.ValidateProject(p);
+        SiteModel.Validate(p);
         if(p.Bounds is not null) ValidateBounds(p.Bounds);
         if(p.MetresPerTile is double metres && (!double.IsFinite(metres)||metres<=0||metres>100000))Fail("Invalid geographic data scale.");
         if(p.ImportSummary is { } summary && (summary.SourceFeatures is <0 or >30000||summary.SourceBuildings is <0 or >30000||summary.PlacedBuildings is <0 or >4000||summary.SkipReasons is null||summary.SkipReasons.Count>20||summary.SkipReasons.Any(s=>s.Key.Length>100||s.Value is <0 or >30000)))Fail("Invalid import report.");

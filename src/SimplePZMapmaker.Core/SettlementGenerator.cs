@@ -6,7 +6,7 @@ public static class SettlementGenerator
  readonly record struct Site(int X,int Y,int Dx,int Dy);
  static readonly (int X,int Y)[] Steps=[(0,-1),(1,0),(0,1),(-1,0)];
 
- /// <summary>Combines density (0â€“100) with rules.Density. Never removes buildings, props, infrastructure, edits, or resource assignments.</summary>
+ /// <summary>Combines density (0–100) with rules.Density. Never removes buildings, props, infrastructure, edits, or resource assignments.</summary>
  public static SettlementPopulationResult Populate(MapProject project,SettlementRules rules,int seed,int density)
  {
   SettlementRules.Validate(rules);
@@ -20,6 +20,7 @@ public static class SettlementGenerator
   foreach(var d in project.Decorations)foreach(var part in d.Parts)Block(d.X+part.Dx,d.Y+part.Dy);
   foreach(var m in project.StaticModels)foreach(var cell in StaticModelPlacement.FootprintCells(m))Block(m.X+cell.Dx,m.Y+cell.Dy);
   foreach(var spawn in project.Spawns)Block(spawn.X,spawn.Y);
+  foreach(var index in SiteModel.LockedCells(project))occupied[index]=true;
   if(project.Generation is {} control)foreach(var area in control.ProtectedAreas){GenerationArea.Validate(area,project);for(var y=area.Y;y<area.Y+area.Height;y++)for(var x=area.X;x<area.X+area.Width;x++)Block(x,y);}
   foreach(var feature in project.LinearFeatures)foreach(var i in LinearFeatureEditor.Rasterize(feature,project.Width,project.Height)){reserved[i]=true;if(feature.Level!=0||feature.Kind is "river" or "railway")occupied[i]=true;}
   if(InfrastructureGeometry.HasFeatures(project)){var infrastructure=InfrastructureGeometry.Build(project);foreach(var t in infrastructure.Tiles)Block(t.X,t.Y);foreach(var h in infrastructure.Holes)Block(h.X,h.Y);}

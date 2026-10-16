@@ -22,6 +22,8 @@ public sealed class MapProject
     public List<ResourcePalette> ResourcePalettes {get;set;}=[];
     public List<LinearFeature> LinearFeatures {get;set;}=[];
     public List<GameZone> GameZones {get;set;}=[];
+    public List<GeographicFeature> SourceFeatures {get;set;}=[];
+    public List<SiteParcel> Sites {get;set;}=[];
     public string SurfaceTheme {get;set;}="legacy";
     public List<SurfaceRegion> SurfaceRegions {get;set;}=[];
     public Dictionary<int,string> SurfaceTiles {get;set;}=[];

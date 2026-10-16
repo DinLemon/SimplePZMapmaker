@@ -15,7 +15,7 @@ public static partial class GeographicImporter {
         cancellationToken.ThrowIfCancellationRequested();
         if(json.Length>16_000_000)throw new ArgumentException("The geographic data file exceeds 16 MB.");
         using var document=Parse(json); var root=document.RootElement;
-        var features=ReadFeatures(root,out var omittedGeometry); if(features.Count==0)throw new ArgumentException(omittedGeometry>0?"The source contains only incomplete geometry. Import canceled; the original project was preserved.":"The file contains no supported lines or polygons.");
+        var features=ReadFeatures(root,out var omittedGeometry); if(features.Count==0)throw new ArgumentException(omittedGeometry>0?"The source contains only incomplete geometry. Import canceled; the original project was preserved.":"The file contains no supported points, lines or polygons.");
         var points=features.SelectMany(f=>f.Rings.SelectMany(r=>r)).ToArray();
         bounds ??=new(){West=points.Min(p=>p.X),East=points.Max(p=>p.X),South=points.Min(p=>p.Y),North=points.Max(p=>p.Y)};
         if(bounds.East-bounds.West<0.000001)bounds.East=bounds.West+0.000001;
@@ -41,10 +41,10 @@ public static partial class GeographicImporter {
         (double X,double Y) Project((double X,double Y) v)=>projection?.Project(v)??(left+(v.X-bounds.West)*cos*scale,top+(bounds.North-v.Y)*scale);
         var transformed=features.Select(f=>f with{OriginalRings=f.Rings,Rings=f.Rings.Select(r=>r.Select(Project).ToList()).ToList()}).ToList();
         double work=0;
-        foreach(var f in transformed.Where(f=>f.Polygon&&!f.Tags.ContainsKey("building"))){var outer=f.Rings[0];var rows=Math.Clamp(outer.Max(v=>v.Y)-outer.Min(v=>v.Y)+2,0,p.Height);var columns=Math.Clamp(outer.Max(v=>v.X)-outer.Min(v=>v.X)+2,0,p.Width);work+=rows*(columns+f.Rings.Sum(r=>r.Count));}
+        foreach(var f in transformed.Where(f=>f.Polygon&&!f.Tags.ContainsKey("building")&&(f.Tags.ContainsKey("landuse")||f.Tags.ContainsKey("natural")))){var outer=f.Rings[0];var rows=Math.Clamp(outer.Max(v=>v.Y)-outer.Min(v=>v.Y)+2,0,p.Height);var columns=Math.Clamp(outer.Max(v=>v.X)-outer.Min(v=>v.X)+2,0,p.Width);work+=rows*(columns+f.Rings.Sum(r=>r.Count));}
         if(work>40_000_000)throw new ArgumentException("The outlines are too complex for this map. Reduce the area or map size, or simplify the GeoJSON.");
         var imported=0;var skipped=0;var limitedLevels=0;var approximateRoofs=0;var skipReasons=new Dictionary<string,int>();var skippedOutlines=new List<SkippedImportOutline>();
-        foreach(var f in transformed.Where(f=>f.Polygon&&!f.Tags.ContainsKey("building"))) {
+        foreach(var f in transformed.Where(f=>f.Polygon&&!f.Tags.ContainsKey("building")&&(f.Tags.ContainsKey("landuse")||f.Tags.ContainsKey("natural")))) {
             cancellationToken.ThrowIfCancellationRequested();
             var natural=f.Tags.GetValueOrDefault("natural");var land=f.Tags.GetValueOrDefault("landuse");
             var terrain=natural is "water" or "wetland" || land=="reservoir" ? Terrain.Water : natural=="wood"||land=="forest" ? Terrain.Forest : natural is "beach" or "sand" ? Terrain.Sand : Terrain.Grass;
@@ -71,9 +71,9 @@ public static partial class GeographicImporter {
             imported++;
         }
 
-        if(preserveEdits){p.Version=Math.Max(p.Version,project.Version);p.TerrainEdits=project.TerrainEdits;var mask=TerrainEditMask.Decode(project);for(var i=0;i<p.Terrain.Length;i++)if(TerrainEditMask.IsEdited(mask,i))p.Terrain[i]=preserved.Terrain[i];p.RequiredMods=[..project.RequiredMods];p.AssetSources=new(project.AssetSources);p.StaticModels=JsonSerializer.Deserialize<List<StaticModelPlacement>>(JsonSerializer.Serialize(project.StaticModels))!;p.Zombies=(int[])project.Zombies.Clone();p.SurfaceRegions=JsonSerializer.Deserialize<List<SurfaceRegion>>(JsonSerializer.Serialize(project.SurfaceRegions))!;if(p.SurfaceRegions.Count>0)p.Version=Math.Max(p.Version,5);p.SurfaceTiles=new(preserved.SurfaceTiles);p.Decorations=JsonSerializer.Deserialize<List<WorldDecoration>>(JsonSerializer.Serialize(preserved.Decorations))!;foreach(var i in p.SurfaceTiles.Keys)p.Terrain[i]=preserved.Terrain[i];foreach(var model in p.StaticModels)foreach(var cell in StaticModelPlacement.FootprintCells(model)){var i=(model.Y+cell.Dy)*p.Width+model.X+cell.Dx;p.Terrain[i]=preserved.Terrain[i];}foreach(var d in p.Decorations)foreach(var part in d.Parts){var i=(d.Y+part.Dy)*p.Width+d.X+part.Dx;p.Terrain[i]=preserved.Terrain[i];}}
+        if(preserveEdits){p.Generation=NeighborhoodPlanner.Copy(project.Generation);p.GameZones=NeighborhoodPlanner.Copy(project.GameZones);p.Version=Math.Max(p.Version,project.Version);p.TerrainEdits=project.TerrainEdits;var mask=TerrainEditMask.Decode(project);for(var i=0;i<p.Terrain.Length;i++)if(TerrainEditMask.IsEdited(mask,i))p.Terrain[i]=preserved.Terrain[i];p.RequiredMods=[..project.RequiredMods];p.AssetSources=new(project.AssetSources);p.StaticModels=JsonSerializer.Deserialize<List<StaticModelPlacement>>(JsonSerializer.Serialize(project.StaticModels))!;p.Zombies=(int[])project.Zombies.Clone();p.SurfaceRegions=JsonSerializer.Deserialize<List<SurfaceRegion>>(JsonSerializer.Serialize(project.SurfaceRegions))!;if(p.SurfaceRegions.Count>0)p.Version=Math.Max(p.Version,5);p.SurfaceTiles=new(preserved.SurfaceTiles);p.Decorations=JsonSerializer.Deserialize<List<WorldDecoration>>(JsonSerializer.Serialize(preserved.Decorations))!;foreach(var i in p.SurfaceTiles.Keys)p.Terrain[i]=preserved.Terrain[i];foreach(var model in p.StaticModels)foreach(var cell in StaticModelPlacement.FootprintCells(model)){var i=(model.Y+cell.Dy)*p.Width+model.X+cell.Dx;p.Terrain[i]=preserved.Terrain[i];}foreach(var d in p.Decorations)foreach(var part in d.Parts){var i=(d.Y+part.Dy)*p.Width+d.X+part.Dx;p.Terrain[i]=preserved.Terrain[i];}}
         if(p.BuildingLibrary.Any(b=>b.RequiredMods.Count>0||b.AssetSources.Count>0||b.Design?.Floors.Any(f=>f.StaticModels.Count>0)==true)){p.Version=Math.Max(p.Version,6);p.RequiredMods=p.RequiredMods.Concat(p.BuildingLibrary.SelectMany(b=>b.RequiredMods)).Distinct().ToList();}
-        if(preserveEdits)foreach(var old in project.Buildings.Where(b=>b.Modified)){
+        if(preserveEdits)foreach(var old in project.Buildings.Where(b=>b.Modified||project.Generation?.LockedBuildingIds.Contains(b.Id)==true||project.Sites.Any(s=>s.Locked&&s.BuildingIds.Contains(b.Id)))){
             var kept=JsonSerializer.Deserialize<Building>(JsonSerializer.Serialize(old))!;
             foreach(var index in BuildingDesigner.Occupied(kept,false)){var px=kept.X+index%(kept.Width+1);var py=kept.Y+index/(kept.Width+1);p.Terrain[py*p.Width+px]=preserved.Terrain[py*project.Width+px];}
             if(!MapGenerator.CanPlace(p,kept,false))throw new ArgumentException("Manual buildings conflict after the geographic update. Import canceled; the original project was preserved.");p.Buildings.Add(kept);
@@ -83,12 +83,12 @@ public static partial class GeographicImporter {
         if(plannedLines.Count>0)p=LinearFeatureEditor.Rebuild(p,plannedLines);
         foreach(var f in transformed.Where(f=>f.Polygon&&f.Tags.ContainsKey("building"))) {
             cancellationToken.ThrowIfCancellationRequested();
-            if(preserveEdits&&f.Tags.TryGetValue("__pz_source",out var sourceKey)&&p.Buildings.Any(b=>b.Modified&&b.SourceId==sourceKey)){imported++;continue;}
+            if(preserveEdits&&f.Tags.TryGetValue("__pz_source",out var sourceKey)&&p.Buildings.Any(b=>b.SourceId==sourceKey)){imported++;continue;}
             var ring=f.Rings[0]; var x=(int)Math.Floor(Math.Clamp(ring.Min(v=>v.X),-100000,100000));var y=(int)Math.Floor(Math.Clamp(ring.Min(v=>v.Y),-100000,100000));
             var w=(int)Math.Clamp(Math.Ceiling(ring.Max(v=>v.X)-x),0,100000);var h=(int)Math.Clamp(Math.Ceiling(ring.Max(v=>v.Y)-y),0,100000);
             var sourceKind=f.Tags.GetValueOrDefault("building","yes");
             var kind=f.Tags.ContainsKey("shop")?"shop":sourceKind switch{"retail" or "commercial" or "train_station"=>"shop","apartments" or "residential"=>"apartments","school" or "college" or "kindergarten"=>"school","hospital"=>"clinic","hotel"=>"hotel","industrial"=>"industrial","warehouse" or "shed" or "service"=>"warehouse","garages" or "garage"=>"garage",_=>"house"};
-            var b=new Building{Id=$"import-{x}-{y}-{p.Buildings.Count}",X=x,Y=y,Width=Math.Max(6,w),Height=Math.Max(6,h),Kind=kind,Name=f.Tags.GetValueOrDefault("name",BuildingDesigner.Names[kind]),SourceKind=sourceKind,SourceId=f.Tags.GetValueOrDefault("__pz_source")};
+            var b=new Building{Id="import-"+Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(f.Tags["__pz_source"])))[..24].ToLowerInvariant(),X=x,Y=y,Width=Math.Max(6,w),Height=Math.Max(6,h),Kind=kind,Name=f.Tags.GetValueOrDefault("name",BuildingDesigner.Names[kind]),SourceKind=sourceKind,SourceId=f.Tags.GetValueOrDefault("__pz_source")};
             b.Name=b.Name[..Math.Min(100,b.Name.Length)];
             b.SourceLevels=f.Tags.GetValueOrDefault("building:levels")?[..Math.Min(100,f.Tags["building:levels"].Length)];b.SourceRoof=f.Tags.GetValueOrDefault("roof:shape")?[..Math.Min(100,f.Tags["roof:shape"].Length)];
             if(w<=64&&h<=64){
@@ -113,6 +113,7 @@ public static partial class GeographicImporter {
             p.Buildings.Add(b);imported++;
         }
         if(preserveEdits){p.Spawns=project.Spawns.Select(s=>new SpawnPoint{X=s.X,Y=s.Y}).ToList();foreach(var spawn in p.Spawns)p.Terrain[spawn.Y*p.Width+spawn.X]=preserved.Terrain[spawn.Y*p.Width+spawn.X];}else{try{p.Spawns=[MapGenerator.FindSafeSpawn(p)];}catch(ArgumentException) when(p.WorldSection){p.Spawns=[];}}
+        CaptureEvidence(p,transformed,project,preserveEdits,cancellationToken);
         p.ImportSummary=new(){SourceFeatures=features.Count,SourceBuildings=transformed.Count(f=>f.Polygon&&f.Tags.ContainsKey("building")),PlacedBuildings=p.Buildings.Count,SkipReasons=new(skipReasons),Quality=ImportQuality.Summarize(p.Buildings,omittedGeometry),SkippedOutlines=skippedOutlines};
         p.ImportSummary.Notes.Add($"Editable source paths: {editableLines.Count}; raster-only paths retained because of authoring limits: {staticLines}. Imported path widths are estimated from source tags or road classes.");
         p.ImportSummary.Notes.Add("Building outlines preserve concavity and courtyard holes through tile-center resampling; rooms, stairs and furniture are generated, not surveyed. Original geographic rings are retained separately.");
@@ -138,9 +139,10 @@ public static partial class GeographicImporter {
         }
         Dictionary<string,string> Tags(JsonElement el,string key){var tags=new Dictionary<string,string>();if(el.TryGetProperty(key,out var props)&&props.ValueKind==JsonValueKind.Object)foreach(var pair in props.EnumerateObject())tags[pair.Name]=pair.Value.ToString();return tags;}
         List<(double X,double Y)>? OsmRing(JsonElement geometry){if(geometry.ValueKind!=JsonValueKind.Array)return null;var ring=new List<(double,double)>();foreach(var point in geometry.EnumerateArray()){if(point.ValueKind!=JsonValueKind.Object||!point.TryGetProperty("lon",out var lon)||!point.TryGetProperty("lat",out var lat)||!lon.TryGetDouble(out var x)||!lat.TryGetDouble(out var y))return null;ring.Add(Point(x,y));}return ring;}
-        void Add(Dictionary<string,string> tags,List<List<(double,double)>> rings,bool polygon) {
-            if(rings.Count==0||rings.Any(r=>r.Count<(polygon?4:2)||polygon&&r[0]!=r[^1])){omitted++;return;}
+        void Add(Dictionary<string,string> tags,List<List<(double,double)>> rings,bool polygon,bool point=false) {
+            if(rings.Count==0||rings.Any(r=>r.Count<(point?1:polygon?4:2)||polygon&&r[0]!=r[^1])){omitted++;return;}
             if(result.Count>=30000)throw new ArgumentException("Too many objects: the limit is 30,000.");
+            tags=new(tags);if(!tags.ContainsKey("__pz_source"))tags["__pz_source"]="geo-sha-"+SourceGeometryHash(rings,GeographicEvidence.CaptureTags(tags));
             result.Add(new(tags,rings,polygon));
         }
         if(root.TryGetProperty("elements",out var elements)&&elements.ValueKind==JsonValueKind.Array) {
@@ -149,8 +151,9 @@ public static partial class GeographicImporter {
             foreach(var el in elements.EnumerateArray()) {
                 if(el.TryGetProperty("id",out var elementId)&&elementId.TryGetInt64(out var wayId)&&relationMembers.Contains(wayId)&&el.TryGetProperty("type",out var elementType)&&elementType.GetString()=="way")continue;
                 var tags=Tags(el,"tags");if(el.TryGetProperty("id",out var sourceId)&&sourceId.TryGetInt64(out var sourceNumber))tags["__pz_source"]=$"osm-{(el.TryGetProperty("type",out var sourceType)?sourceType.GetString():"way")}-{sourceNumber}";
-                if(el.TryGetProperty("geometry",out var geometry)&&geometry.ValueKind==JsonValueKind.Array) {
-                    var ring=OsmRing(geometry);var polygon=tags.ContainsKey("building")||tags.ContainsKey("landuse")||tags.GetValueOrDefault("natural") is "water" or "wood" or "sand" or "beach" or "wetland";if(ring is null||ring.Count<(polygon?4:2)||polygon&&ring[0]!=ring[^1]){omitted++;continue;}Add(tags,[ring],polygon);
+                if(el.TryGetProperty("type",out var nodeType)&&nodeType.GetString()=="node"&&el.TryGetProperty("lon",out var nodeLon)&&el.TryGetProperty("lat",out var nodeLat)){Add(tags,[[Point(nodeLon.GetDouble(),nodeLat.GetDouble())]],false,true);}
+                else if(el.TryGetProperty("geometry",out var geometry)&&geometry.ValueKind==JsonValueKind.Array) {
+                    var ring=OsmRing(geometry);var polygon=tags.ContainsKey("building")||tags.ContainsKey("landuse")||tags.ContainsKey("site")||tags.ContainsKey("amenity")||tags.ContainsKey("leisure")||tags.ContainsKey("healthcare")||tags.GetValueOrDefault("natural") is "water" or "wood" or "sand" or "beach" or "wetland";if(ring is null||ring.Count<(polygon?4:2)||polygon&&ring[0]!=ring[^1]){omitted++;continue;}Add(tags,[ring],polygon);
                 } else if(el.TryGetProperty("members",out var members)&&members.ValueKind==JsonValueKind.Array) {
                     var outerSegments=new List<List<(double X,double Y)>>();var innerSegments=new List<List<(double X,double Y)>>();
                     var complete=true;foreach(var member in members.EnumerateArray())if(member.TryGetProperty("geometry",out var memberGeometry)&&memberGeometry.ValueKind==JsonValueKind.Array){
@@ -165,7 +168,8 @@ public static partial class GeographicImporter {
             foreach(var feature in features.EnumerateArray()) {
                 if(!feature.TryGetProperty("geometry",out var geometry)||geometry.ValueKind!=JsonValueKind.Object||!geometry.TryGetProperty("coordinates",out var coords))continue;
                 var tags=Tags(feature,"properties");if(feature.TryGetProperty("id",out var sourceId)&&sourceId.ValueKind is JsonValueKind.String or JsonValueKind.Number){var text=sourceId.ToString();tags["__pz_source"]="geo-"+(text.Length>75?Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text))).ToLowerInvariant():text);}var type=geometry.GetProperty("type").GetString();
-                if(type=="LineString")Add(tags,[GeoRing(coords)],false);
+                if(type=="Point")Add(tags,[[Point(coords[0].GetDouble(),coords[1].GetDouble())]],false,true);
+                else if(type=="LineString")Add(tags,[GeoRing(coords)],false);
                 else if(type=="Polygon")Add(tags,coords.EnumerateArray().Select(GeoRing).ToList(),true);
                 else if(type=="MultiPolygon"){var part=0;foreach(var polygon in coords.EnumerateArray()){var partTags=new Dictionary<string,string>(tags);if(partTags.ContainsKey("__pz_source"))partTags["__pz_source"]+=$"-part-{part}";part++;Add(partTags,polygon.EnumerateArray().Select(GeoRing).ToList(),true);}}
                 else if(type=="MultiLineString")foreach(var line in coords.EnumerateArray())Add(tags,[GeoRing(line)],false);

@@ -52,7 +52,7 @@ app.Use(async(context,next)=> {
     }
 });
 app.UseDefaultFiles();app.UseStaticFiles();
-app.MapGenerationStudioEndpoints();app.MapGenerationQualityEndpoints();app.MapWorldInfrastructure();app.MapGenerationEndpoints();app.MapExportJobEndpoints();
+app.MapSiteEndpoints();app.MapSourceTransferEndpoints();app.MapGenerationStudioEndpoints();app.MapGenerationQualityEndpoints();app.MapWorldInfrastructure();app.MapGenerationEndpoints();app.MapExportJobEndpoints();
 app.MapWalkabilityEndpoints();app.MapAgentDesignEndpoints();
 app.MapWorldWorkspaceEndpoints();app.MapAgentGameplayEndpoints();app.MapBuildingModuleEndpoints();app.MapNativeLightingEndpoints();app.MapGameplayAuthoringEndpoints();app.MapLinearEditingEndpoints();app.MapMapSceneEndpoints();app.MapAgentEndpoints();app.MapAgentPlanningEndpoints();app.MapRecoveryVersionEndpoints();app.MapAssetsModEndpoints();app.MapStaticModelEndpoints();app.MapWorldEndpoints();app.MapOsmWorldImportEndpoints();
 app.MapGet("/api/assets/status",(GameAssetCatalog assets)=>assets.Status());

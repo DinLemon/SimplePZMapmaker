@@ -8,6 +8,16 @@ A local visual map and building editor for **Project Zomboid Build 42**, written
 
 ![The English map editor](docs/screenshots/01-editor.png)
 
+## Accurate real-place transfer (development branch)
+
+- **Source evidence:** retain original geographic geometry, stable source identities, addresses, entrance/access tags, observed facilities and barriers across OSM, tiled requests, regional PBF and GeoJSON point/polygon imports.
+- **Editable sites:** group fully contained buildings, props, models and paths; adapt polygon vertices, review moves/copies, pin sites and apply changes with grouped undo/redo. Source boundaries stay separate from authored edits.
+- **Transfer checks:** inspect missing buildings, source/grid drift, inferred floors, entrance outcomes and coarse scale. Optional live refresh invalidates stale results. Observed-service completeness remains unknown; displayed distances are explicitly straight-line.
+
+[Installation and step-by-step real-place workflow](docs/REAL-PLACE-TRANSFER.md)
+
+![Real Smolensk source data and transfer diagnostics](docs/screenshots/28-real-place-evidence.png)
+
 ## Generation studio (development branch)
 
 - **Context-aware districts:** era, land use, density, road setbacks, floors and courtyards; road-facing buildings with connected entrance paths.

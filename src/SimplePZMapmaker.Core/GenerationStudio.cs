@@ -27,7 +27,7 @@ public static class GenerationStudio
         var fingerprint = Fingerprint(project);
         var candidate = Copy(project);
         var control = candidate.Generation ??= new();
-        var locked = control.LockedBuildingIds.ToHashSet(StringComparer.Ordinal);
+        var locked = control.LockedBuildingIds.Concat(project.Sites.SelectMany(s=>s.BuildingIds)).ToHashSet(StringComparer.Ordinal);
         var reserved = Reserved(project, area);
         // Generated entrances can occupy the building's outer edge. Untouched pavement
         // must not lock its owner against regeneration; authored masks/resources still do.
@@ -96,11 +96,12 @@ public static class GenerationStudio
     static bool[] Reserved(MapProject project, GenerationArea selected, bool preserveUneditedPavement = true)
     {
         var reserved = new bool[project.Terrain.Length];
+        foreach(var index in SiteModel.LockedCells(project))reserved[index]=true;
         var mask = TerrainEditMask.Decode(project);
         for (var y = 0; y < project.Height; y++) for (var x = 0; x < project.Width; x++)
         {
             var index = y * project.Width + x;
-            reserved[index] = !selected.Contains(x, y) || TerrainEditMask.IsEdited(mask, index) || project.SurfaceTiles.ContainsKey(index) || project.Terrain[index] is Terrain.Road or Terrain.Water || preserveUneditedPavement && project.Terrain[index] == Terrain.Pavement || (project.Generation?.ProtectedAreas.Any(a => a.Contains(x, y)) ?? false);
+            reserved[index] = reserved[index] || !selected.Contains(x, y) || TerrainEditMask.IsEdited(mask, index) || project.SurfaceTiles.ContainsKey(index) || project.Terrain[index] is Terrain.Road or Terrain.Water || preserveUneditedPavement && project.Terrain[index] == Terrain.Pavement || (project.Generation?.ProtectedAreas.Any(a => a.Contains(x, y)) ?? false);
         }
         foreach (var d in project.Decorations) foreach (var part in d.Parts) reserved[(d.Y + part.Dy) * project.Width + d.X + part.Dx] = true;
         foreach (var m in project.StaticModels) foreach (var part in StaticModelPlacement.FootprintCells(m)) reserved[(m.Y + part.Dy) * project.Width + m.X + part.Dx] = true;

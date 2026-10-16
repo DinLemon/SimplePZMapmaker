@@ -1,3 +1,13 @@
+# Real-place transfer development verification — 2026-10-16
+
+- Original geographic evidence now includes point observations, bounded source tags/addresses/access roles, campus/land-use areas, barriers and stable identities. Tiled imports retain nodes; regular/dense PBF nodes and barrier/healthcare ways reach the source layer.
+- Editable polygon sites support complete object membership, boundary vertices, reviewed atomic translation/copy, generation pins and grouped history. Real source geometry stays separate from authored geometry. Reimport preserves groups across source order/label changes and remaps legacy building IDs by source identity.
+- Source audits expose omitted buildings, footprint drift, coarse scale, inferred floors, entrance outcomes and incomplete association budgets. Live checks abort and invalidate old work; service coverage remains unknown and distances are explicitly straight-line.
+- Fresh local suites: **334 C# tests and 183 JavaScript tests pass**. Independent review reproduced and resolved anonymous-GeoJSON identity collapse, reordered-import membership loss, mutable evidence IDs, PBF source omissions and sub-tile association/budget problems.
+- Actual browser checks on the self-contained application verify source inspection, reviewed group edits/moves, undo/redo, pins, save/load, live invalidation and a real Smolensk round trip. The cached regional snapshot retains **1,954 source observations, 772 building outlines, 132 entrances and 624 facility/shop observations**; 426 buildings fit this 1,024-tile section and 320 mapped areas become editable groups. Remaining source buildings are evidence with skip diagnostics, not claimed as placed structures.
+- A source-derived two-floor fixture exports as native B42 data: the independent decoder accepts **1,024 chunks, 10 rooms and one building**; installed game classes also confirm **five upper rooms and three stair tiles**. No interactive game session was started.
+- Updated illustrated [real-place guide](REAL-PLACE-TRANSFER.md), README and package documentation. Public files exclude local installation paths and private generated art. Existing active mod configuration remains available.
+
 # Generation studio development verification — 2026-10-16
 
 - Contextual districts cover era, land use, density, setbacks, floors and courts; legacy new-map generation remains available. Actual pedestrian audits verify mixed seeds and every era/use combination with three floors. Generated fallback buildings use clear stair halls and doors; enclosed generated courts have a usable ground gate.
