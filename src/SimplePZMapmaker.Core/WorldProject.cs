@@ -6,13 +6,16 @@ public sealed class WorldProject
 {
  public string Format {get;set;}="SimplePZWorld";
  private int version=1;
- public int Version {get=>GeoReference?.RotationDegrees is not(null or 0)&&version<7?7:LinearFeatures?.Count>0&&version<6?6:version<5&&AuthoringFormats.WorldHasInfrastructure(this)?5:version<4&&AuthoringFormats.WorldHasExtendedLevels(this)?4:version<3&&AuthoringFormats.WorldHasNewAuthoring(this)?3:version==1&&(Buildings?.Count>0||Elevation is not null||Maps?.Any(m=>m?.Project?.Version==7)==true)?2:version;set=>version=value;}
+ public int Version {get=>(GeoReference?.RotationDegrees is not(null or 0)||Fences?.Count>0||Maps?.Any(m=>m?.Project is {} p&&AuthoringFormats.MapHasFences(p))==true)&&version<7?7:LinearFeatures?.Count>0&&version<6?6:version<5&&AuthoringFormats.WorldHasInfrastructure(this)?5:version<4&&AuthoringFormats.WorldHasExtendedLevels(this)?4:version<3&&AuthoringFormats.WorldHasNewAuthoring(this)?3:version==1&&(Buildings?.Count>0||Elevation is not null||Maps?.Any(m=>m?.Project?.Version==7)==true)?2:version;set=>version=value;}
  public string Id {get;set;}=Guid.NewGuid().ToString("N");
  public string Name {get;set;}="New world";
  public List<WorldMapMember> Maps {get;set;}=[];
  public WorldGeoReference? GeoReference {get;set;}
  public List<LinearFeature> LinearFeatures {get;set;}=[];
  public List<Building> Buildings {get;set;}=[];
+ public List<FenceLine> Fences {get;set;}=[];
+ public List<FenceStyle> FenceStyles {get;set;}=[];
+ public List<GateStyle> GateStyles {get;set;}=[];
  public ElevationSurvey? Elevation {get;set;}
 }
 public sealed class WorldMapMember
@@ -30,7 +33,7 @@ public static partial class WorldAssembler
   foreach(var member in world.Maps){if(member is null||!SafeId(member.Id)||!ids.Add(member.Id))throw new ArgumentException("Invalid world section ID.");var p=member.Project;ProjectValidator.Validate(p);
    for(var y=p.WorldY;y<p.WorldY+p.Height/256;y++)for(var x=p.WorldX;x<p.WorldX+p.Width/256;x++){if(!cells.Add((x,y)))throw new ArgumentException($"World sections overlap cell {x},{y}.");if(cells.Count>8192)throw new ArgumentException("The world contains more than 8,192 native cells.");}
    minX=Math.Min(minX,p.WorldX);minY=Math.Min(minY,p.WorldY);maxX=Math.Max(maxX,p.WorldX+p.Width/256);maxY=Math.Max(maxY,p.WorldY+p.Height/256);
-  }ValidateBuildings(world);WorldInfrastructure.Validate(world);if(world.Elevation is {} survey)ElevationSurvey.Validate(survey);if(world.Maps.Sum(m=>m.Project.Spawns.Count)==0)throw new ArgumentException("The world needs at least one spawn point on dry land.");return new(minX,minY,(maxX-minX)*256,(maxY-minY)*256,cells.Count);
+  }ValidateBuildings(world);WorldInfrastructure.Validate(world);FenceLines.Validate(world);ValidateFenceStyles(world);if(world.Elevation is {} survey)ElevationSurvey.Validate(survey);if(world.Maps.Sum(m=>m.Project.Spawns.Count)==0)throw new ArgumentException("The world needs at least one spawn point on dry land.");return new(minX,minY,(maxX-minX)*256,(maxY-minY)*256,cells.Count);
  }
  public static WorldProject Clone(WorldProject world)=>JsonSerializer.Deserialize<WorldProject>(JsonSerializer.Serialize(world,NativeMapExporter.JsonOptions),NativeMapExporter.JsonOptions)!;
  public static WorldProject Move(WorldProject world,string memberId,int cellX,int cellY){var copy=Clone(world);var member=copy.Maps.SingleOrDefault(m=>m.Id==memberId)??throw new ArgumentException("World section not found.");member.Project.WorldX=cellX;member.Project.WorldY=cellY;Validate(copy);return copy;}
@@ -42,5 +45,7 @@ public static partial class WorldAssembler
    else{var top=a.WorldY<b.WorldY?a:b;var bottom=ReferenceEquals(top,a)?b:a;var start=Math.Max(top.WorldX,bottom.WorldX)*256;var end=Math.Min(top.WorldX+top.Width/256,bottom.WorldX+bottom.Width/256)*256;for(var x=start;x<end;x++){compared++;if(top.Terrain[(top.Height-1)*top.Width+x-top.WorldX*256]!=bottom.Terrain[x-bottom.WorldX*256])mismatches++;}}
    if(mismatches>0)warnings.Add($"'{a.Name}' / '{b.Name}': surfaces differ in {mismatches} of {compared} seam tiles. Check roads and water before exporting.");
   }return warnings.Take(64).ToArray();}
+ // World fences are composed with each section's own styles, so a style ID shared by both must mean the same tiles.
+ static void ValidateFenceStyles(WorldProject world){foreach(var m in world.Maps){foreach(var s in m.Project.FenceStyles)if(world.FenceStyles.FirstOrDefault(w=>w.Id==s.Id) is {} w&&System.Text.Json.JsonSerializer.Serialize(w)!=System.Text.Json.JsonSerializer.Serialize(s))throw new ArgumentException($"Fence style {s.Id} differs between the world and a section.");foreach(var s in m.Project.GateStyles)if(world.GateStyles.FirstOrDefault(w=>w.Id==s.Id) is {} w&&System.Text.Json.JsonSerializer.Serialize(w)!=System.Text.Json.JsonSerializer.Serialize(s))throw new ArgumentException($"Gate style {s.Id} differs between the world and a section.");}}
  public static bool SafeId(string? value)=>value is {Length:32}&&value.All(c=>char.IsAsciiHexDigit(c));
 }
