@@ -171,6 +171,8 @@ Pipeline-generated verge wrecks are emitted as `pz:zone=Vehicle` polygons with `
 Implementation note: authoritative `WorldProject.Fences` survive isolated section reads, editing validation and streamed export with gate/post phase preserved across seams. The world importers (editor OSM import and `simplepzmap build`) promote every imported fence line whose edges reach two or more sections into the world layer once, merge the gates found near each section, and keep only the owning section's copy of a line that merely touches a neighbour. The seam check then verifies zero lost or duplicated buildings and fences.
 
 `PilnaVillage` is built from the section scenes of real Pilna data: 21 sections of 1024 tiles under the rotated reference (the earlier, pre-rotated frame had 13). It is accepted when all of the following hold:
+
+*Status 2026-10-17:* built from the OpenStreetMap extract with `examples/Pilna/village-scene.json` (26 sections, as empty sections with roads are kept). Every check below passes except fence continuity, which the extract cannot exercise because it has no barrier lines; see [examples/Pilna](../examples/Pilna/README.md#pilnavillage-world). The field-survey scenes are not in this repository.
 - `WorldAssembler.Validate` passes;
 - the seam check reports zero lost or duplicated source features;
 - every fence that crosses a section edge is continuous in the exported cells;
