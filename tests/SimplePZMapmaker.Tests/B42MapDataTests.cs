@@ -128,3 +128,36 @@ public static class SpawnPlannerTests
  }
  static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
 }
+public static class FurnitureTests
+{
+ public static IEnumerable<(string,Action)> Cases(){
+  yield return("generated houses take TileZed furniture against their walls and keep it through rotation",()=>{
+   var b=new Building{X=40,Y=40,Width=14,Height=12,Kind="house"};b.Design=BuildingDesigner.Generate(b,1,42);var f=b.Design.Floors[-b.Design.MinLevel];
+   var furniture=f.Objects.Where(o=>o.Kind=="furniture").ToList();Check(furniture.Count>=3,"A house should get several pieces of furniture");
+   foreach(var o in furniture){var squares=BuildingObjects.Cells(o).ToHashSet();var code=BuildingDesigner.Cell(b,f,o.X,o.Y);var (bx,by)=o.Direction switch{"n"=>(0,-1),"s"=>(0,1),"w"=>(-1,0),_=>(1,0)};
+    Check(squares.All(s=>BuildingDesigner.Cell(b,f,s.X,s.Y)==code)&&squares.Any(s=>!squares.Contains((s.X+bx,s.Y+by))&&BuildingDesigner.Cell(b,f,s.X+bx,s.Y+by)!=code),$"{o.Asset} {o.Direction} must stand in one room with its back to a wall");}
+   var rooms=furniture.Select(o=>f.Rooms[BuildingDesigner.Cell(b,f,o.X,o.Y).ToString()]).ToHashSet();Check(furniture.Any(o=>o.Asset!.StartsWith("bed:"))&&rooms.Contains("bedroom"),"The bedroom needs a bed");
+   var p=MapGenerator.Generate(new(){Kind="blank"});p.Buildings.Add(b);ProjectValidator.Validate(p);Check(p.Version==14,"Furniture needs map format 14");
+   Check(NativeScene.Building(b,0).Sprites.Any(s=>s.Tile.StartsWith("furniture_bedding_01_")),"Beds must reach the composed scene");
+   Check(FurnitureCatalog.Rotate("n",false,1)=="e"&&FurnitureCatalog.Rotate("w",true,0)=="e"&&FurnitureCatalog.Transform("n",true,false,false)=="w","Orientation transforms are wrong");
+  });
+ }
+ static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
+}
+public static class TemplateStyleTests
+{
+ public static IEnumerable<(string,Action)> Cases(){
+  yield return("pz:style=tilezed:Diner dresses walls, doors, windows, interior walls and floors from the TileZed template",()=>{
+   Check(BuildingTemplateStyles.All.Count==25&&BuildingTemplateStyles.Find("tilezed:police") is not null,"TileZed templates are missing");
+   var b=new Building{X=40,Y=40,Width=14,Height=12,Kind="shop"};b.Design=BuildingDesigner.Generate(b,1,42);var f=b.Design.Floors[-b.Design.MinLevel];f.Rooms[f.Rooms.Keys.First(k=>k!="0")]="dinerkitchen";
+   var problems=new List<string>();GeographicImporter.ApplyAppearanceTags(b,new Dictionary<string,string>{{"pz:style","tilezed:Diner"}},null,problems.Add);
+   bool Exterior(BuildingEdge e){var a=BuildingDesigner.Cell(b,f,e.X,e.Y);var o=e.Edge=="n"?BuildingDesigner.Cell(b,f,e.X,e.Y-1):BuildingDesigner.Cell(b,f,e.X-1,e.Y);return(a=='.')!=(o=='.');}
+   Check(problems.Count==0&&f.Edges.Where(e=>e.Kind!="open"&&Exterior(e)).All(e=>e.WallTile!.StartsWith("location_restaurant_diner_01_")),"Exterior walls should be the diner set");
+   Check(f.Edges.Where(e=>e.Kind=="door"&&Exterior(e)).All(e=>e.WallTile==(e.Edge=="n"?"location_restaurant_diner_01_5":"location_restaurant_diner_01_4")&&e.OpeningTile==(e.Edge=="n"?"fixtures_doors_01_49":"fixtures_doors_01_48")),"Diner doors use the template door and door wall");
+   Check(f.FloorTiles.Count>0&&f.FloorTiles.Values.All(t=>t=="location_restaurant_diner_01_40"),"Rooms take the template floor");
+   BuildingDesigner.Validate(b);
+   GeographicImporter.ApplyAppearanceTags(b,new Dictionary<string,string>{{"pz:style","tilezed:NoSuch"}},null,problems.Add);Check(problems.Count==1,"An unknown template is reported");
+  });
+ }
+ static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
+}

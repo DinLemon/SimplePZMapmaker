@@ -3,6 +3,10 @@ public static class AuthoringFormats
 {
  public static bool MapHasInfrastructure(MapProject p)=>p.LinearFeatures?.Any(f=>f is not null&&(f.Level!=0||f.Access!="none"||f.GuardRails||f.SupportSpacing!=0||f.GroupId is not null))==true;
  public static bool MapHasAttachedBuildings(MapProject p)=>p.Buildings?.Any(b=>b?.AttachedTo is not null)==true;
+ /// <summary>TileZed furniture objects (kind "furniture", four orientations) need map format 14 and world format 9.</summary>
+ public static bool BuildingHasFurniture(Building? b)=>b?.Design?.Floors?.Any(f=>f?.Objects?.Any(o=>o?.Kind=="furniture")==true)==true;
+ public static bool MapHasFurniture(MapProject p)=>(p.Buildings??[]).Concat(p.BuildingLibrary??[]).Any(BuildingHasFurniture);
+ public static bool WorldHasFurniture(WorldProject w)=>w.Buildings?.Any(BuildingHasFurniture)==true||w.Maps?.Any(m=>m?.Project is {} p&&MapHasFurniture(p))==true;
  public static bool MapHasFences(MapProject p)=>p.Fences?.Count>0||p.FenceStyles?.Count>0||p.GateStyles?.Count>0;
  public static bool WorldHasInfrastructure(WorldProject w)=>w.LinearFeatures?.Count>0||w.Maps?.Any(m=>m?.Project is {} p&&MapHasInfrastructure(p))==true;
  // Earlier editor formats supported occupied levels -16..15 and had no explicit open roof option.

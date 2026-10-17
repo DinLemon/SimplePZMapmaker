@@ -33,7 +33,7 @@ public static partial class GeographicImporter
     /// <summary>Applies the appearance tags to a building whose final footprint and edges are already set. Unusable values are reported through <paramref name="problem"/>.</summary>
     public static void ApplyAppearanceTags(Building b,IReadOnlyDictionary<string,string> tags,IReadOnlyList<ResourcePalette>? palettes,Action<string> problem){
         if(b.Design is not {} d)return;
-        if(tags.TryGetValue("pz:style",out var style)){if(VisualStyles.All.ContainsKey(style))VisualStyles.Apply(b,style);else problem($"pz:style '{style}' is not a known building style");}
+        if(tags.TryGetValue("pz:style",out var style)){if(BuildingTemplateStyles.Find(style) is {} template)BuildingTemplateStyles.Apply(b,template);else if(VisualStyles.All.ContainsKey(style))VisualStyles.Apply(b,style);else problem($"pz:style '{style}' is not a known building style or tilezed:<template>");}
         if(tags.GetValueOrDefault("pz:kind") is "bathhouse" or "toilet")foreach(var f in d.Floors.Where(f=>f.Rooms.Count(r=>r.Key!="0")==1))f.Rooms[f.Rooms.Keys.Single(k=>k!="0")]="bathroom";
         if(tags.TryGetValue("roof:colour",out var colour)){if(RoofTilesetFor(colour) is {} roof)d.RoofTileset=roof;else problem($"roof:colour '{colour}' has no matching roof set");}
         (string Prefix,int Base)? wall=null;if(tags.TryGetValue("pz:wall",out var wallTag)&&(wall=WallSetFor(wallTag,palettes)) is null)problem($"pz:wall '{wallTag}' is not a wall set");

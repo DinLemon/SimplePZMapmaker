@@ -24,7 +24,7 @@ internal static class SettlementBuildingOrientation
    var cells=new char[width*height];for(var y=0;y<oldHeight;y++)for(var x=0;x<oldWidth;x++){var c=Cell(x,y);cells[c.Y*width+c.X]=f.Cells[y*oldWidth+x];}f.Cells=new(cells);
    f.FloorTiles=f.FloorTiles.ToDictionary(k=>{var c=Cell(k.Key%oldWidth,k.Key/oldWidth);return c.Y*width+c.X;},k=>k.Value);
    foreach(var e in f.Edges){var x=e.X;var y=e.Y;var direction=e.Edge;if(transpose){(x,y)=(y,x);direction=direction=="n"?"w":"n";}e.X=flipX?width-x-(direction=="n"?1:0):x;e.Y=flipY?height-y-(direction=="w"?1:0):y;e.Edge=direction;}
-   foreach(var o in f.Objects){var points=BuildingObjects.Cells(o).Select(c=>Cell(c.X,c.Y)).ToArray();o.X=points.Min(c=>c.X);o.Y=points.Min(c=>c.Y);if(transpose)o.Direction=o.Direction=="n"?"w":"n";
+   foreach(var o in f.Objects){var points=BuildingObjects.Cells(o).Select(c=>Cell(c.X,c.Y)).ToArray();o.X=points.Min(c=>c.X);o.Y=points.Min(c=>c.Y);if(o.Kind=="furniture")o.Direction=FurnitureCatalog.Transform(o.Direction,transpose,flipX,flipY);else if(transpose)o.Direction=o.Direction=="n"?"w":"n";
    }
   }
   b.Width=width;b.Height=height;

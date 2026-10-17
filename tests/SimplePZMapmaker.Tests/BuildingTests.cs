@@ -44,7 +44,7 @@ public static class BuildingTests
    foreach(var tile in new[]{"furniture_bedding_01_68","furniture_bedding_01_69","furniture_bedding_01_70","furniture_bedding_01_71","furniture_seating_indoor_01_10"})if(!names.Contains(tile))throw new Exception("Missing complete oriented furniture: "+tile);
   });
   yield return ("legacy maps remain readable and rich maps require version2",()=>{
-   var p=MapGenerator.Generate(new(){Kind="blank"});p.Version=1;ProjectValidator.Validate(p);var b=new Building{X=40,Y=40};b.Design=BuildingDesigner.Generate(b,2,42);p.Buildings.Add(b);Reject(()=>ProjectValidator.Validate(p));p.Version=2;ProjectValidator.Validate(p);
+   var p=MapGenerator.Generate(new(){Kind="blank"});p.Version=1;ProjectValidator.Validate(p);var b=new Building{X=40,Y=40};b.Design=BuildingDesigner.Generate(b,2,42);p.Buildings.Add(b);if(p.Version!=14)throw new Exception("Furniture should raise the map to format 14");foreach(var f in b.Design.Floors)f.Objects.RemoveAll(o=>o.Kind=="furniture");Reject(()=>ProjectValidator.Validate(p));p.Version=2;ProjectValidator.Validate(p);
   });
   yield return ("designed multistorey building exports actual upper rooms",()=>{
    var p=MapGenerator.Generate(new(){Kind="blank"});var b=new Building{Id="floors",X=40,Y=40,Width=16,Height=14};

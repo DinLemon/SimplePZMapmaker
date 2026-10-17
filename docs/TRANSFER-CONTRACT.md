@@ -137,7 +137,7 @@ Building feature properties read by the importer (OSM keys keep their OSM meanin
 | `roof:colour` | `grey`, `red`, `blue`, `green`, `brown`, `white`, `black`, `silver`, or `#rrggbb` | roof tile set: grey `roofs_30_04`, red `roofs_30_09`, blue `roofs_30_01`, green `roofs_30_05`, brown `roofs_30_07`, white `roofs_30_03`; a hex colour takes the nearest set by the average colour measured from the installed Build 42 sprites. Flat roofs keep their own surface. |
 | `pz:wall` | `set:<first tile>`, a bare first tile, or the ID of a project palette whose first wall resource starts the set | exterior wall set, on every exterior edge except balconies. The pieces come from TileZed's wall catalog (`wall-catalog.json`, 175 sets); a set outside it uses wall `+0/+1`, window frame `+8/+9`, door frame `+10/+11` (W/N). Export draws the set's NW corner piece where plain N and W walls meet, and its SE pillar on outer corners |
 | `pz:trim` | overlay tile pair `<north tile>:<west tile>` | window surround overlay on exterior window edges (wall edge overlays, PR #1) |
-| `pz:style` | building style id | interior and furniture style |
+| `pz:style` | building style id, or `tilezed:<template>` | interior and furniture style; a TileZed template (`Bank`, `Barn`, `Diner`, `Police`, `Spiffo`, `Gigamart`… 25 in `building-templates.json`) sets the exterior wall set, door, window, and per room the floor and interior wall |
 | `pz:kind` | `house`, `shed`, `garage`, `bathhouse`, `toilet`, `greenhouse` | building kind when OSM `building=*` is ambiguous; `bathhouse` and `toilet` make a one-room building a bathroom |
 
 Unknown `pz:*` keys are kept as source tags and reported once per key as a warning; they never fail an import.

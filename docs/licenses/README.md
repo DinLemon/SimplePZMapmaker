@@ -7,4 +7,6 @@ The self-contained publisher copies LICENSE and THIRD-PARTY-NOTICES from the exa
 Data taken from TileZed in [PZ Mapping Tools](https://github.com/Unjammer/PZ_Mapping_Tools) (Tim Baker; Alree/Unjammer), GPL-2.0-or-later, which is compatible with this project's GPL v2 licence:
 - `wwwroot/room-catalog.json`, from `TileZed/RoomNames.txt`;
 - `wwwroot/wall-catalog.json`, from the `exterior_walls` category of `TileZed/src/tiled/BuildingEditor/BuildingTiles.txt` (revision 42), with tile indices written without leading zeros;
-- the reference fence and wicket styles in `GeographicImporter.Fences.cs`, from `TileZed/Fences.txt`.
+- the reference fence and wicket styles in `GeographicImporter.Fences.cs`, from `TileZed/Fences.txt`;
+- `wwwroot/furniture-catalog.json`, beds, dressers, counters, stoves, fridges, sinks, toilets, a bath, sofas, armchairs and TVs from `BuildingFurniture.txt` (revision 48);
+- `wwwroot/building-templates.json`, the 25 templates of `BuildingTemplates.txt` (revision 30) with their tile entries resolved.
