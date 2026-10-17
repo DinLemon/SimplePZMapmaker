@@ -6,16 +6,19 @@ Run it from the repository with `dotnet run --project src/SimplePZMapmaker.Cli -
 
 | Command | What it does |
 |---|---|
+| `fetch --bounds <south,west,north,east> --out osm.json` | Downloads OpenStreetMap data with the editor's own Overpass client (tiled requests, retries, provider fallback, seven-day cache). |
 | `build <scene.json>` | Imports GeoJSON or Overpass JSON into a geographic world, promotes seam-crossing buildings and fences to the world, runs the seam check and writes `.pzworld.json`; `--export mod.zip` also writes the Build 42 mod. |
 | `validate <file>` | Validates a `.pzmap.json` or `.pzworld.json`. With `--source` it runs the seam check against the original data. |
 | `export <file> --out mod.zip` | Writes the Build 42 mod of a map or world. |
 | `tiles <tileset.json> --out tiles.zip` | Builds a tile mod (`.pack` + `.tiles`) from PNG frames. |
 | `probe <mod.zip> --game <path>` | Loads the exported lots with the installed game's own classes (headers, chunks, rooms, every tile sprite; stairs with `--expect-stairs`). Needs the repository's `scripts/` folder and Java from the game. |
+| `server-check <mod.zip> --game <path>` | Starts the installed Build 42 dedicated server (`zombie.network.GameServer`, `-nosteam`) in a temporary cache folder with the mod and a test-only Lua probe. The probe asks the server's own metagrid for buildings at room tiles taken from the archive's authoring source, plus one empty control tile; the server is then stopped with `quit`. Your `Zomboid` folder is not touched. |
 
 Common options:
 
 - `--game <path>` points to the Build 42 installation. `build`, `validate` and `export` then check every tile name the exporter would write against the game's tile definitions and validate resources; `tiles` reads properties for `copyFrom`.
 - `--strict` makes `build` fail when the seam check finds a lost or duplicated source feature.
+- `--save-workspace` (`build`) also saves the world as an editor section workspace under `work/world-recovery` of the workspace (`PZMAP_WORKSPACE`, or the current folder). Open it under **World → Section workspaces**; this works for worlds larger than the 128 MB limit of a single `.pzworld.json`.
 - `--report report.json` saves the seam check.
 - Mod options: `--mod-id`, `--map-folder` (the server `Map=` value, defaults to the mod id), `--mod-name` (title in the mod list and map selector), `--common-maps` (puts `media/maps` under `common/` instead of `42/`), `--install` (extracts into `Zomboid/mods`, or `--mods-dir`). An install replaces only a folder that SimplePZMapmaker created earlier (it carries a `.simplepzmapmaker` marker).
 

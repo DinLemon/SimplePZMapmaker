@@ -6,21 +6,25 @@ using SimplePZMapmaker.Core.Export;
 using SimplePZMapmaker.Web.Services;
 
 const string Usage="""
+simplepzmap fetch --bounds <south,west,north,east> --out osm.json
 simplepzmap build <scene.json> [--out world.pzworld.json] [--export mod.zip] [--report report.json] [--strict] [--game <path>] [mod options]
 simplepzmap validate <map.pzmap.json|world.pzworld.json> [--game <path>] [--source data.geojson] [--strict]
 simplepzmap export <map.pzmap.json|world.pzworld.json> --out mod.zip [--game <path>] [mod options]
 simplepzmap probe <mod.zip> --game <path> [--expect-stairs]
+simplepzmap server-check <mod.zip> --game <path> [--timeout-minutes 10]
 simplepzmap tiles <tileset.json> --out tiles.zip [--game <path>] [--install] [--mods-dir <dir>]
 
 mod options: --mod-id <id> --map-folder <name> --mod-name "<title>" --common-maps --install [--mods-dir <dir>]
 --game checks every tile name against the installed Build 42 tile definitions and validates resources.
 --strict fails the command when the seam check finds lost or duplicated source features.
+--save-workspace (build) also saves the world as an editor section workspace (open it under World > Section workspaces).
 """;
 try{return Run(args);}
 catch(ArgumentException e){Console.Error.WriteLine("error: "+e.Message);return 1;}
-catch(Exception e) when(e is IOException or UnauthorizedAccessException or JsonException){Console.Error.WriteLine("error: "+e.Message);return 1;}
+catch(Exception e) when(e is IOException or UnauthorizedAccessException or JsonException or HttpRequestException or TimeoutException){Console.Error.WriteLine("error: "+e.Message);return 1;}
 
 static int Run(string[] args){
+ if(args.Length>0&&args[0]=="fetch")return Fetch(Options(args[1..]));
  if(args.Length<2||args[0] is "-h" or "--help"){Console.WriteLine(Usage);return args.Length==0||args[0] is "-h" or "--help"?0:2;}
  var command=args[0];var input=Path.GetFullPath(args[1]);var options=Options(args[2..]);
  string? Option(string name)=>options.GetValueOrDefault(name);bool Flag(string name)=>options.ContainsKey(name);
@@ -36,6 +40,7 @@ static int Run(string[] args){
    var failed=Report(build.Report,Option("--report"));if(assets is not null)failed|=CheckTiles(world,assets);
    var output=Path.GetFullPath(Option("--out")??Path.ChangeExtension(input,null)+".pzworld.json");using(var file=File.Create(output))JsonSerializer.Serialize(file,world,NativeMapExporter.JsonOptions);Console.WriteLine("wrote "+output);
    if(Option("--export") is {} target)Export(s=>NativeWorldExporter.ExportToStream(world,s),Path.GetFullPath(target),Mod(scene.Export),Option("--mods-dir"));
+   if(Flag("--save-workspace")){using var store=new WorldStore(Path.Combine(workspace,"work","world-recovery"));store.SaveAsync(world.Id,world).GetAwaiter().GetResult();Console.WriteLine($"saved section workspace {world.Id} under {Path.Combine(workspace,"work","world-recovery")}; open it in the editor under World > Section workspaces");}
    return failed&&Flag("--strict")?1:0;}
   case "validate":{
    var (map,world)=Load(input);var failed=false;
@@ -52,12 +57,28 @@ static int Run(string[] args){
    using(var file=File.Create(target))TilesetBuilder.Write(mod,file);Console.WriteLine($"wrote {target}: {mod.Sprites.Count} tiles {mod.Tileset}_0..{mod.Sprites.Count-1}, tiledef {mod.FileNumber}");
    if(Flag("--install")){using var archive=File.OpenRead(target);Console.WriteLine("installed "+NativeModPackage.Install(archive,Option("--mods-dir")??NativeModPackage.DefaultModsDirectory()));}
    return 0;}
+  case "server-check":{
+   var minutes=int.TryParse(Option("--timeout-minutes"),out var m)?m:10;var result=ServerCheck.Run(input,Option("--game")??throw new ArgumentException("server-check needs --game <Build 42 installation>."),TimeSpan.FromMinutes(minutes),Console.WriteLine);
+   foreach(var (point,building,room) in result.Probes)Console.WriteLine($"server metagrid {point.X},{point.Y} {point.Name}: building={building.ToString().ToLowerInvariant()} room={room??"none"}{(building==point.ExpectBuilding?"":" UNEXPECTED")}");
+   Console.WriteLine($"server started: {result.Started}; stopped cleanly: {result.Stopped}; {(result.Passed?"server check: passed":"server check: FAILED")}");
+   if(!result.Passed)File.WriteAllText(Path.ChangeExtension(input,null)+".server.log",result.Log);
+   return result.Passed?0:1;}
   case "probe":return Probe(input,Option("--game")??throw new ArgumentException("probe needs --game <Build 42 installation>."),Flag("--expect-stairs"));
   default:Console.Error.WriteLine(Usage);return 2;
  }
 }
+/// <summary>Downloads OpenStreetMap data with the editor's own client: tiled Overpass requests, retries, provider fallback and a seven-day cache.</summary>
+static int Fetch(Dictionary<string,string> options){
+ var parts=(options.GetValueOrDefault("--bounds")??throw new ArgumentException("fetch needs --bounds south,west,north,east.")).Split(',').Select(v=>double.Parse(v,System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+ if(parts.Length!=4)throw new ArgumentException("--bounds takes four numbers: south,west,north,east.");var target=Path.GetFullPath(options.GetValueOrDefault("--out")??throw new ArgumentException("fetch needs --out osm.json."));
+ var workspace=Environment.GetEnvironmentVariable("PZMAP_WORKSPACE")??Directory.GetCurrentDirectory();using var client=new OsmClient(Path.Combine(workspace,"work","geodata-cache"));
+ var download=client.FetchTiledDetailed(new GeoBounds{South=parts[0],West=parts[1],North=parts[2],East=parts[3]},CancellationToken.None,null,64_000_000).GetAwaiter().GetResult();
+ File.WriteAllText(target,download.Data);foreach(var w in download.Warnings)Console.WriteLine("note: "+w);
+ Console.WriteLine($"wrote {target}: {download.Source}, data date {download.DataTimestamp??"not specified"}, {download.Requests} requests{(download.FromCache?" (cache)":"")}. Map data (c) OpenStreetMap contributors, ODbL 1.0.");
+ return 0;
+}
 static Dictionary<string,string> Options(string[] args){
- var flags=new HashSet<string>{"--common-maps","--install","--strict","--expect-stairs"};var result=new Dictionary<string,string>(StringComparer.Ordinal);
+ var flags=new HashSet<string>{"--common-maps","--install","--strict","--expect-stairs","--save-workspace"};var result=new Dictionary<string,string>(StringComparer.Ordinal);
  for(var i=0;i<args.Length;i++){if(!args[i].StartsWith("--",StringComparison.Ordinal))throw new ArgumentException("Unexpected argument: "+args[i]);if(flags.Contains(args[i])){result[args[i]]="true";continue;}if(i+1>=args.Length)throw new ArgumentException(args[i]+" needs a value.");result[args[i]]=args[++i];}
  return result;
 }
