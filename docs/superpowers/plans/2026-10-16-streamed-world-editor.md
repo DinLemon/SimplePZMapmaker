@@ -64,8 +64,10 @@ Workbench modules, application rendering/lock enforcement and synthetic browser 
 - [x] Draft portable English usage documentation and add guides to the package allowlist.
 - [x] Whole C#/JS suites, fresh self-contained browser/native probe, screenshots, English guides and local resource-path/privacy checks.
 - [x] Independent review, fix material findings, fetch/merge concurrent develop changes without overwriting companion work.
-- [ ] Commit/push reviewed work, update running app and package. Report actual private-fixture availability and remaining companion capabilities honestly.
+- [x] Commit/push reviewed work, update running app and package. Report actual private-fixture availability and remaining companion capabilities honestly.
 
 ## Integration checkpoint
 
 Focused browser-module tests pass for section switching, failed/stale saves, edits during a pending download, cancelled application after recovery waits, explicit reload success/failure, manifest-only neighbours and annotation draw order. Native/browser acceptance is verified; final publication is recorded with the delivery commit. The real private 13-section Pilna scene set has not been used as an acceptance fixture; any synthetic fixture must be labelled as such.
+
+Delivery: implementation and companion merge published to develop as 6eb14ae; the self-contained application was restarted and fresh-load checked with the existing six active mods. The Windows runtime package passed the public-path/archive audit.
