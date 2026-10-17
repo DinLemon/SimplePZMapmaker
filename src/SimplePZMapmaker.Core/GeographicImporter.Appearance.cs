@@ -7,7 +7,7 @@ namespace SimplePZMapmaker.Core;
 public static partial class GeographicImporter
 {
     /// <summary>pz:* keys the importer understands; any other pz:* key is kept with the source and reported once.</summary>
-    public static readonly HashSet<string> KnownPzKeys=["pz:wall","pz:trim","pz:style","pz:kind","pz:attached","pz:door-to","pz:fence","pz:posts","pz:gates","pz:zone","pz:vehicles","pz:direction"];
+    public static readonly HashSet<string> KnownPzKeys=["pz:room","pz:wall","pz:trim","pz:style","pz:kind","pz:attached","pz:door-to","pz:fence","pz:posts","pz:gates","pz:zone","pz:vehicles","pz:direction"];
     /// <summary>Average opaque colour of the first sprite of each Build 42 roofs_30_NN set, measured from the installed game.</summary>
     static readonly (string Tileset,int R,int G,int B)[] RoofSwatches=[("roofs_30_01",55,63,70),("roofs_30_02",70,58,55),("roofs_30_03",211,209,209),("roofs_30_04",57,59,63),("roofs_30_05",48,60,45),("roofs_30_06",93,91,84),("roofs_30_07",121,95,79),("roofs_30_08",80,93,80),("roofs_30_09",131,83,88),("roofs_30_10",76,44,34)];
     static readonly Dictionary<string,string> RoofColourNames=new(StringComparer.OrdinalIgnoreCase){["grey"]="roofs_30_04",["gray"]="roofs_30_04",["black"]="roofs_30_04",["red"]="roofs_30_09",["maroon"]="roofs_30_09",["blue"]="roofs_30_01",["green"]="roofs_30_05",["brown"]="roofs_30_07",["white"]="roofs_30_03",["silver"]="roofs_30_06"};

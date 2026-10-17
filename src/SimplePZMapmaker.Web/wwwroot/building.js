@@ -4,6 +4,7 @@ import {validateAccess} from './building-access.js';
 import {validateDependencies,validateModel,validateModelLayer,modelCells,blockingModel,interactiveModel} from './resource-data.js';
 import objectCatalog from './building-objects.json' with {type:'json'};
 import visualStyles from './visual-styles.json' with {type:'json'};
+import roomCatalog from './room-catalog.json' with {type:'json'};
 export {visualStyles};
 // Keep optional appearance fields identical across browser edits and .NET roundtrips.
 export function normalizeBuilding(b){b.requiredMods??=[];b.assetSources??={};if(!b.design)return b;const d=b.design;d.style??='';d.roofTileset??=null;d.flatRoofTile??=null;for(const f of d.floors){f.staticModels??=[];f.floorTile??=null;f.floorTiles??={};for(const e of f.edges){e.wallTile??=null;e.openingTile??=null;e.overlayTile??=null;}for(const o of f.objects){o.style??='';o.asset??=null;o.parts??=[];for(const p of o.parts)p.flags??=0;}}return b;}
@@ -23,6 +24,8 @@ export function containsVisiblePoint(b,x,y,level='all'){if(!b.design)return (lev
 export function combineAttribution(...lists){if(lists.some(a=>!Array.isArray(a)||a.some(s=>typeof s!=='string'||s.length>1000)))throw Error('The template source is corrupted.');const result=[...new Set(lists.flat())];if(result.length>30)throw Error('Too many geography sources.');return result;}
 export const kinds={house:'Private house',apartments:'Apartment building',school:'School',shop:'Store',warehouse:'Warehouse',industrial:'Industrial building',clinic:'Hospital',hotel:'Hotel',garage:'Garage'};
 export const roomNames={hall:'Corridor',livingroom:'Living room',kitchen:'Kitchen',bedroom:'Bedroom',bathroom:'Bathroom',classroom:'Class',office:'Office',conveniencestore:'Sales floor',warehouse:'Warehouse',medical:'Ward',hotelroom:'Number',garage:'Garage',storage:'Pantry',balcony:'Balcony'};
+// Build 42 internal room names (loot distributions and zombie room filters) follow the editor's own names.
+for(const name of roomCatalog.rooms)if(!Object.hasOwn(roomNames,name))roomNames[name]=name;
 export const shapeNames={rect:'Rectangle',l:'L-shaped',t:'T-shape',courtyard:'Courtyard',annex:'Extension',custom:'Custom footprint'};
 export const cell=(b,f,x,y)=>x<0||y<0||x>=b.width||y>=b.height?'.':f.cells[y*b.width+x];
 export function shapeCells(w,h,shape='rect'){let result='';for(let y=0;y<h;y++)for(let x=0;x<w;x++)result+=(shape==='l'?x<Math.floor(w/2)||y<Math.floor(h/2):shape==='t'?y<Math.floor(h/3)||Math.abs(x-Math.floor(w/2))<=Math.floor(w/6):shape==='courtyard'?x<3||y<3||x>=w-3||y>=h-3:shape==='annex'?x<Math.floor(w*2/3)||y<Math.floor(h/2):true)?'1':'.';return result;}

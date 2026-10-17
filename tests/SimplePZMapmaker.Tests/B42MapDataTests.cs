@@ -20,3 +20,30 @@ public static class B42MapDataTests
  }
  static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
 }
+public static class RoomCatalogTests
+{
+ public static IEnumerable<(string,Action)> Cases(){
+  yield return("room catalog holds the Build 42 room names and every tag mapping uses one",()=>{
+   Check(BuildingDesigner.AllRoomNames.Count>500&&BuildingDesigner.AllRoomNames.IsSupersetOf(BuildingDesigner.RoomNames),"Room catalog is incomplete");
+   var missing=GeographicImporter.MappedRoomNames.Where(n=>!BuildingDesigner.AllRoomNames.Contains(n)).ToList();Check(missing.Count==0,"Mapped rooms missing from the catalog: "+string.Join(",",missing));
+  });
+  yield return("source tags give imported buildings their vanilla rooms and the lot keeps them",()=>{
+   var reference=new WorldGeoReference{Bounds=new(){West=32,East=32.01,South=54,North=54.01},MetresPerTile=1,OriginCellX=100,OriginCellY=100};var projection=new GeographicProjection(reference,100,100);
+   double[] At(double x,double y){var g=projection.Geographic(x,y);return[g.Longitude,g.Latitude];}
+   object Box(string id,double x,double y,double w,double h,Dictionary<string,string> t)=>new{type="Feature",id,properties=t,geometry=new{type="Polygon",coordinates=new[]{new[]{At(x,y),At(x+w,y),At(x+w,y+h),At(x,y+h),At(x,y)}}}};
+   var json=System.Text.Json.JsonSerializer.Serialize(new{type="FeatureCollection",pzTransfer=1,features=new[]{
+    Box("osm-way-1",40.2,40.2,14,12,new(){{"building","retail"},{"shop","bakery"}}),Box("osm-way-2",70.2,40.2,12,10,new(){{"building","barn"}}),
+    Box("osm-way-3",100.2,40.2,14,12,new(){{"building","yes"},{"amenity","cafe"}}),Box("osm-way-4",130.2,40.2,12,10,new(){{"building","yes"},{"pz:room","church"}}),
+    Box("osm-way-5",160.2,40.2,12,10,new(){{"building","yes"},{"pz:room","no-such-room"}})}});
+   var p=GeographicImporter.Import(json,MapGenerator.Generate(new(){Kind="blank"}),reference.Bounds,projection:projection).Project;
+   HashSet<string> Rooms(string id)=>p.Buildings.Single(b=>b.SourceId=="geo-"+id).Design!.Floors.SelectMany(f=>f.Rooms.Values).ToHashSet();
+   Check(Rooms("osm-way-1").Contains("bakery")&&!Rooms("osm-way-1").Contains("conveniencestore"),"shop=bakery should sell from a bakery room");
+   Check(Rooms("osm-way-2").All(r=>r is "barn" or "hall"),"building=barn should be barn rooms");
+   Check(Rooms("osm-way-3").Contains("cafe"),"amenity=cafe should have a cafe room");Check(Rooms("osm-way-4").Contains("church"),"pz:room should name the main room");
+   Check(p.ImportSummary!.Notes.Any(n=>n.Contains("no-such-room")),"An unknown pz:room must be reported");
+   ProjectValidator.Validate(p);using var zip=new System.IO.Compression.ZipArchive(new MemoryStream(SimplePZMapmaker.Core.Export.NativeMapExporter.Export(p)));using var r=new StreamReader(zip.Entries.Single(e=>e.Name.EndsWith(".lotheader")).Open(),System.Text.Encoding.Latin1);var header=r.ReadToEnd();
+   Check(header.Contains("bakery")&&header.Contains("barn")&&header.Contains("church"),"Vanilla room names did not reach the lot header");
+  });
+ }
+ static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
+}

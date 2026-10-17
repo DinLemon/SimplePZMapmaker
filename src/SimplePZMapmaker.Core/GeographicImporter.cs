@@ -109,7 +109,7 @@ public static partial class GeographicImporter {
                 if(RoofGeometry.SelectSafeAutomaticRoof(b))approximateRoofs++;
                 if(!ImportedBuildingGeometry.Apply(b,f.Rings,out var footprintReason)){skipped++;skipReasons[footprintReason]=skipReasons.GetValueOrDefault(footprintReason)+1;if(skippedOutlines.Count<256)skippedOutlines.Add(new(b.SourceId,b.Name,footprintReason,x,y,w,h));continue;}
                 b.SourceOutline=ImportedBuildingGeometry.Capture(f.OriginalRings!,out var sourceSimplified);b.SourceOutlineSimplified=sourceSimplified;
-                ApplyAppearanceTags(b,f.Tags,p.ResourcePalettes,problem=>appearanceProblems[problem]=appearanceProblems.GetValueOrDefault(problem)+1);
+                ApplyAppearanceTags(b,f.Tags,p.ResourcePalettes,problem=>appearanceProblems[problem]=appearanceProblems.GetValueOrDefault(problem)+1);ApplyRoomTags(b,f.Tags,problem=>appearanceProblems[problem]=appearanceProblems.GetValueOrDefault(problem)+1);
             }
             if(w>64||h>64||!MapGenerator.CanPlace(p,b)){
                 skipped++;
