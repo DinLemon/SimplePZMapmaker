@@ -33,7 +33,7 @@ public static class NativeMapExporter {
             StaticModelExporter.Write(zip,slug,StaticModelExporter.Gather(p).Where(m=>m.X>=p.WorldX*256&&m.Y>=p.WorldY*256&&m.X<p.WorldX*256+p.Width&&m.Y<p.WorldY*256+p.Height));
             Text(root+"map.info",$"title={p.Name}\nfixed2x=true\ndescription=Map {p.Width} x {p.Height}, SimplePZMapmaker\nzoomX={p.WorldX*256+p.Width/2}\nzoomY={p.WorldY*256+p.Height/2}\nzoomS=8\n");
             
-            Text(root+"spawnpoints.lua",SpawnPlanner.Lua(p));
+            Text(root+"spawnpoints.lua",SpawnPlanner.Lua(p));Bytes(root+"thumb.png",MapThumbnail.Png(p));
             Text(root+"spawnregions.lua",$"function SpawnRegions()\n return {{ {{ name = \"{slug}\", file = \"media/maps/{slug}/spawnpoints.lua\" }} }}\nend\n");
             var zones=new StringBuilder("objects = {\n");
             for(var cy=0;cy<p.Height/8;cy++)for(var cx=0;cx<p.Width/8;cx++) {

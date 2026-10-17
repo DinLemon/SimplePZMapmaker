@@ -11,11 +11,13 @@ public static class B42MapDataTests
    var b=new Building{X=150,Y=40,Width=12,Height=10};b.Design=BuildingDesigner.Generate(b,1,42);p.Buildings.Add(b);p.Spawns=[new(){X=130,Y=130}];ProjectValidator.Validate(p);
    var image=Png.Decode(BiomeMap.Png(p,0,0));(byte R,byte G,byte B) At(int x,int y){var i=(y*256+x)*4;return(image.Rgba[i],image.Rgba[i+1],image.Rgba[i+2]);}
    Check(At(40,40)==(255,255,255),"Forest interior should be DeepForest");Check(At(92,40).G==BiomeMap.Forest,"Forest edge should be BirchMixForest");
-   Check(At(190,190)==(0,0,0),"Water should be 0");Check(At(155,45)==(115,115,115),"A building chunk is TownZone");
+   Check(At(190,190)==(0,0,0),"Water should be 0");Check(At(155,45)==(254,115,254),"A building square keeps TownZone foraging but takes the featureless dirt biome");Check(At(170,60)==(115,115,115),"Town ground away from buildings keeps the town biome");Check(At(120,201).R==BiomeMap.NoFeatures&&At(120,206).R!=BiomeMap.NoFeatures,"Roads and their margin are protected from WorldGen trees");
    Check(At(240,120).G==BiomeMap.FarmLand,"Open ground away from town is FarmLand");Check(At(240,201).G==BiomeMap.Nav,"A road chunk away from town is ForagingNav");
    for(var y=0;y<256;y+=8)for(var x=0;x<256;x+=8){var g=At(x,y).G;for(var dy=0;dy<8;dy++)for(var dx=0;dx<8;dx++)Check(At(x+dx,y+dy).G==g,"A chunk must have one foraging zone");}
    p.GameZones.Add(new(){Id=new string('a',32),Type="Farm",X=200,Y=8,Width=40,Height=24});Check(Png.Decode(BiomeMap.Png(p,0,0)).Rgba[(12*256+210)*4+1]==BiomeMap.Farm,"An authored Farm zone wins");
    using var zip=new ZipArchive(new MemoryStream(NativeMapExporter.Export(p)));Check(zip.Entries.Count(e=>e.FullName.Contains("/maps/biomemap_")&&e.Name.EndsWith(".png"))==1,"Each native cell needs its biome map");
+   using(var stream=new MemoryStream()){using(var thumb=zip.Entries.Single(e=>e.Name=="thumb.png").Open())thumb.CopyTo(stream);var t=Png.Decode(stream.ToArray());Check(t.Width==256&&t.Height==256,"thumb.png must be 256x256");
+    (byte,byte,byte) Px(int x,int y){var i=(y*256+x)*4;return(t.Rgba[i],t.Rgba[i+1],t.Rgba[i+2]);}Check(Px(155,45)==(150,62,52)&&Px(190,190)==(52,96,148)&&Px(40,40)==(46,84,44),"thumb.png should show roofs, water and forest from above");}
   });
  }
  static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
