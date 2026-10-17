@@ -1,6 +1,6 @@
 import {validateFenceLines} from './fence-data.js';
 const clone=value=>structuredClone(value);
-export function fenceCatalogOptions(project,catalog){const merge=(saved,builtin)=>[...(saved??[]),...(builtin??[]).filter(s=>!(saved??[]).some(p=>p.id===s.id))];return{styles:merge(project.fenceStyles,catalog.styles),gates:merge(project.gateStyles,catalog.wicket?[catalog.wicket]:[])};}
+export function fenceCatalogOptions(project,catalog){const merge=(saved,builtin)=>[...(saved??[]),...(builtin??[]).filter(s=>!(saved??[]).some(p=>p.id===s.id))];return{styles:merge(project.fenceStyles,catalog.styles),gates:merge(project.gateStyles,catalog.gates??(catalog.wicket?[catalog.wicket]:[]))};}
 export function buildFenceProposal(project,draft,{styleId,postSpacing=0,gate=false,gateAt=0,opensTo='right',gateStyleId}={},catalog={}){
  if(!project||draft?.kind!=='fence'||(draft.level??0)!==0)throw Error('Fence lines are placed on ground-level tile edges.');
  if(draft.frame&&['worldX','worldY','width','height'].some(k=>draft.frame[k]!==project[k]))throw Error('This fence draft belongs to a different section coordinate frame.');

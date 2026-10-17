@@ -42,7 +42,7 @@ public static partial class GeographicImporter
         foreach(var f in d.Floors)foreach(var e in f.Edges){
             var north=e.Edge=="n";var a=BuildingDesigner.Cell(b,f,e.X,e.Y);var other=north?BuildingDesigner.Cell(b,f,e.X,e.Y-1):BuildingDesigner.Cell(b,f,e.X-1,e.Y);
             if(e.Kind=="open"||(a=='.')==(other=='.')||f.Rooms.GetValueOrDefault((a=='.'?other:a).ToString())=="balcony")continue;
-            if(wall is {} set)e.WallTile=$"{set.Prefix}_{set.Base+(e.Kind=="door"?10:e.Kind=="window"?8:0)+(north?1:0)}";
+            if(wall is {} set)e.WallTile=WallCatalog.Tile(set.Prefix,set.Base,e.Kind,north);
             if(trim is {} t&&e.Kind=="window")e.OverlayTile=north?t.N:t.W;
         }
     }

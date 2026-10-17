@@ -13,6 +13,9 @@ public sealed class FenceStyle
  public string? WAlt {get;set;}
  public string? NAlt {get;set;}
  public int AltEvery {get;set;}
+ /// <summary>Optional gate frame drawn under a gate on a W or N edge of this fence (TileZed gate-space).</summary>
+ public string? GateSpaceW {get;set;}
+ public string? GateSpaceN {get;set;}
 }
 /// <summary>A gate or wicket Width edges wide; piece i of ClosedW/ClosedN/OpenW/OpenN goes on the i-th edge in line direction, reversed when it opens to the left.</summary>
 public sealed class GateStyle
@@ -55,7 +58,7 @@ public static class FenceLines
  public static void Validate(WorldProject w)=>Validate(w.Fences,w.FenceStyles,w.GateStyles,258048);
  public static void Validate(List<FenceLine> lines,List<FenceStyle> styles,List<GateStyle> gates,int limit){
   if(lines is null||styles is null||gates is null||lines.Count>MaximumLines||styles.Count>MaximumStyles||gates.Count>MaximumStyles)throw new ArgumentException($"Fences: at most {MaximumLines} lines and {MaximumStyles} fence and gate styles.");
-  var styleIds=new HashSet<string>();foreach(var s in styles){if(s is null||!SafeId(s.Id)||!styleIds.Add(s.Id)||!VisualStyles.TileId(s.W)||!VisualStyles.TileId(s.N)||s.NW is not null&&!VisualStyles.TileId(s.NW)||s.Post is not null&&!VisualStyles.TileId(s.Post)||s.WAlt is not null&&!VisualStyles.TileId(s.WAlt)||s.NAlt is not null&&!VisualStyles.TileId(s.NAlt)||s.AltEvery is <0 or >64||s.AltEvery>0&&(s.WAlt is null||s.NAlt is null))throw new ArgumentException("Invalid fence style: it needs an ID, W and N tiles, and both alternative tiles when it repeats one.");}
+  var styleIds=new HashSet<string>();foreach(var s in styles){if(s is null||!SafeId(s.Id)||!styleIds.Add(s.Id)||!VisualStyles.TileId(s.W)||!VisualStyles.TileId(s.N)||s.NW is not null&&!VisualStyles.TileId(s.NW)||s.Post is not null&&!VisualStyles.TileId(s.Post)||s.WAlt is not null&&!VisualStyles.TileId(s.WAlt)||s.NAlt is not null&&!VisualStyles.TileId(s.NAlt)||s.AltEvery is <0 or >64||s.AltEvery>0&&(s.WAlt is null||s.NAlt is null)||s.GateSpaceW is not null&&!VisualStyles.TileId(s.GateSpaceW)||s.GateSpaceN is not null&&!VisualStyles.TileId(s.GateSpaceN))throw new ArgumentException("Invalid fence style: it needs an ID, W and N tiles, and both alternative tiles when it repeats one.");}
   var gateIds=new HashSet<string>();foreach(var g in gates){if(g is null||!SafeId(g.Id)||!gateIds.Add(g.Id)||g.Width is <1 or >8||g.ClosedW?.Count!=g.Width||g.ClosedN?.Count!=g.Width||g.OpenW is null||g.OpenN is null||g.OpenW.Count is not 0&&g.OpenW.Count!=g.Width||g.OpenN.Count!=g.OpenW.Count||g.ClosedW.Concat(g.ClosedN).Concat(g.OpenW).Concat(g.OpenN).Any(t=>!VisualStyles.TileId(t)))throw new ArgumentException("Invalid gate style: it needs an ID, a width of 1-8 and one closed (and optionally open) W and N tile per edge.");}
   var ids=new HashSet<string>();long edges=0;
   foreach(var f in lines){
@@ -72,7 +75,7 @@ public static class FenceLines
  /// <summary>Edge tiles, gates and posts of all lines in the area [0,width) x [0,height), offset by (dx, dy). Edges on blocked cells are skipped and counted by reason.</summary>
  public static Composition Compose(IEnumerable<FenceLine> lines,IReadOnlyCollection<FenceStyle> styles,IReadOnlyCollection<GateStyle> gateStyles,int width,int height,int dx=0,int dy=0,Func<int,int,string?>? blocked=null){
   var styleById=styles.ToDictionary(s=>s.Id);var gateById=gateStyles.ToDictionary(s=>s.Id);var skipped=new Dictionary<string,int>();
-  var edges=new Dictionary<(int X,int Y,bool North),(string Tile,string Style,bool Gate,string Line)>();var posts=new Dictionary<(int X,int Y),(string Tile,string Line)>();
+  var edges=new Dictionary<(int X,int Y,bool North),(string Tile,string Style,bool Gate,string Line)>();var posts=new Dictionary<(int X,int Y),(string Tile,string Line)>();var frames=new Dictionary<(int X,int Y,bool North),(string Tile,string Line)>();
   foreach(var f in lines){
    var style=styleById[f.Style];var gateAt=new Dictionary<int,string>();
    foreach(var g in f.Gates){var gs=gateById[g.Style];var pieces=g.Open?(W:gs.OpenW,N:gs.OpenN):(W:gs.ClosedW,N:gs.ClosedN);for(var i=0;i<gs.Width;i++){var k=g.OpensTo=="left"?gs.Width-1-i:i;gateAt[g.At+i]=k.ToString()+"|"+pieces.W[k]+"|"+pieces.N[k];}}
@@ -93,6 +96,7 @@ public static class FenceLines
      else{var alt=style.AltEvery>0&&edge%style.AltEvery==style.AltEvery-1;tile=horizontal?alt?style.NAlt!:style.N:alt?style.WAlt!:style.W;}
      var key=(x,y,horizontal);if(edges.TryGetValue(key,out var prior)&&prior.Gate&&!gate){Skip("overlap");continue;}
      if(edges.ContainsKey(key))Skip("overlap");edges[key]=(tile,style.Id,gate,f.Id);
+     if(gate&&(horizontal?style.GateSpaceN:style.GateSpaceW) is {} frame)frames[key]=(frame,f.Id);else frames.Remove(key);
     }
    }
    if(f.PostSpacing>0)Post(f.Points[^1].X,f.Points[^1].Y);
@@ -100,8 +104,9 @@ public static class FenceLines
   var result=new List<Piece>();
   foreach(var group in edges.GroupBy(e=>(e.Key.X,e.Key.Y))){
    var north=group.FirstOrDefault(e=>e.Key.North);var west=group.FirstOrDefault(e=>!e.Key.North);
-   var bothPlain=north.Value.Tile is not null&&west.Value.Tile is not null&&!north.Value.Gate&&!west.Value.Gate&&north.Value.Style==west.Value.Style&&styleById[north.Value.Style] is {NW:{} corner}&&north.Value.Tile==styleById[north.Value.Style].N&&west.Value.Tile==styleById[west.Value.Style].W;
+   var bothPlain=north.Value.Tile is not null&&west.Value.Tile is not null&&!north.Value.Gate&&!west.Value.Gate&&north.Value.Style==west.Value.Style&&styleById[north.Value.Style] is {NW:{} corner}&&styleById[north.Value.Style] is var s&&(north.Value.Tile==s.N||north.Value.Tile==s.NAlt)&&(west.Value.Tile==s.W||west.Value.Tile==s.WAlt);
    if(bothPlain){result.Add(new(group.Key.X,group.Key.Y,styleById[north.Value.Style].NW!,6,north.Value.Line));continue;}
+   foreach(var e in group.OrderBy(e=>e.Key.North))if(frames.TryGetValue(e.Key,out var frame))result.Add(new(e.Key.X,e.Key.Y,frame.Tile,0,frame.Line));
    foreach(var e in group.OrderBy(e=>e.Key.North))result.Add(new(e.Key.X,e.Key.Y,e.Value.Tile,(byte)(e.Value.Gate?0:e.Key.North?2:4),e.Value.Line));
   }
   foreach(var p in posts)result.Add(new(p.Key.X,p.Key.Y,p.Value.Tile,0,p.Value.Line));

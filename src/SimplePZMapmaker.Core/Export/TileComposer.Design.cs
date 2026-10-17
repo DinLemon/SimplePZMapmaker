@@ -29,11 +29,23 @@ internal sealed partial class TileComposer
     var id=Rooms.Count;building.Add(id);var roomName=room.Value switch{"hotelroom"=>"motelroom","balcony"=>"emptyoutside","garage"=>"garagestorage",_=>room.Value};Rooms.Add(new(roomName,0,0,0,0,Buildings.Count,z,rectangles));
     for(var i=0;i<floor.Cells.Length;i++)if(floor.Cells[i]==room.Key[0]&&InCell(x0+i%b.Width,y0+i/b.Width)){var key=(y0+i/b.Width)*256+x0+i%b.Width;if(z==0)RoomIds[key]=id;else upperRoomIds[z*65536+key]=id;}
    }
+   // Wall tiles first, so a square with plain N and W walls of one catalog set takes its NW corner piece instead of two edges,
+   // and the square closing an outer corner (N wall to its west, W wall to its north, no wall of its own) takes the SE pillar.
+   var walls=new Dictionary<(int X,int Y,bool North),(string Tile,string Kind)>();
    foreach(var e in floor.Edges){
-    if(e.Kind=="open"||suppressedEdges.Contains((b.Id,b.X+e.X,b.Y+e.Y,z,e.Edge)))continue;var north=e.Edge=="n";var tile=(style?.WallBase??wallBase)+(e.Kind=="door"?10:e.Kind=="window"?8:0)+(north?1:0);
+    if(e.Kind=="open"||suppressedEdges.Contains((b.Id,b.X+e.X,b.Y+e.Y,z,e.Edge)))continue;var north=e.Edge=="n";
     var a=BuildingDesigner.Cell(b,floor,e.X,e.Y);var other=north?BuildingDesigner.Cell(b,floor,e.X,e.Y-1):BuildingDesigner.Cell(b,floor,e.X-1,e.Y);var inside=a=='.'?other:a;var balcony=(a=='.'||other=='.')&&floor.Rooms.GetValueOrDefault(inside.ToString())=="balcony";
-    if(balcony&&e.Kind=="wall"){AddAt(x0+e.X,y0+e.Y,z,e.WallTile??$"carpentry_02_{(north?101:100)}",north?(byte)2:(byte)4);continue;}
-    AddAt(x0+e.X,y0+e.Y,z,e.WallTile??$"{style?.Wall??"walls_exterior_house_01"}_{tile}",north?(byte)2:(byte)4);
+    walls[(e.X,e.Y,north)]=(balcony&&e.Kind=="wall"?e.WallTile??$"carpentry_02_{(north?101:100)}":e.WallTile??WallCatalog.Tile(style?.Wall??"walls_exterior_house_01",style?.WallBase??wallBase,e.Kind,north),e.Kind);
+   }
+   (string Tile,string Kind) Wall(int x,int y,bool north)=>walls.GetValueOrDefault((x,y,north));
+   WallSet? Plain(int x,int y,bool north)=>Wall(x,y,north) is {Kind:"wall",Tile:{} t}&&WallCatalog.Find(t) is {} set&&t==(north?set.North:set.West)?set:null;
+   foreach(var (x,y,north) in walls.Keys.Where(k=>k.North).ToList()){
+    if(Plain(x,y,true) is {NorthWest:{} corner} set&&Plain(x,y,false)==set){walls[(x,y,true)]=(corner,"corner");walls[(x,y,false)]=(corner,"covered");}
+   }
+   foreach(var (x,y,_) in walls.Keys.Where(k=>k.North).ToList())if(Plain(x,y,true) is {SouthEast:{} pillar} set&&Plain(x+1,y-1,false)==set&&Wall(x+1,y,true).Tile is null&&Wall(x+1,y,false).Tile is null)AddAt(x0+x+1,y0+y,z,pillar);
+   foreach(var e in floor.Edges){
+    var north=e.Edge=="n";if(!walls.TryGetValue((e.X,e.Y,north),out var wall))continue;
+    if(wall.Kind!="covered")AddAt(x0+e.X,y0+e.Y,z,wall.Tile,wall.Kind=="corner"?(byte)6:north?(byte)2:(byte)4);
     if(e.Kind is "door" or "window")AddAt(x0+e.X,y0+e.Y,z,e.OpeningTile??$"fixtures_{(e.Kind=="door"?"doors":"windows")}_01_{(north?1:0)+(e.Kind=="door"?style?.DoorBase??0:style?.WindowBase??0)}");
     if(e.OverlayTile is not null)AddAt(x0+e.X,y0+e.Y,z,e.OverlayTile);
    }

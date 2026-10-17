@@ -75,3 +75,36 @@ public static class ZoneImportTests
  }
  static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
 }
+public static class ReferenceFenceTests
+{
+ public static IEnumerable<(string,Action)> Cases(){
+  yield return("reference fences alternate west1/west2, frame their wickets and keep corners on alternate pieces",()=>{
+   var planks=GeographicImporter.DefaultFenceStyles.Single(s=>s.Id=="vanilla-planks");var wicket=GeographicImporter.DefaultGateStyles.Single(g=>g.Id==GeographicImporter.WicketFor("vanilla-planks"));
+   Check(GeographicImporter.DefaultFenceStyles.Length==14&&GeographicImporter.DefaultGateStyles.All(g=>g.OpenW.Count==1),"TileZed reference sets are incomplete");
+   var line=new FenceLine{Id="a",Style=planks.Id,Points=[new(10,10),new(14,10)],Gates=[new(){At=1,Style=wicket.Id}]};var corner=new FenceLine{Id="b",Style=planks.Id,Points=[new(20,25),new(20,20),new(25,20)]};
+   FenceLines.Validate([line,corner],[planks],[wicket],258048);var pieces=FenceLines.Compose([line,corner],[planks],[wicket],256,256).Pieces;
+   string[] At(int x,int y)=>pieces.Where(p=>p.X==x&&p.Y==y).Select(p=>p.Tile).ToArray();
+   Check(At(10,10).SequenceEqual(["fencing_01_8"])&&At(12,10).SequenceEqual(["fencing_01_8"])&&At(13,10).SequenceEqual(["fencing_01_9"]),"north1/north2 do not alternate");
+   Check(At(11,10).SequenceEqual(["fencing_01_47","fixtures_doors_fences_01_13"]),"The wicket needs its gate frame under it");
+   Check(At(20,20).SequenceEqual(["fencing_01_12"]),"An alternate W and N piece should still meet in the NW corner");
+  });
+ }
+ static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
+}
+public static class WallCatalogTests
+{
+ public static IEnumerable<(string,Action)> Cases(){
+  yield return("wall catalog draws NW corner pieces, SE pillars and the real door tiles of irregular sets",()=>{
+   Check(WallCatalog.Sets.Count>150&&WallCatalog.Find("walls_exterior_house_01_0")?.NorthWest=="walls_exterior_house_01_2","TileZed exterior wall catalog is missing");
+   Check(WallCatalog.Tile("location_restaurant_diner_01",0,"door",true)=="location_restaurant_diner_01_5"&&WallCatalog.Tile("walls_exterior_house_01",16,"window",false)=="walls_exterior_house_01_24","Catalog tiles were not used before the +8/+10 rule");
+   var p=MapGenerator.Generate(new(){Kind="blank"});var b=new Building{X=100,Y=100,Width=10,Height=8};b.Design=BuildingDesigner.Generate(b,1,42);p.Buildings.Add(b);ProjectValidator.Validate(p);
+   string[] At(int x,int y)=>NativeScene.Cell(p,x,y,1,1,0).Sprites.Select(s=>s.Tile).ToArray();
+   var nw=b.Design.Floors[0].Edges.Single(e=>e.X==0&&e.Y==0&&e.Edge=="n");var next=b.Design.Floors[0].Edges.Single(e=>e.X==1&&e.Y==0&&e.Edge=="n");(nw.Kind,next.Kind,nw.OpeningTile,next.OpeningTile)=(next.Kind,nw.Kind,next.OpeningTile,nw.OpeningTile);
+   Check(At(100,100).SequenceEqual(["floors_interior_tilesandwood_01_0","walls_exterior_house_01_34"])||At(100,100).Count(t=>WallCatalog.Sets.Any(w=>w.NorthWest==t))==1&&!At(100,100).Any(t=>WallCatalog.Find(t) is {} w&&(t==w.North||t==w.West)),"A square with plain N and W walls should hold one corner piece instead: "+string.Join(",",At(100,100)));
+   Check(At(110,108).Any(t=>WallCatalog.Sets.Any(s=>s.SouthEast==t)),"The outer SE corner needs its pillar: "+string.Join(",",At(110,108)));
+   var problems=new List<string>();GeographicImporter.ApplyAppearanceTags(b,new Dictionary<string,string>{{"pz:wall","location_restaurant_diner_01_0"}},null,problems.Add);
+   var doors=b.Design!.Floors[0].Edges.Where(e=>e.Kind=="door"&&e.WallTile is not null).ToList();Check(problems.Count==0&&doors.Count>0&&doors.All(e=>e.WallTile==(e.Edge=="n"?"location_restaurant_diner_01_5":"location_restaurant_diner_01_4")),"pz:wall should take the diner's own door walls");
+  });
+ }
+ static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
+}

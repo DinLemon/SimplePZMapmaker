@@ -7,20 +7,47 @@ namespace SimplePZMapmaker.Core;
 /// barrier=gate points on the line become gates.</summary>
 public static partial class GeographicImporter
 {
+    /// <summary>The vanilla fences as TileZed's reference Fences.txt draws them (Unjammer/PZ_Mapping_Tools, GPL-2.0-or-later):
+    /// west1/north1 on even edges and west2/north2 on odd ones, the NW corner, the post and the gate frame under a wicket.</summary>
     public static readonly FenceStyle[] DefaultFenceStyles=[
-        new(){Id="vanilla-sheet",W="fencing_01_40",N="fencing_01_41",NW="fencing_01_42"},
-        new(){Id="vanilla-planks",W="fencing_01_10",N="fencing_01_9",NW="fencing_01_12"},
-        new(){Id="vanilla-picket",W="fencing_01_4",N="fencing_01_5",NW="fencing_01_6"},
-        new(){Id="vanilla-wire",W="fencing_01_20",N="fencing_01_21",NW="fencing_01_28"}];
-    /// <summary>The solid wooden wicket of the base game: closed W, closed N.</summary>
-    public static readonly GateStyle DefaultWicket=new(){Id="vanilla-wicket",Width=1,ClosedW=["fixtures_doors_fences_01_12"],ClosedN=["fixtures_doors_fences_01_13"]};
+        Reference("vanilla-sheet",40,40,41,41,42,43),              // Tall Concrete
+        Reference("vanilla-planks",11,10,8,9,12,13,46,47),         // Tall Wooden
+        Reference("vanilla-picket",4,4,5,5,6,7,22,23),             // White Picket
+        Reference("vanilla-wire",27,26,24,25,28,29,30,31),         // Short Chainlink
+        Reference("vanilla-short-planks",35,34,32,33,36,37,38,39), // Short Wooden
+        Reference("vanilla-tall-planks-2",72,72,73,73,75,74),      // Tall Wooden 2
+        Reference("vanilla-tall-wire",59,58,56,57,60,61),          // Tall Chainlink
+        Reference("vanilla-short-picket",121,121,120,120,122,123), // Short Picket
+        Reference("vanilla-cattle",20,20,21,21,18,19),             // Short Cattle Fence
+        Reference("vanilla-black-metal",2,2,1,1,3,0,14,15),        // Short Black Metal
+        Reference("vanilla-black-bars",67,66,64,65,68,69),         // Tall Black Bars
+        Reference("vanilla-military",51,50,48,49,52,53),           // Military Grade
+        Reference("vanilla-construction",83,82,80,81,84,null),     // Tall Construction
+        Reference("vanilla-construction-barbed",91,90,88,89,92,null)]; // Tall Construction (Barbed Wire)
+    static FenceStyle Reference(string id,int w1,int w2,int n1,int n2,int nw,int? post,int? spaceW=null,int? spaceN=null){static string T(int i)=>"fencing_01_"+i;
+        return new(){Id=id,W=T(w1),N=T(n1),WAlt=w2==w1?null:T(w2),NAlt=n2==n1?null:T(n2),AltEvery=w2==w1&&n2==n1?0:2,NW=T(nw),Post=post is {} p?T(p):null,GateSpaceW=spaceW is {} sw?T(sw):null,GateSpaceN=spaceN is {} sn?T(sn):null};}
+    /// <summary>The solid wooden wicket of the base game: closed W, closed N, open W, open N.</summary>
+    public static readonly GateStyle DefaultWicket=Wicket("vanilla-wicket",12);
+    /// <summary>The fence wickets of fixtures_doors_fences_01, four pieces each; TileZed pairs them with these fences.</summary>
+    public static readonly GateStyle[] DefaultGateStyles=[DefaultWicket,Wicket("vanilla-wicket-metal",0),Wicket("vanilla-wicket-short",4),Wicket("vanilla-wicket-picket",8),Wicket("vanilla-wicket-wire",16)];
+    static readonly Dictionary<string,string> ReferenceWickets=new(StringComparer.Ordinal){["vanilla-planks"]="vanilla-wicket",["vanilla-tall-planks-2"]="vanilla-wicket",["vanilla-short-planks"]="vanilla-wicket-short",
+        ["vanilla-picket"]="vanilla-wicket-picket",["vanilla-wire"]="vanilla-wicket-wire",["vanilla-black-metal"]="vanilla-wicket-metal"};
+    static GateStyle Wicket(string id,int first){static string T(int i)=>"fixtures_doors_fences_01_"+i;return new(){Id=id,Width=1,ClosedW=[T(first)],ClosedN=[T(first+1)],OpenW=[T(first+2)],OpenN=[T(first+3)]};}
+    /// <summary>The wicket drawn in a fence of the given style when the source names none.</summary>
+    public static string WicketFor(string fenceStyle)=>ReferenceWickets.GetValueOrDefault(fenceStyle,DefaultWicket.Id);
     static readonly HashSet<string> FenceBarriers=["fence","wall","city_wall","retaining_wall"];
     static readonly HashSet<string> GateBarriers=["gate","wicket_gate","swing_gate","lift_gate","sliding_gate","hampshire_gate"];
 
     static string DefaultFenceStyle(Dictionary<string,string> tags)=>tags.GetValueOrDefault("fence_type") switch{
-        "metal_sheet" or "sheet" or "corrugated" or "metal_bars" or "panel"=>"vanilla-sheet",
-        "chain_link" or "wire" or "mesh" or "barbed_wire" or "electric"=>"vanilla-wire",
-        "pickets" or "picket" or "split_rail" or "railing"=>"vanilla-picket",
+        "metal_sheet" or "sheet" or "panel" or "concrete"=>"vanilla-sheet",
+        "corrugated"=>"vanilla-construction",
+        "metal_bars" or "railing"=>"vanilla-black-bars",
+        "metal"=>"vanilla-black-metal",
+        "chain_link" or "wire" or "mesh"=>"vanilla-wire",
+        "barbed_wire"=>"vanilla-construction-barbed",
+        "electric" or "split_rail" or "rail"=>"vanilla-cattle",
+        "pickets" or "picket"=>"vanilla-picket",
+        "hedge_bank" or "wood" or "wooden" or "planks"=>"vanilla-planks",
         _=>tags.GetValueOrDefault("barrier") is "wall" or "city_wall" or "retaining_wall"?"vanilla-sheet":"vanilla-planks"};
 
     /// <summary>Walks a projected polyline over grid vertices with unit steps and merges them into horizontal/vertical runs.</summary>
@@ -64,19 +91,19 @@ public static partial class GeographicImporter
                 if(index==0&&f.Tags.TryGetValue("pz:gates",out var gatesJson)){
                     try{foreach(var g in JsonDocument.Parse(gatesJson).RootElement.EnumerateArray()){
                         var at=g.TryGetProperty("at",out var a)?a.GetDouble():0;var gateStyle=g.TryGetProperty("style",out var s)?s.GetString():null;
-                        if(gateStyle is null||p.GateStyles.All(x=>x.Id!=gateStyle))gateStyle=DefaultWicket.Id;
+                        if(gateStyle is null||p.GateStyles.All(x=>x.Id!=gateStyle)&&DefaultGateStyles.All(x=>x.Id!=gateStyle))gateStyle=WicketFor(style);
                         if(NearestEdge(points,PointAlong(ring,at/mpt),2) is not {} gateEdge){droppedGates++;continue;}
                         line.Gates.Add(new(){At=gateEdge,Style=gateStyle!,OpensTo=g.TryGetProperty("opens",out var o)&&o.GetString()=="left"?"left":"right"});}}
                     catch(Exception e) when(e is JsonException or InvalidOperationException or FormatException){droppedGates++;}
                 }
                 // barrier=gate points within a tile of the fence: a wicket on the nearest edge
-                foreach(var gp in gatePoints){var edge=NearestEdge(points,gp,1);if(edge is {} found&&line.Gates.All(g=>g.At!=found))line.Gates.Add(new(){At=found,Style=DefaultWicket.Id});}
+                foreach(var gp in gatePoints){var edge=NearestEdge(points,gp,1);if(edge is {} found&&line.Gates.All(g=>g.At!=found))line.Gates.Add(new(){At=found,Style=WicketFor(style)});}
                 lines.Add(line);
             }
         }
         if(lines.Count==0)return;
         var styles=p.FenceStyles.Concat(DefaultFenceStyles.Where(d=>p.FenceStyles.All(s=>s.Id!=d.Id)&&lines.Any(l=>l.Style==d.Id))).ToList();
-        var gates=p.GateStyles.Concat(lines.Any(l=>l.Gates.Any(g=>g.Style==DefaultWicket.Id))&&p.GateStyles.All(g=>g.Id!=DefaultWicket.Id)?[DefaultWicket]:[]).ToList();
+        var gates=p.GateStyles.Concat(DefaultGateStyles.Where(d=>p.GateStyles.All(g=>g.Id!=d.Id)&&lines.Any(l=>l.Gates.Any(g=>g.Style==d.Id)))).ToList();
         foreach(var line in lines){try{FenceLines.Validate([line],styles,gates,258048);}catch(ArgumentException){droppedGates+=line.Gates.Count;line.Gates=[];}}
         // with Preserve edits the previous fence layer was copied over: authored lines stay, source lines are refreshed
         var kept=p.Fences.Where(old=>old.SourceId is null||lines.All(l=>l.SourceId!=old.SourceId)).ToList();

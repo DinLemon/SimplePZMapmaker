@@ -4,7 +4,7 @@ public static partial class AssetRules
 {
  public static void Building(Building b,GameAssetCatalog assets,bool requireAccess=true){BuildingDesigner.Validate(b,requireAccess);if(b.Design is null){StampDependencies(b,assets);return;}var d=b.Design;
   void Floor(string id){var a=assets.Get(id);if(!a.Floor||a.Properties.ContainsKey("water"))throw new ArgumentException("An indoor tile must have a complete dry floor surface.");}
-  if(d.Style.Length>0){var s=VisualStyles.All[d.Style];Floor(s.Floor);Floor(s.WetFloor);foreach(var direction in new[]{"n","w"})foreach(var kind in new[]{"wall","door","window"})CheckEdge(assets,s.Wall+"_"+(s.WallBase+(kind=="door"?10:kind=="window"?8:0)+(direction=="n"?1:0)),null,direction,kind);}
+  if(d.Style.Length>0){var s=VisualStyles.All[d.Style];Floor(s.Floor);Floor(s.WetFloor);foreach(var direction in new[]{"n","w"})foreach(var kind in new[]{"wall","door","window"})CheckEdge(assets,WallCatalog.Tile(s.Wall,s.WallBase,kind,direction=="n"),null,direction,kind);}
   if(d.RoofTileset is not null)foreach(var i in Enumerable.Range(0,30).Where(i=>i%8<6))if(assets.Get(d.RoofTileset+"_"+i).Category!="roofs")throw new ArgumentException("A complete 30-degree roof tileset is required.");
   if(d.FlatRoofTile is not null)Floor(d.FlatRoofTile);
   foreach(var f in d.Floors){if(f.FloorTile is not null)Floor(f.FloorTile);foreach(var id in f.FloorTiles.Values)Floor(id);foreach(var e in f.Edges){if(e.WallTile is not null||e.OpeningTile is not null)CheckEdge(assets,e.WallTile,e.OpeningTile,e.Edge,e.Kind);if(e.OverlayTile is not null)CheckOverlay(assets,e.OverlayTile,e.Edge);}foreach(var o in f.Objects.Where(o=>o.Kind=="asset"))CheckParts(assets,o.Asset!,o.Parts);}StampDependencies(b,assets);
