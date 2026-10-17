@@ -35,7 +35,7 @@ public static class BiomeMap
  }
  /// <summary>The foraging zone of an authored terrain zone covering a tile, if any.</summary>
  static byte? Authored(MapProject p,int x,int y){
-  foreach(var z in p.GameZones)if(!z.Vehicle&&ZoneGeometry.Covers(z,x,y))return z.Type switch{"Forest"=>Forest,"DeepForest"=>DeepForest,"Farm"=>Farm,"TownZone"=>Town,"TrailerPark"=>TrailerPark,"Vegitation"=>FarmLand,"Nav"=>Nav,_=>null};
+  foreach(var z in p.GameZones)if(z.Layer=="terrain"&&ZoneGeometry.Covers(z,x,y))return z.Type switch{"Forest"=>Forest,"DeepForest"=>DeepForest,"Farm"=>Farm,"TownZone"=>Town,"TrailerPark"=>TrailerPark,"Vegitation"=>FarmLand,"Nav"=>Nav,_=>null};
   return null;
  }
  /// <summary>The biome map image of one native cell: the chunk's zone in red, green and blue, and 0 on water squares.</summary>

@@ -47,3 +47,31 @@ public static class RoomCatalogTests
  }
  static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
 }
+public static class ZoneImportTests
+{
+ public static IEnumerable<(string,Action)> Cases(){
+  yield return("land use parking and pz:zone tags become game zones with Build 42 vehicle rules",()=>{
+   var reference=new WorldGeoReference{Bounds=new(){West=32,East=32.01,South=54,North=54.01},MetresPerTile=1,OriginCellX=100,OriginCellY=100};var projection=new GeographicProjection(reference,100,100);
+   double[] At(double x,double y){var g=projection.Geographic(x,y);return[g.Longitude,g.Latitude];}
+   object Box(string id,double x,double y,double w,double h,Dictionary<string,string> t)=>new{type="Feature",id,properties=t,geometry=new{type="Polygon",coordinates=new[]{new[]{At(x,y),At(x+w,y),At(x+w,y+h),At(x,y+h),At(x,y)}}}};
+   var json=System.Text.Json.JsonSerializer.Serialize(new{type="FeatureCollection",pzTransfer=1,features=new object[]{
+    Box("osm-way-1",20,20,60,40,new(){{"landuse","residential"}}),Box("osm-way-2",90,20,40,30,new(){{"landuse","farmland"}}),
+    Box("osm-way-3",140,140,100,100,new(){{"natural","wood"}}),Box("osm-way-4",20,80,20,9,new(){{"amenity","parking"}}),
+    Box("osm-way-5",50,80,12,6,new(){{"pz:zone","Vehicle"},{"pz:vehicles","junkyard"},{"pz:direction","E"}}),Box("osm-way-6",25,25,20,20,new(){{"pz:zone","ZombiesType"},{"pz:zombies","Farmer"}}),
+    Box("osm-way-7",70,80,10,6,new(){{"amenity","parking"},{"pz:vehicles","no-such-cars"}}),
+    new{type="Feature",id="osm-way-8",properties=new Dictionary<string,string>{{"highway","residential"}},geometry=new{type="LineString",coordinates=new[]{At(5,2),At(5,250)}}}}});
+   var p=MapGenerator.Generate(new(){Kind="blank"});for(var y=0;y<256;y++)p.Terrain[y*256+2]=Terrain.Road;
+   p=GeographicImporter.Import(json,p,reference.Bounds,projection:projection).Project;
+   Check(p.GameZones.Any(z=>z.Type=="TownZone"&&z.Polygon is not null)&&p.GameZones.Any(z=>z.Type=="Farm"),"Residential or farmland zone missing");
+   Check(p.GameZones.Any(z=>z.Type=="DeepForest"),"A wood far from roads should be DeepForest");
+   var stalls=p.GameZones.Where(z=>z.Type=="ParkingStall").ToList();Check(stalls.Count==3&&stalls.All(z=>z.Polygon is null&&(z.Width%5==0&&z.Height%3==0||z.Width%3==0&&z.Height%5==0)),"Parking zones must measure whole 5x3 stalls");
+   Check(stalls.Any(z=>z.VehicleDistribution=="junkyard"&&z.Direction=="E")&&stalls.Count(z=>z.VehicleDistribution=="parkingstall")==2,"Vehicle distributions were not taken from the tags");
+   Check(p.GameZones.Any(z=>z.Type=="ZombiesType"&&z.Name=="Farmer"),"ZombiesType zone missing; it may overlap the town zone");
+   Check(p.ImportSummary!.Notes.Any(n=>n.Contains("no-such-cars")),"An unknown vehicle distribution must be reported");
+   ProjectValidator.Validate(p);var lua=SimplePZMapmaker.Core.Export.GameZonesExporter.ObjectsLua(p,default);
+   Check(lua.Contains("type=\"ZombiesType\"")&&lua.Contains("name=\"Farmer\"")&&lua.Contains("name=\"junkyard\", type=\"ParkingStall\""),"objects.lua lacks the imported zones");
+   var again=GeographicImporter.Import(json,p,p.Bounds,preserveEdits:true,projection:projection).Project;Check(again.GameZones.Count==p.GameZones.Count,"Reimport duplicated source zones");
+  });
+ }
+ static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
+}

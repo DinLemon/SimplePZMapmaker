@@ -123,6 +123,7 @@ public static partial class GeographicImporter {
         if(preserveEdits){p.Spawns=project.Spawns.Select(s=>new SpawnPoint{X=s.X,Y=s.Y}).ToList();foreach(var spawn in p.Spawns)p.Terrain[spawn.Y*p.Width+spawn.X]=preserved.Terrain[spawn.Y*p.Width+spawn.X];}else{try{p.Spawns=[MapGenerator.FindSafeSpawn(p)];}catch(ArgumentException) when(p.WorldSection){p.Spawns=[];}}
         CaptureEvidence(p,transformed,project,preserveEdits,cancellationToken);
         p.ImportSummary=new(){SourceFeatures=features.Count,SourceBuildings=transformed.Count(f=>f.Polygon&&f.Tags.ContainsKey("building")),PlacedBuildings=p.Buildings.Count,SkipReasons=new(skipReasons),Quality=ImportQuality.Summarize(p.Buildings,omittedGeometry),SkippedOutlines=skippedOutlines};
+        ImportZones(p,transformed,p.ImportSummary.Notes);
         p.ImportSummary.Notes.Add($"Editable source paths: {editableLines.Count}; raster-only paths retained because of authoring limits: {staticLines}. Imported path widths are estimated from source tags or road classes.");
         p.ImportSummary.Notes.Add("Building outlines preserve concavity and courtyard holes through tile-center resampling; rooms, stairs and furniture are generated, not surveyed. Original geographic rings are retained separately.");
         if(omittedRails>0)p.ImportSummary.Notes.Add($"Railway paths skipped because cardinal native artwork or authoring limits were not supported: {omittedRails}. No train simulation is provided.");

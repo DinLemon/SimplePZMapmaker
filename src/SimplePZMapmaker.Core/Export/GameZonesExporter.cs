@@ -5,7 +5,7 @@ public static class GameZonesExporter
 {
  public static string ObjectsLua(MapProject p,CancellationToken token=default)
  {
-  var output=new StringBuilder("objects = {\n");var decomposed=p.GameZones.Select(z=>(Zone:z,Rectangles:ZoneGeometry.Rectangles(z,token))).ToArray();var authored=decomposed.Where(z=>!z.Zone.Vehicle).SelectMany(z=>z.Rectangles).ToArray();var index=new Dictionary<(int,int),List<ZoneRectangle>>();
+  var output=new StringBuilder("objects = {\n");var decomposed=p.GameZones.Select(z=>(Zone:z,Rectangles:ZoneGeometry.Rectangles(z,token))).ToArray();var authored=decomposed.Where(z=>z.Zone.Layer=="terrain").SelectMany(z=>z.Rectangles).ToArray();var index=new Dictionary<(int,int),List<ZoneRectangle>>();
   foreach(var z in authored)for(var y=z.Y/8;y<=(z.Y+z.Height-1)/8;y++)for(var x=z.X/8;x<=(z.X+z.Width-1)/8;x++){if(!index.TryGetValue((x,y),out var list))index[(x,y)]=list=[];list.Add(z);}
   void Add(string name,string type,int x,int y,int width,int height,string properties="")=>output.Append(Culture($" {{ name=\"{name}\", type=\"{type}\", x={p.WorldX*256+x}, y={p.WorldY*256+y}, z=0, width={width}, height={height}{properties} }},\n"));
   for(var cy=0;cy<p.Height/8;cy++)for(var cx=0;cx<p.Width/8;cx++){
