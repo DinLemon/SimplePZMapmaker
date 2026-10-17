@@ -1,3 +1,11 @@
+# Streamed world editor verification — 2026-10-17
+
+- Integrated the companion rotation, native fence layer, barrier import and seam ownership changes from `develop`; retained polygon zones, density and reviewed room metadata. The combined suites pass **377 C# tests and 257 JavaScript tests**.
+- Section workspaces pin immutable revisions, read/save independent sections, retain old revisions and export without materializing a complete world. Explicit compatibility limits remain: 48 MiB per section, 16 MiB shared metadata, 128 MiB monolithic world JSON and 256 MiB compressed native output.
+- The self-contained browser test uses **13 synthetic 1024×1024 sections**, with a house and fence crossing a seam plus a shared road. Switching loads only the requested section; committed edits persist. Polygon density, resource-backed fence drawing with a wicket, reload restoration, historical section review and locked undo were exercised through the UI.
+- Independent native decoding accepts the selected section (**16 cells, 16,384 chunks, 16 rooms**) and combined world (**208 cells, 212,992 chunks, 20 room fragments**). Streamed authoring source hashes match the pinned index. Installed game classes accept the section and report **8 upper rooms and 6 stair tiles**. No interactive game session was started.
+- Private populated Pilna scenes were not used for acceptance. The illustrated [guide](STREAMED-WORLD-EDITOR.md) records remaining source fence promotion, tiny-building, shared-decoration and isolated-lighting boundaries. Public packaging excludes private art and local installation paths.
+
 # Real-place transfer development verification — 2026-10-16
 
 - Original geographic evidence now includes point observations, bounded source tags/addresses/access roles, campus/land-use areas, barriers and stable identities. Tiled imports retain nodes; regular/dense PBF nodes and barrier/healthcare ways reach the source layer.

@@ -4,7 +4,7 @@ public static class ProjectValidator
     public static void Validate(MapProject p)
     {
         ArgumentNullException.ThrowIfNull(p);
-        if(p.Version is not(1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11)) Fail("Unsupported project version.");
+        if(p.Version is not(1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12)) Fail("Unsupported project version.");
         ResourcePalette.Validate(p.ResourcePalettes);
 
         if(p.ImportSummary is {} qualityReport) ImportQuality.Validate(qualityReport);
@@ -61,7 +61,7 @@ public static class ProjectValidator
             var door=model.Door!;var otherX=model.X-(door.Direction=="w"?1:0);var otherY=model.Y-(door.Direction=="n"?1:0);
             if(otherX<0||otherY<0||blockingModels.Contains(model.Y*p.Width+model.X)||blockingModels.Contains(otherY*p.Width+otherX)||decorationCells.Contains(model.Y*p.Width+model.X)||decorationCells.Contains(otherY*p.Width+otherX)||occupied.Contains(otherY*p.Width+otherX)||p.Terrain[otherY*p.Width+otherX]==Terrain.Water)Fail("A model door needs a clear approach on both sides of its edge.");
         }
-        LinearFeatureEditor.Validate(p);GameZones.ValidateProject(p);
+        LinearFeatureEditor.Validate(p);GameZones.ValidateProject(p);FenceLines.Validate(p);
         SiteModel.Validate(p);ZombieDensityRegions.ValidateProject(p);RoomRegionRules.ValidateProject(p);
         if(p.Bounds is not null) ValidateBounds(p.Bounds);
         if(p.MetresPerTile is double metres && (!double.IsFinite(metres)||metres<=0||metres>100000))Fail("Invalid geographic data scale.");

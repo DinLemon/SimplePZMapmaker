@@ -8,11 +8,12 @@ internal static class WorldSectionProjection
   var ox=project.WorldX*256;var oy=project.WorldY*256;
   bool BuildingTouches(Building b)=>b.X<ox+project.Width&&b.Y<oy+project.Height&&b.X+b.Width>=ox&&b.Y+b.Height>=oy;
   bool PathTouches(LinearFeature f){var pad=Math.Ceiling(f.Width/2)+1+(f.Access=="stairs"?4*Math.Abs(f.Level):0);return f.Points.Min(p=>p.X)-pad<ox+project.Width&&f.Points.Max(p=>p.X)+pad>=ox&&f.Points.Min(p=>p.Y)-pad<oy+project.Height&&f.Points.Max(p=>p.Y)+pad>=oy;}
-  return new(){Version=metadata.Version,Id=metadata.Id,Name=metadata.Name,GeoReference=metadata.GeoReference,Buildings=metadata.Buildings.Where(BuildingTouches).ToList(),LinearFeatures=metadata.LinearFeatures.Where(PathTouches).ToList()};
+  var fences=metadata.Fences.Where(f=>f.Points.Max(v=>v.X)>=ox&&f.Points.Min(v=>v.X)<=ox+project.Width&&f.Points.Max(v=>v.Y)>=oy&&f.Points.Min(v=>v.Y)<=oy+project.Height).ToList();var styles=fences.Select(f=>f.Style).ToHashSet(StringComparer.Ordinal);var gates=fences.SelectMany(f=>f.Gates.Select(g=>g.Style)).ToHashSet(StringComparer.Ordinal);
+  return new(){Version=metadata.Version,Id=metadata.Id,Name=metadata.Name,GeoReference=metadata.GeoReference,Buildings=metadata.Buildings.Where(BuildingTouches).ToList(),LinearFeatures=metadata.LinearFeatures.Where(PathTouches).ToList(),Fences=fences,FenceStyles=metadata.FenceStyles.Where(s=>styles.Contains(s.Id)).ToList(),GateStyles=metadata.GateStyles.Where(s=>gates.Contains(s.Id)).ToList()};
  }
  internal static async Task<MapProject> Project(WorldSectionArchive.RevisionLease lease,WorldSectionArchive.SectionReference section,MapProject project,WorldSectionArchive.Metadata metadata,CancellationToken token){
   ProjectValidator.Validate(project);WorldSectionArchive.ValidateSharedReplacement(metadata,project);var context=Context(metadata,project);
-  var layout=new WorldProject{Id=metadata.Id,Name=metadata.Name,Version=metadata.Version,Buildings=context.Buildings,LinearFeatures=context.LinearFeatures,GeoReference=metadata.GeoReference};
+  var layout=new WorldProject{Id=metadata.Id,Name=metadata.Name,Version=metadata.Version,Buildings=context.Buildings,LinearFeatures=context.LinearFeatures,Fences=context.Fences,FenceStyles=context.FenceStyles,GateStyles=context.GateStyles,GeoReference=metadata.GeoReference};
   foreach(var s in lease.PinnedManifest.Sections)layout.Maps.Add(new(){Id=s.Id,Project=s.Id==section.Id?project:new(){WorldX=s.WorldX,WorldY=s.WorldY,Width=s.Width,Height=s.Height,Name=s.Name}});
   // Build uses layout rectangles for coverage and asks for actual terrain only at support/landing cells.
   // It never receives invented grass for an unloaded section.

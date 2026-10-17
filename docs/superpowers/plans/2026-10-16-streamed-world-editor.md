@@ -29,14 +29,14 @@
 ### Task 1: Publish integration contracts
 **Files:** docs/SPZM-SCENE-CONTRACT.md and this spec/plan.
 - [x] Record ownership, coordinate/version rules, implemented/reserved fields and compatibility requirements.
-- [ ] Keep final API/DTO names synchronized after agents announce contracts; publish before dependent companion changes.
+- [x] Keep final API/DTO names synchronized after agents announce contracts; publish before dependent companion changes.
 
 ### Task 2: Revision-pinned streaming storage/export
 **Files:** Web/Services/WorldSectionArchive.cs, WorldStore.cs, WorldWorkspaceEndpoints.cs, ExportJobStore.cs, ExportJobEndpoints.cs; new streaming exporter helpers and SectionStreamingTests.cs.
 **Interfaces:** retain manifest/section routes; add minimal section context and revision-pinned workspace export jobs. Announce signatures to root.
 - [x] Write RED cases for bounded isolated read/save, unrelated corrupt sections, stale revisions, aggregate budget, leased revisions, cancellation and native archive shared geometry.
 - [x] Implement immutable readers/leases and streamed job snapshots; process one section at a time with resource checks and progress.
-- [ ] Run focused cases, verify native entries/retained metadata, document bounded memory behavior.
+- [x] Run focused cases, verify native entries/retained metadata, document bounded memory behavior.
 
 ### Task 3: Polygon zones, density and room rules
 **Files:** Core/GameZone.cs, new zone geometry/density/room rule helpers, Export/GameZonesExporter.cs, dedicated Web zone endpoints, wwwroot zone-data/panel modules and focused tests.
@@ -52,20 +52,20 @@
 - [x] Implement layer ordering/visibility, world seam/loaded-state presentation, line and footprint drawing adapters in existing visual style.
 - [x] Report exact root integration hooks and existing-core dependencies.
 
-Workbench modules and adapters are implemented; application-wide rendering/lock enforcement and browser acceptance remain in Task 5. Annotation ordering changes source/section overlays only; physical sprites retain their depth order.
+Workbench modules, application rendering/lock enforcement and synthetic browser acceptance are verified. Annotation ordering changes source/section overlays only; physical sprites retain their depth order.
 
 ### Task 5: Root browser streaming integration
 **Files:** wwwroot/world-workspaces.js, world-workshop.js, app.js, editor.js; native context/operations as needed; JS/browser regressions.
 - [x] RED lifecycle/history tests for active section switching, stale loads/saves, minimal shared context and manifest overview.
-- [ ] Wire root field validation/history, layer restrictions, zone UI, loaded/unloaded neighbour overlay and bounded section navigation; no full-world recovery on isolated edits.
-- [ ] Exercise 13-section fixture, actual APIs, save/reload, export cancellation and native decoding.
+- [x] Wire root field validation/history, layer restrictions, zone UI, loaded/unloaded neighbour overlay and bounded section navigation; no full-world recovery on isolated edits.
+- [x] Exercise 13-section fixture, actual APIs, save/reload, export cancellation and native decoding.
 
 ### Task 6: Review and delivery
 - [x] Draft portable English usage documentation and add guides to the package allowlist.
-- [ ] Whole C#/JS suites, fresh self-contained browser/native probe, screenshots, English guides and local resource-path/privacy checks.
-- [ ] Independent review, fix material findings, fetch/merge concurrent develop changes without overwriting companion work.
+- [x] Whole C#/JS suites, fresh self-contained browser/native probe, screenshots, English guides and local resource-path/privacy checks.
+- [x] Independent review, fix material findings, fetch/merge concurrent develop changes without overwriting companion work.
 - [ ] Commit/push reviewed work, update running app and package. Report actual private-fixture availability and remaining companion capabilities honestly.
 
 ## Integration checkpoint
 
-Focused browser-module tests pass for section switching, failed/stale saves, edits during a pending download, cancelled application after recovery waits, explicit reload success/failure, manifest-only neighbours and annotation draw order. Native/browser end-to-end acceptance and delivery are still open. The real private 13-section Pilna scene set has not been used as an acceptance fixture; any synthetic fixture must be labelled as such.
+Focused browser-module tests pass for section switching, failed/stale saves, edits during a pending download, cancelled application after recovery waits, explicit reload success/failure, manifest-only neighbours and annotation draw order. Native/browser acceptance is verified; final publication is recorded with the delivery commit. The real private 13-section Pilna scene set has not been used as an acceptance fixture; any synthetic fixture must be labelled as such.

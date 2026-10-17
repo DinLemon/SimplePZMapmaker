@@ -2,6 +2,7 @@ import {installSourceWorkbench} from './source-workbench.js';
 import {installMapLayers} from './map-layers.js';
 import {installGeographicAuthoringTools} from './geographic-authoring-tools.js';
 import {mountZonePanel} from './zone-panel.js';
+import {mountFenceControls} from './fence-authoring.js';
 import {assertLayerChanges,terrainLayer,nativeLayerClassifier} from './layer-edit-guards.js';
 import {installGenerationStudio,readSettlementRules} from './generation-studio.js';
 import {installStreetEnsembleControls} from './street-ensembles.js';
@@ -42,8 +43,9 @@ const recoveryClientKey='simple-pz-mapmaker:recovery-client:v1';
 let recoveryId=crypto.randomUUID().replaceAll('-','');
 try{const existing=localStorage.getItem(recoveryClientKey);if(/^[a-f0-9]{32}$/.test(existing||''))recoveryId=existing;else localStorage.setItem(recoveryClientKey,recoveryId);}catch{}
 let autosaveRevision=0,recoveryQueue=Promise.resolve();
+let initialSectionPointer=null;try{initialSectionPointer=JSON.parse(localStorage.getItem('simple-pz-mapmaker:active-section:v1')??'null');}catch{}
 let project=blank(),history=new History(),tool='brush',terrain=0,buildingKind='house';
-let mapLayers,geometryTools,zonePanel,polygonReceiver=null;
+let mapLayers,geometryTools,zonePanel,fenceControls,polygonReceiver=null;
 let nativeLayerCache=null;
 function createMapHistory(){const h=new History();h.beforeCommit=(before,after,changes)=>mapLayers&&assertLayerChanges(before,after,changes,mapLayers);h.beforeCheckpoint=(before,after)=>mapLayers&&assertLayerChanges(before,after,null,mapLayers);h.beforeApply=(current,item,reverse)=>{if(!mapLayers)return;const next=structuredClone(current);new History().apply(next,item,reverse);assertLayerChanges(current,next,null,mapLayers);};return h;}
 let selectedId=null,selectedSpawn=-1,gesture=null,cursor=null,isometric=false,nativeView=false,showGrid=true;
@@ -97,8 +99,10 @@ $('open-linear-editor').onclick=()=>linearWorkshop.open();
 
 const layerStyle=document.createElement('link');layerStyle.rel='stylesheet';layerStyle.href='./map-layers.css';document.head.append(layerStyle);
 mapLayers=installMapLayers({host:document.querySelector('.inspector'),getContext:getNativeContext,requestDraw,onStateChange:()=>{dirty=true;nativeEditor.cancel();geometryTools?.refresh();}});
+fenceControls=mountFenceControls(document.querySelector('.inspector'),{getProject:()=>project});
+nativeEditor.layerGuard=(operation,target)=>{if(operation==='execute')return true;const layer=operation.includes('model')||['move','delete-selection'].includes(operation)&&target?.type==='model'?'models':operation==='object'||['move','delete-selection'].includes(operation)&&['object','decoration'].includes(target?.type)?'decorations':'buildings';mapLayers.guardEdit(layer,()=>{});if(target?.building)mapLayers.guardEdit('buildings',()=>{});return true;};
 geometryTools=installGeographicAuthoringTools({host:document.querySelector('.inspector'),getContext:getNativeContext,layers:mapLayers,requestDraw,message:toast,download,
- getCapabilities:()=>({polygon:{version:1},polyline:{version:1},smallBuilding:{minWidth:6,minHeight:6,maxWidth:64,maxHeight:64}}),
+ getCapabilities:()=>({polygon:{version:1},polyline:{version:1},fence:{version:1},smallBuilding:{minWidth:6,minHeight:6,maxWidth:64,maxHeight:64}}),
  onDrawFinished:async draft=>{
   const snapshot=JSON.stringify(project);
   if(draft.kind==='polygon'&&polygonReceiver){const receive=polygonReceiver;polygonReceiver=null;receive(draft.points);return {applied:true};}
@@ -106,10 +110,12 @@ geometryTools=installGeographicAuthoringTools({host:document.querySelector('.ins
   if(draft.kind==='polygon'){const points=draft.points,x=Math.min(...points.map(p=>p.x)),y=Math.min(...points.map(p=>p.y));const zone={id:draft.id,name:'Authored polygon',type:'TownZone',z:0,x,y,width:Math.max(...points.map(p=>p.x))-x,height:Math.max(...points.map(p=>p.y))-y,polygon:points};next=(await api('/api/zones/apply',{project,zones:[...(project.gameZones??[]),zone]})).project;}
   else if(draft.kind==='polyline')next=await api('/api/linear/put',{project,feature:{id:draft.id,kind:'sidewalk',width:2,level:draft.level,access:'none',guardRails:false,supportSpacing:0,interpolation:'polyline',points:draft.points,sourcePath:[],sourceTags:{},modified:true,underlay:[],decorationIds:[],generatedDecorations:[],assetSources:{}}});
   else if(draft.kind==='smallBuilding'){if(draft.level!==0)throw Error('Place the building footprint at ground level, then add its floors.');const building=await api('/api/building/design',{building:{id:draft.id,name:'Authored outbuilding',kind:'garage',...draft.rectangle},levels:1,basements:0,seed:project.seed});next={...project,buildings:[...project.buildings,building]};}
-  else throw Error('Fence geometry awaits the companion core adapter. The exact draft is retained.');
+  else if(draft.kind==='fence')next=await fenceControls.proposal(draft);
+  else throw Error('This geometry adapter is unavailable. The exact draft is retained.');
   await applyEnsembleSnapshot(next,{snapshot});return {applied:true};
  }});
 worldWorkshop.assertCanSaveOrExport=()=>geometryTools.assertNoPendingDrafts();
+worldWorkshop.restoreSection=(p,options)=>applyEnsembleSnapshot(p,options);
 worldWorkshop.assertCanReplace=({streamed=false}={})=>{geometryTools.assertNoPendingDrafts();if(!streamed&&worldWorkshop.workspaces.session.dirty)throw Error('Save the active workspace section before replacing the project.');};
 const zoneHost=document.createElement('details');zoneHost.className='geographic-authoring-workbench';const zoneSummary=document.createElement('summary');zoneSummary.textContent='Polygon zones, density and rooms';const zoneContent=document.createElement('section');zoneHost.append(zoneSummary,zoneContent);document.querySelector('.inspector').append(zoneHost);
 zonePanel=mountZonePanel(zoneContent,{getProject:()=>project,apply:p=>applyEnsembleSnapshot(p),requestDraw,getLevel:()=>getNativeContext().level??0,
@@ -157,6 +163,7 @@ async function task(message,run){
 }
 function download(blob,name){if(name!=='geometry-drafts.json')geometryTools?.assertNoPendingDrafts();const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);}
 function autosave(){
+ try{const active=worldWorkshop.workspaces.context();if(active)localStorage.setItem('simple-pz-mapmaker:active-section:v1',JSON.stringify({id:active.id,memberId:active.memberId}));else localStorage.removeItem('simple-pz-mapmaker:active-section:v1');}catch{}
  const revision=++autosaveRevision;$('save-state').textContent='Unsaved changes';clearTimeout(saveTimer);
  saveTimer=setTimeout(()=>{recoveryQueue=recoveryQueue.catch(()=>{}).then(async()=>{
   if(revision!==autosaveRevision)return;
@@ -185,7 +192,7 @@ function update(){
  const help={'appearance-area':'Draw a rectangle on the map. Then choose a preset for the selected area.',brush:'Draw with the left button. The wheel changes scale. The middle button or Space moves the map.',rectangle:'Extend a rectangular area from one corner to the other.',road:'Press at the beginning of the road and release at the end. The brush size determines the width of the road.',building:'Click on the vacant ground. A red outline indicates an intersection, water, or cell boundary.',spawn:'Click on the dry land outside the building. You can select and delete a point using the Select tool and the Delete key.',select:'Click on a building to change its position and size. Delete deletes the selected object.',pan:'Drag the map with the mouse. The wheel changes scale.',zombies:'Draw the zombie density. One square of density corresponds to an 8×8 chunk.'};
  $('tool-help').textContent=help[tool];requestDraw();
 }
-function changed(){sourceWorkbench.invalidate();nativeEditor.cancel();gameplayPanel.refresh();zonePanel?.refresh();mapLayers?.refresh();geometryTools?.refresh();dirty=true;worldWorkshop.currentChanged(project);agentSession?.localChanged();autosave();update();}
+function changed(){sourceWorkbench.invalidate();nativeEditor.cancel();gameplayPanel.refresh();zonePanel?.refresh();mapLayers?.refresh();geometryTools?.refresh();fenceControls?.refresh();dirty=true;worldWorkshop.currentChanged(project);agentSession?.localChanged();autosave();update();}
 function adopt(p,options={}){validateLocalProject(p);if(!options.worldManaged)worldWorkshop.beforeAdopt(p,options);validateGlobalProtection(p,worldMask(p));zonePanel?.cancel();polygonReceiver=null;p.version=Math.max(4,p.version);p.surfaceTheme??='legacy';p.surfaceRegions??=[];p.surfaceTiles??={};p.decorations??=[];p.staticModels??=[];p.requiredMods??=[];p.assetSources??={};p.resourcePalettes??=[];for(const b of [...p.buildings,...(p.buildingLibrary||[])])normalizeBuilding(b);project=p;nativeEditor.select(null);for(const m of (p.staticModels||[]).slice(0,200))modelSprites.load(m).then(()=>requestDraw());appearance.reset();history=createMapHistory();history.extraBlockedWater=index=>worldMask().has(index);selectedId=null;selectedSpawn=-1;gesture=null;dirty=true;fit();changed();}
 function setTool(value){if(gesture)finish();if(nativeView&&value!=='pan'){nativeEditor.setTool(({building:'building',select:'select','static-model':'model','world-asset':'object','erase-decor':'erase-object'})[value]??'select');}tool=value;document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===tool));if(value==='zombies')$('show-zombies').checked=true;update();}
 function fit(){
@@ -212,7 +219,7 @@ function draw(){
  rebuildRaster();const dpr=window.devicePixelRatio||1;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,viewport.width,viewport.height);ctx.imageSmoothingEnabled=false;
  ctx.save();if(isometric)ctx.transform(zoom,zoom/2,-zoom,zoom/2,pan.x,pan.y);else ctx.transform(zoom,0,0,zoom,pan.x,pan.y);
  ctx.shadowColor='#0007';ctx.shadowBlur=12;if(!nativeActive||canvas.dataset.nativeState==='loading')ctx.drawImage(raster,0,0);ctx.shadowBlur=0;
- if(nativeActive){ctx.restore();const revision=getNativeContext().revision;if(nativeLayerCache?.revision!==revision||nativeLayerCache.project!==project)nativeLayerCache={revision,project,classify:nativeLayerClassifier(project,sharedLocalBuildings())};nativePreview.draw(ctx,{skipModel:m=>nativeLighting.modelSuppressed(m),visible:node=>mapLayers.isVisible(nativeLayerCache.classify(node))});ctx.save();ctx.transform(zoom,zoom/2,-zoom,zoom/2,pan.x,pan.y);}
+ if(nativeActive){ctx.restore();const context=getNativeContext(),revision=context.revision,shared=context.workspace?.shared??context.world;if(nativeLayerCache?.revision!==revision||nativeLayerCache.project!==project)nativeLayerCache={revision,project,classify:nativeLayerClassifier({...project,fenceStyles:[...(project.fenceStyles??[]),...(shared?.fenceStyles??[])],gateStyles:[...(project.gateStyles??[]),...(shared?.gateStyles??[])]},sharedLocalBuildings())};nativePreview.draw(ctx,{skipModel:m=>nativeLighting.modelSuppressed(m),visible:node=>mapLayers.isVisible(nativeLayerCache.classify(node))});ctx.save();ctx.transform(zoom,zoom/2,-zoom,zoom/2,pan.x,pan.y);}
  if(mapLayers.isVisible('zombies')&&$('show-zombies').checked){const n=project.width/8;for(let y=0;y<project.height/8;y++)for(let x=0;x<n;x++){const z=project.zombies[y*n+x];if(z){ctx.fillStyle=`rgba(171,53,32,${z/255*.7})`;ctx.fillRect(x*8,y*8,8,8);}}}
  if(showGrid){
   ctx.lineWidth=1/zoom;ctx.strokeStyle='#d5ad6999';ctx.setLineDash([5/zoom,5/zoom]);ctx.beginPath();for(let x=0;x<=project.width;x+=256){ctx.moveTo(x,0);ctx.lineTo(x,project.height);}for(let y=0;y<=project.height;y+=256){ctx.moveTo(0,y);ctx.lineTo(project.width,y);}ctx.stroke();ctx.setLineDash([]);
@@ -239,6 +246,7 @@ function draw(){
  if(nativeActive){nativeLighting.draw(ctx,{zoom,pan,viewport});nativeEditor.draw(ctx);}
  accessDiagnostics.draw(ctx,{zoom,pan,viewport,isometric});
  if(mapLayers.isVisible('source'))sourceWorkbench.draw(ctx,{screen});
+ if(!nativeActive&&mapLayers.isVisible('paths')){const shared=getNativeContext().workspace?.shared??getNativeContext().world;ctx.save();ctx.strokeStyle='#b9c8a1';ctx.lineWidth=1.5;const lines=[...(project.fences??[]),...(shared?.fences??[]).map(f=>({...f,points:f.points.map(p=>({x:p.x-project.worldX*256,y:p.y-project.worldY*256}))}))];polygon([[0,0],[project.width,0],[project.width,project.height],[0,project.height]].map(([x,y])=>screen(x,y)));ctx.clip();for(const line of lines){ctx.beginPath();line.points.forEach((p,i)=>{const s=screen(p.x,p.y);i?ctx.lineTo(s.x,s.y):ctx.moveTo(s.x,s.y);});ctx.stroke();}ctx.restore();}
  if(mapLayers.isVisible('zones'))zonePanel.draw(ctx,{screen});
  mapLayers.draw(ctx,getNativeContext());geometryTools.draw(ctx,getNativeContext());
  if(cursor&&within(cursor)&&!isometric&&!busy){
@@ -367,10 +375,12 @@ document.addEventListener('keydown',e=>{if(['INPUT','SELECT','TEXTAREA'].include
  const keys={b:'brush',a:'rectangle',r:'road',h:'building',p:'spawn',v:'select',z:'zombies'};if(keys[e.key.toLowerCase()])setTool(keys[e.key.toLowerCase()]);if(e.key==='Escape')nativeEditor.cancel();if(e.key==='Delete'){if(nativeView)nativeEditor.deleteSelection();else deleteSelection();}
 });document.addEventListener('keyup',e=>{if(e.code==='Space')space=false;});window.addEventListener('blur',()=>{space=false;finish();});
 async function start(){
+ for(const id of ['undo','redo']){const action=$(id).onclick;$(id).onclick=()=>{try{return action();}catch(e){toast(e.message,true);}};}
  let recovered=false;try{const response=await fetch('/api/recovery/'+recoveryId);if(response.ok){adopt(await response.json());recovered=true;status('Autosave restored');}else{const text=localStorage.getItem(recoveryKey);if(text){adopt(JSON.parse(text));recovered=true;status('Moving autosave to the project folder');}}}catch{toast('Autosave is not available. Open the previously saved file.',true);}
  if(!recovered)await task('Preparing the first map…',async signal=>adopt(await api('/api/generate',{size:256,seed:42,kind:'town',name:'Quiet city'},signal)));
  try{const environment=await fetch('/api/environment').then(r=>r.json());$('game-status').textContent=environment.gameFound?'Project Zomboid found':'Game not found: export available';}catch{$('game-status').textContent='Could not verify the game';}
  await worldWorkshop.restore();
+ try{const saved=initialSectionPointer;if(saved&&/^[a-f0-9]{32}$/.test(saved.id)&&/^[a-f0-9]{32}$/.test(saved.memberId))await task('Restoring the last saved section…',async signal=>{await worldWorkshop.workspaces.select(saved.id,signal);await worldWorkshop.workspaces.open(signal,saved.memberId);});}catch{toast('The last workspace section could not be restored. Open it from World → Section workspaces.',true);}
  update();
 }
 start();

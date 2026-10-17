@@ -6,6 +6,7 @@ export function assertLayerChanges(before,after,changes,layers){
  const contents=(project,key)=>(project.buildings??[]).flatMap(b=>(b.design?.floors??[]).flatMap((f,z)=>(f[key]??[]).map(item=>({building:b.id,z,item}))));
  if(!equal(contents(before,'staticModels'),contents(after,'staticModels')))guard('models');
  if(!equal(contents(before,'objects'),contents(after,'objects')))guard('decorations');
+ if(['fences','fenceStyles','gateStyles'].some(key=>!equal(before[key],after[key])))guard('paths');
  if(!equal(before.linearFeatures,after.linearFeatures)){guard('paths');if([...(before.linearFeatures??[]),...(after.linearFeatures??[])].some(f=>f.kind==='road'||f.kind==='bridge'))guard('roads');}
  const raster=(layer,start,old)=>{const now=after[layer];if(!now)return;for(let i=0;i<old.length;i++)if(old[i]!==now[start+i]){if(layer==='zombies'){guard('zombies');return;}guard(terrainLayer(old[i]));guard(terrainLayer(now[start+i]));}};
  if(changes)for(const change of changes.values())raster(change.layer,change.start,change.old);
@@ -19,11 +20,12 @@ export function nativeLayer(node,project,shared=[]){
  return node.z!==0?'paths':terrainLayer(project.terrain?.[node.y*project.width+node.x]);
 }
 export function nativeLayerClassifier(project,shared=[]){
+ const fenceTiles=new Set((project.fenceStyles??[]).flatMap(s=>[s.w,s.n,s.nw,s.post,s.wAlt,s.nAlt]).filter(Boolean).concat((project.gateStyles??[]).flatMap(s=>[...s.closedW,...s.closedN,...s.openW,...s.openN])));
  const owner=new Uint8Array(project.width*project.height),write=(x,y,code)=>{if(x>=0&&y>=0&&x<project.width&&y<project.height)owner[y*project.width+x]=code;};
  for(const b of [...(project.buildings??[]),...shared]){
   if(!b.design){for(let y=Math.max(0,b.y);y<Math.min(project.height,b.y+b.height);y++)for(let x=Math.max(0,b.x);x<Math.min(project.width,b.x+b.width);x++)write(x,y,1);continue;}
   for(const floor of b.design.floors){for(let y=0;y<b.height;y++)for(let x=0;x<b.width;x++)if(floor.cells[y*b.width+x]!=='.')write(b.x+x,b.y+y,1);for(const edge of floor.edges)write(b.x+edge.x,b.y+edge.y,1);}
  }
  for(const d of project.decorations??[])for(const part of d.parts)write(d.x+part.dx,d.y+part.dy,2);
- return node=>node.type==='model'?'models':node.layer===0?terrainLayer(project.terrain[node.y*project.width+node.x]):owner[node.y*project.width+node.x]===1?'buildings':owner[node.y*project.width+node.x]===2?'decorations':node.z!==0?'paths':terrainLayer(project.terrain[node.y*project.width+node.x]);
+ return node=>node.type==='model'?'models':fenceTiles.has(node.tile)?'paths':node.layer===0?terrainLayer(project.terrain[node.y*project.width+node.x]):owner[node.y*project.width+node.x]===1?'buildings':owner[node.y*project.width+node.x]===2?'decorations':node.z!==0?'paths':terrainLayer(project.terrain[node.y*project.width+node.x]);
 }

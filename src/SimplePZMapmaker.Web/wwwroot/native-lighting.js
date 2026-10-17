@@ -36,6 +36,7 @@ export class NativeLightingPanel{
   if(this.controller)return;this.openNative();let controller;
   try{
    const context=this.getContext(),revision=String(context.revision),area=lightingArea(context,+this.find('size').value,+this.find('x').value,+this.find('y').value);
+   if(context.workspace)throw Error('Lighting across unloaded neighbours needs the complete world. Use World → Section workspaces → Load complete world for this check.');
    const color=this.find('sky').value,rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16)/255),ambient=+this.find('ambient').value;
    if(!Number.isFinite(ambient)||ambient<0||ambient>1)throw Error('Ambient strength must be between 0 and 1.');
    const source=context.world?{world:{...context.world,maps:context.world.maps.map(m=>m.id===context.memberId?{...m,project:context.project}:m)},memberId:context.memberId}:{project:context.project};

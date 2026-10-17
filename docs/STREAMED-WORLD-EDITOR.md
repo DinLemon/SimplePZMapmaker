@@ -14,6 +14,8 @@ Only that section's terrain and authoring data enter the editor. Other sections 
 
 Saving a complete in-memory world as a workspace is an initial conversion step. Subsequent isolated reads, saves and saved-workspace export jobs do not first rebuild a complete in-memory world. A workspace containing a large number of existing sections should therefore be edited through these controls rather than repeatedly opened through the compatibility complete-world command.
 
+![Section workspace overview with loaded and unloaded sections](images/streamed-world-editor.png)
+
 ## Edit, switch and save
 
 - Edit the active section normally. Its workspace label shows the active section, saved revision and unsaved state.
@@ -34,6 +36,17 @@ Another editor or process can save a newer revision. The application refuses to 
 
 The discard button is an explicit destructive choice for the current unsaved copy. There is no automatic last-writer-wins merge. **Download current section file** is available when a standalone file can retain its content; sections with crossing shared geometry are rejected by that command because a plain section file would omit their context.
 
+### Restore a retained section revision
+
+**Saved revision** offers the current saved copy and up to three previous retained snapshots. A missing/pruned revision reports an error without changing the active map.
+
+1. Open the section to restore. The controls always target the **active** workspace and section, even while another workspace is selected in the browser list.
+2. Select a retained revision and choose **Preview saved revision**. Read the saved name, dimensions, building/object/fence/zone counts and their current counterparts. The preview also calls out current unsaved changes.
+3. Choose **Restore preview to active section** only after reviewing that replacement. Restoration changes the section's local terrain and authoring in one undoable editor operation. It retains current shared world geometry and the current workspace index.
+4. Save the current section to publish a new revision, or undo to recover the local state that preceded restoration. Normal active-section autosave also applies.
+
+The historical section must have the same origin and dimensions. It is validated against the **current** shared geometry before preview and again before apply. A changed workspace revision, map edit, section switch or changed saved-revision selection invalidates the review. Preview again instead of replacing newer edits. The tool never rolls the entire workspace manifest back to a historical version.
+
 ## Shared buildings, paths and exports
 
 Crossing buildings and infrastructure use the shared world geometry. Their projected footprints remain visible in an isolated section and participate in placement checks. Required nearby support samples are read for shared infrastructure; unrelated terrain sections remain unloaded. Missing required samples produce an error rather than invented ground.
@@ -52,6 +65,10 @@ The native ZIP retains source sections and shared authoring metadata alongside n
 - Compatibility complete-world JSON loading/saving retains its explicit 128 MiB budget. Native ZIP/job output is currently bounded to 256 MiB; streaming does not mean unlimited output size. Export selected sections separately when a combined archive exceeds that limit.
 
 These are application storage/authoring budgets. They do not establish a 2,048-tile limit for an entire Project Zomboid world.
+
+### Rotated real-place references
+
+The core geographic reference supports `RotationDegrees` from **−45° to +45°**, with zero preserving existing projection. Positive angles turn source content clockwise in the east/south tile plane. Rotation uses the centre of the geographic bounds and one shared origin for all sections; original WGS84 source coordinates stay unchanged. The [transfer contract](TRANSFER-CONTRACT.md#1-coordinates) provides formulas and the −11.22° Pilna example. This is a saved/import reference capability, not a free-rotation control for an already authored section.
 
 ## Use map layers
 
@@ -77,13 +94,19 @@ The current path adapter creates a two-tile sidewalk. Its width and other path p
 
 The current building adapter creates a ground-level outbuilding with an exact footprint of **6–64 tiles per side**. Add floors or edit its design afterward. A smaller draft keeps its requested dimensions and cannot be applied through this adapter. Tiny 2×2 sheds and shared-wall behavior await the companion core implementation.
 
-Fence lines are currently exact geometry drafts. Native fence/gate/corner application awaits the companion core adapter. They are not converted into ordinary decorations or silently exported as supported fences.
+The merged core supports a native fence edge layer with separate fence/gate styles, posts and crossing world lines; see the [fence contract](TRANSFER-CONTRACT.md#4-fences-and-gates). Geometry tools enable **Apply draft** only for supported adapter operations. An unavailable operation keeps its exact draft. Fences are never approximated as ordinary decorations. Existing/imported fence data and dependencies remain part of map/world authoring; a basic drawing adapter does not imply that every gate/style setting has a visual editor.
+
+Expand **Fence resources and gates** before drawing a fence. Choose a saved custom style or a built-in sheet, plank, picket or wire style. Set **Post spacing** from 0 to 64; a style must define a post tile to display posts. Optionally enable **Add a wicket or gate**, choose its registered style, set its first edge offset and opening side. Draw horizontal and vertical runs with explicit corners, finish with Enter and select **Apply draft**. The initial gate is closed. The result reports pieces skipped because of water, buildings or overlaps. A fence and an object may occupy the same cell. Native Game view shows the actual tiles; top view shows the line.
+
+Local drawing keeps the entire line inside its owning section. Edges exactly on the east or south boundary belong to the neighbour; author those as shared world fences rather than silently clipping a local line. Shared fences remain visible and read-only while editing an isolated section.
 
 **Download drafts** saves a separate `geometry-drafts.json`; **Import drafts** restores it. Drafts retain their section and coordinate frame. They cannot be applied to another map origin or size. Pending drafts block explicit map/world saves, exports and section replacement. Downloading them does not clear that protection: apply them or explicitly remove them after retaining the draft file. Normal recovery of already committed map changes continues separately.
 
 ## Author polygon zones
 
 Expand **Polygon zones, density and rooms**. The contained panel is titled **Zones, density and room rules**.
+
+![Polygon editing with density preview and saved region geometry](images/polygon-zone-editor.png)
 
 1. Choose an **Authoring layer**, a name and its properties.
 2. Choose **Draw rectangle** or **Draw polygon**. For a polygon, click the outline, finish with **Enter**, then choose **Apply draft** in **Geometry tools** to transfer the outline into the zone form.
@@ -114,7 +137,9 @@ Select an existing region in the list to edit it. **Preview removal** follows th
 
 ## Verification scope
 
-Module tests cover revision conflicts, stale/cancelled section loads, explicit reload failure, unloaded-neighbour presentation, geometry capability gates, polygon coverage, density ownership and reviewed room changes. The end-to-end browser/native integration check is tracked separately in [verification status](STATUS.md).
+Module tests cover revision conflicts, stale/cancelled section loads, explicit reload failure, unloaded-neighbour presentation, geometry capability gates, polygon coverage, density ownership and reviewed room changes. The self-contained browser check uses 13 synthetic 1024×1024 sections, a shared house/fence and a crossing road. It verifies save/switch/reload, polygon density, a drawn fence with a wicket, revision restoration and locked undo. Both the section and combined world archives pass independent native decoding; installed game classes load the section archive. See [verification status](STATUS.md).
+
+Current boundaries: native lighting requires **Load complete world** so that its neighbour halo is present; isolated editing refuses an incomplete lighting calculation. Small building footprints still follow the core's 6×6 minimum. Imported fences crossing sections still need authoritative world-layer promotion in the source importer; their retained source data is not proof of that promotion. Arbitrary shared decoration groups do not yet have a world-level authoring DTO. These limitations are separate from the bounded section readers and native fence export.
 
 The companion developer's private 13 populated Pilna scenes have not been used as an acceptance fixture for this change. Synthetic fixtures establish the tested behavior without claiming that the complete real settlement has already passed validation.
 

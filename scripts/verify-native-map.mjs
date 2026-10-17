@@ -1,6 +1,7 @@
 import {readFile,stat} from 'node:fs/promises';
 import {inflateRawSync} from 'node:zlib';
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 
 const file=process.argv[2]||'examples/Pilna/Pilna-B42.zip';
 const zip=await readFile(file);let end=-1;
@@ -19,11 +20,12 @@ class Reader{
  magic(){const text=this.bytes.subarray(this.offset,this.offset+4).toString('ascii');this.offset+=4;return text;}
  line(){const end=this.bytes.indexOf(10,this.offset);assert.ok(end>=this.offset&&end-this.offset<200);const text=this.bytes.subarray(this.offset,end).toString('ascii');this.offset=end+1;return text;}
 }
-const projectEntry=[...entries].find(([name])=>name.endsWith('/project.pzmap.json')),worldEntry=[...entries].find(([name])=>name.endsWith('/world.pzworld.json'));assert.ok(projectEntry||worldEntry);
-const world=worldEntry?JSON.parse(worldEntry[1].toString('utf8')):null;
+const projectEntry=[...entries].find(([name])=>name.endsWith('/project.pzmap.json')),worldEntry=[...entries].find(([name])=>name.endsWith('/world.pzworld.json')),indexEntry=[...entries].find(([name])=>name.endsWith('/source/world.pzworld.index.json'));assert.ok(projectEntry||worldEntry||indexEntry);
+let world=worldEntry?JSON.parse(worldEntry[1].toString('utf8')):null;
+if(indexEntry){const index=JSON.parse(indexEntry[1]),root=indexEntry[0].slice(0,-'world.pzworld.index.json'.length),metadata=entries.get(root+'world.metadata.json');assert.ok(metadata,'Missing shared authoring metadata');assert.equal(createHash('sha256').update(metadata).digest('hex'),index.metadataHash,'Shared source hash differs from the pinned index');const shared=JSON.parse(metadata),maps=[];for(const section of index.sections){const bytes=entries.get(root+'sections/'+section.id+'.pzmap.json');if(!bytes){assert.ok(projectEntry,'Full world archive omitted a section source');continue;}assert.equal(createHash('sha256').update(bytes).digest('hex'),section.hash,'Section source hash differs from pinned index');maps.push({id:section.id,project:JSON.parse(bytes)});}world={...shared,maps};}
 const projects=projectEntry?[JSON.parse(projectEntry[1].toString('utf8'))]:world.maps.map(m=>{const p=m.project;return {...p,buildings:[...p.buildings,...(world.buildings||[]).filter(b=>b.x<p.worldX*256+p.width&&b.y<p.worldY*256+p.height&&b.x+b.width>=p.worldX*256&&b.y+b.height>=p.worldY*256).map(b=>({...b,x:b.x-p.worldX*256,y:b.y-p.worldY*256}))]};});
 const contextEntry=[...entries].find(([name])=>name.endsWith('/section-world-context.json'));
-if(contextEntry){assert.ok(projectEntry&&!worldEntry,'Section context belongs only to a standalone selected section');const c=JSON.parse(contextEntry[1].toString('utf8')),p=projects[0];assert.equal(c.format,'SimplePZSectionContext');assert.equal(c.version,1);assert.ok(Array.isArray(c.buildings)&&c.buildings.length<=4000&&Array.isArray(c.sections));const owner=c.sections.find(s=>s.id===c.memberId);assert.ok(owner);for(const key of ['worldX','worldY','width','height'])assert.equal(owner[key],p[key],'Selected source differs from its world context');const ids=new Set(p.buildings.map(b=>b.id));for(const b of c.buildings){assert.ok(!ids.has(b.id),'Shared context repeats a local building');ids.add(b.id);assert.ok(b.x<p.worldX*256+p.width&&b.y<p.worldY*256+p.height&&b.x+b.width>=p.worldX*256&&b.y+b.height>=p.worldY*256,'Shared context includes an unrelated building');p.buildings.push({...b,x:b.x-p.worldX*256,y:b.y-p.worldY*256});}}
+if(contextEntry){assert.ok(projectEntry&&!worldEntry,'Section context belongs only to a standalone selected section');const c=JSON.parse(contextEntry[1].toString('utf8')),p=projects[0];assert.equal(c.format,'SimplePZSectionContext');assert.equal(c.version,1);assert.ok(Array.isArray(c.buildings)&&c.buildings.length<=4000&&Array.isArray(c.sections));const owner=c.sections.find(s=>s.id===c.memberId);assert.ok(owner);for(const key of ['worldX','worldY','width','height'])assert.equal(owner[key],p[key],'Selected source differs from its world context');const ids=new Set(p.buildings.map(b=>b.id));for(const b of c.buildings){assert.ok(!ids.has(b.id),'Shared context repeats a local building');ids.add(b.id);if(b.x<p.worldX*256+p.width&&b.y<p.worldY*256+p.height&&b.x+b.width>=p.worldX*256&&b.y+b.height>=p.worldY*256)p.buildings.push({...b,x:b.x-p.worldX*256,y:b.y-p.worldY*256});}}
 const headers=[...entries].filter(([name])=>name.endsWith('.lotheader'));
 assert.equal(headers.length,projects.reduce((sum,p)=>sum+p.width*p.height/65536,0));
 const allTiles=new Set();let chunks=0,rooms=0,buildings=0;

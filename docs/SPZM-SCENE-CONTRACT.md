@@ -1,6 +1,6 @@
-# SPZM scene and editor integration contract, draft 1
+# SPZM editor and streaming integration contract
 
-This describes the shared boundary between the core/import/export developer and the editor/streaming developer. Existing map/world JSON remains readable. Fields described as reserved are integration proposals, not claims that native export already supports them. Unknown required feature versions must fail explicitly instead of silently discarding objects.
+This document extends the canonical [real-place transfer contract, version 1](TRANSFER-CONTRACT.md) with editor zones and section streaming. That contract defines source projection, stable identities, transfer ownership, fence/gate DTOs and appearance tags. This document does not redefine them. Existing map/world JSON remains readable; required feature versions must fail explicitly instead of silently discarding objects.
 
 ## Ownership and compatibility
 
@@ -12,19 +12,21 @@ This describes the shared boundary between the core/import/export developer and 
 
 Map-local X/Y are tiles, X east and Y south before any optional geographic rotation. A native cell is 256 tiles. World X/Y for an object equal local X/Y plus section WorldX/WorldY multiplied by 256. Z uses the existing signed range -32 through 31. SourceGeometry always contains actual WGS84 longitude/latitude. Never encode rotated pseudo-longitude/latitude as original source data.
 
-Reserved rotation extension: WorldGeoReference.RotationDegrees defaults to zero, finite in [-180,180]; positive is clockwise in game X-east/Y-south coordinates. Rotation is applied once to the common metric frame about an explicit geographic pivot; default pivot is the unrotated bounds centre. RequiredTiles, SectionBounds and inverse Geographic must use all four transformed corners and the same shared origin. The core implementation must pin pivot/origin semantics with round-trip and adjacent-section fixtures before UI consumes it.
+`WorldGeoReference.RotationDegrees` is implemented: finite **−45…45**, default zero. Positive angles turn content clockwise in the east/south metric plane. The pivot is fixed at the centre of `Bounds`; the common origin is anchored to the minimum rotated bounds corner. Required extents and inverse section queries use all four corners. Follow [the canonical formulas and examples](TRANSFER-CONTRACT.md#1-coordinates), including the −11.22° Pilna reference, rather than introducing another pivot or a broader angle range.
 
-Stable IDs identify one authored/source object independent of section clipping. A crossing object is stored once in world metadata; section previews/exports receive clipped projections. SourceId/provider IDs and authored object IDs are different concepts. Copies get new authored IDs; they do not claim a duplicate real-world identity.
+Stable IDs identify one authored/source object independent of section clipping. Generated object/section identities follow [the canonical hashing rules](TRANSFER-CONTRACT.md#2-stable-identities); editor-authored objects may use random GUIDs. Crossing objects are stored once at world level; projections clip them for preview/export. Copies receive new authored IDs without claiming duplicate real-world identity.
 
-## Fence and small-building adapters (reserved until core capability is available)
+## Fence and small-building adapters
 
-Fence data is an edge layer, not ordinary single-cell WorldDecoration. Proposed fence command: `{id, points:[{x,y}], level:0, tiles:{north,west,northWest,post}, postEvery, gates:[{id,at,direction,kind,opensInto}], requiredMods, assetSources}`. Gate `at` is distance in tiles along the canonical sampled path; a gate has a stable ID, N/W edge and explicitly resolved inward side. Shared crossing fences retain world coordinates and one ID. Existing bush/prop occupancy must not forbid an independent wall edge. Core chooses and publishes the final DTO and capability name before editor can commit these commands.
+The implemented fence edge layer uses `Fences`, `FenceStyles` and `GateStyles` on map/world projects, with the exact [canonical FenceLine/FenceStyle/GateStyle definitions](TRANSFER-CONTRACT.md#4-fences-and-gates). A line references a style; it does not carry the earlier proposed inline `tiles` object. Gates use `At`, `Style`, `OpensTo` and `Open`; posts use `PostSpacing`. World lines use global tile coordinates. Native edge occupancy is independent of ordinary decorations, allowing a fence and a plant to share a cell.
 
-Small-building drawing records the exact requested footprint. It must not silently enlarge a 2×2 shed into a larger building. Apply is enabled only when the active core advertises the supported footprint range and shared-wall behavior. Existing larger-building workflows remain available.
+Fence authoring requires map format **12** and world format **7**; nonzero geographic rotation also requires world format **7**. A browser adapter must commit the actual fence layer and retain its resource bindings, source paths and gate styles. It must never approximate fences as ordinary decorations. Unsupported geometry or unavailable adapter capabilities remain explicit drafts.
+
+Small-building drawing records the exact requested footprint and must not silently enlarge a 2×2 shed. Apply is enabled only for the active adapter's supported size and shared-wall behavior. The current general building adapter supports 6–64 tiles per side; the [canonical small/attached building extension](TRANSFER-CONTRACT.md#6-small-and-attached-buildings) must not be advertised as implemented merely because its schema is documented.
 
 ## Source appearance tags
 
-Reserved `pz:wall`, `pz:trim`, `pz:style`, `pz:roof` and `pz:roof:color` retain source strings separately from resolved game resources. Standard roof:shape remains independent. Resolved tiles require provider bindings and mod dependencies; missing resources are actionable errors. Trim uses the existing WallOverlay edge field. Source tags must not overwrite manual material choices during preserve-edits reimport. MultiPolygon/OSM relation support already exists and must retain holes and part identities.
+Use [the canonical appearance tag schema](TRANSFER-CONTRACT.md#5-building-appearance-tags): `pz:wall`, `pz:trim`, `pz:style`, `pz:kind`, standard `roof:shape` and `roof:colour`. The earlier draft `pz:roof`/`pz:roof:color` names are not substitute import keys. Source strings remain separate from resolved game resources. Resolved tiles require provider bindings and mod dependencies; missing resources are actionable errors. Trim uses the existing `WallOverlay` edge field. Preserve-edits reimport retains manual material choices, MultiPolygon holes and part identities.
 
 ## Zones (editor developer owns implementation)
 
@@ -33,6 +35,8 @@ Rectangular GameZone remains the compatibility default. Optional Polygon uses se
 Zombie density regions are separate authored records with stable ID/name, polygon/rectangle, Density 0..255 and deterministic ordered precedence. The existing 8×8 zombie raster remains the native export representation. Preserve a baseline or reversible ownership before applying regions so editing/removing a region does not destroy independent raster edits. Coverage/quantization is visible in preview.
 
 Room/loot tag authoring targets existing room names/distributions through registered catalogs. A region cannot invent a native loot-zone type. Room name changes are reviewed as whole-room changes with an explicit selection rule; unsupported tags remain source evidence. Scene tags proposed for CLI ingestion: `pz:zone:type`, `pz:zone:name`, `pz:vehicle:distribution`, `pz:zombie:density`, `pz:room`. The import developer maps them into the published zone DTOs after these validators ship.
+
+The canonical transfer contract's section 7 describes survey/import tag mapping (`pz:zone`, `pz:vehicles`, `pz:direction`) and its proposed bounded import decomposition. Those keys are not aliases for every authoring API field. The editor's optional polygon records retain the full accepted outline and native export preserves its complete covered-tile set. Its exporter does **not** truncate an authored polygon after 64 rectangles. Import pipelines must report any unplaced remainder as source evidence rather than imply that the editor/exporter accepted and then discarded it. Actual DTOs, coverage limits and API operations are detailed in [zone authoring](ZONE-AUTHORING.md).
 
 ## Section workspaces
 
