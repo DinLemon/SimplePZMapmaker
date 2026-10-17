@@ -17,6 +17,13 @@ public static class ModPackageTests
    using var versioned=new MemoryStream();NativeModPackage.Repack(new MemoryStream(original),versioned,new(ModId:"Pilna",MapFolder:"PilnaMap"));using var v=new ZipArchive(new MemoryStream(versioned.ToArray()));Check(v.Entries.Any(e=>e.FullName.StartsWith("Pilna/42/media/maps/PilnaMap/",StringComparison.Ordinal))&&v.GetEntry("Pilna/common/media/maps/") is not null,"Separate map folder or common skeleton missing");
    Reject(()=>NativeModPackage.Validate(new("../escape")));Reject(()=>NativeModPackage.Validate(new(Name:"two\nlines")));
   });
+  yield return("HTTP exports install only on POST and a GET can only rename the archive",()=>{
+   Microsoft.AspNetCore.Http.HttpRequest Request(string method,string query){var context=new Microsoft.AspNetCore.Http.DefaultHttpContext();context.Request.Method=method;context.Request.QueryString=new(query);return context.Request;}
+   Reject(()=>SimplePZMapmaker.Web.Services.NativeExportService.Options(Request("GET","?install=true")));
+   Check(SimplePZMapmaker.Web.Services.NativeExportService.Options(Request("GET","?modId=Pilna")) is {ModId:"Pilna",Install:false},"A GET rename was refused");
+   Check(SimplePZMapmaker.Web.Services.NativeExportService.Options(Request("POST","?install=true")) is {Install:true},"A POST install was refused");
+   Check(SimplePZMapmaker.Web.Services.NativeExportService.Options(Request("GET","")) is null,"An export without options must not be repackaged");
+  });
   yield return("install writes a marked mod folder, replaces only its own folder and refuses escaping paths",()=>{
    var mods=Path.Combine(Environment.GetEnvironmentVariable("PZMAP_WORKSPACE")??Path.GetFullPath("."),"work","mod-install-tests",Guid.NewGuid().ToString("N"));
    try{

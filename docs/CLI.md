@@ -19,7 +19,7 @@ Common options:
 - `--report report.json` saves the seam check.
 - Mod options: `--mod-id`, `--map-folder` (the server `Map=` value, defaults to the mod id), `--mod-name` (title in the mod list and map selector), `--common-maps` (puts `media/maps` under `common/` instead of `42/`), `--install` (extracts into `Zomboid/mods`, or `--mods-dir`). An install replaces only a folder that SimplePZMapmaker created earlier (it carries a `.simplepzmapmaker` marker).
 
-The same mod options are available on every HTTP export as query parameters: `modId`, `mapFolder`, `modName`, `commonMaps=true`, `install=true` (for example `POST /api/world/export?modId=PilnaVillage&install=true`).
+The same mod options are available on every HTTP export as query parameters: `modId`, `mapFolder`, `modName`, `commonMaps=true`, `install=true` (for example `POST /api/world/export?modId=PilnaVillage&install=true`). `install=true` is accepted only on POST, which the editor host limits to JSON requests from its own origin; workspace exports and job downloads accept POST with an empty JSON body for that. A GET can only rename the returned archive.
 
 ## Scene file
 

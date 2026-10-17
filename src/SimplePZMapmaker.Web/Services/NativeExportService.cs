@@ -12,10 +12,13 @@ public sealed class NativeExportService(string workspace,ExportJobStore? jobs=nu
  public async Task<IResult> Workspace(WorldSectionArchive.RevisionLease lease,GameAssetCatalog assets,StaticModelCatalog models,CancellationToken token,string? memberId=null,NativeModOptions? package=null){
   using(lease){var metadata=await lease.ReadMetadataAsync(token);var source=new WorkspaceExportSource(lease,metadata,assets,models);return await ExportAsync(s=>NativeStreamedWorldExporter.ExportAsync(source,s,new(cache),token,memberId),memberId is null?"SimplePZWorld.zip":"SimplePZSection.zip",token,package);}
  }
- /// <summary>Mod naming, layout and install options from the query: modId, mapFolder, modName, commonMaps=true, install=true.</summary>
+ /// <summary>Mod naming, layout and install options from the query: modId, mapFolder, modName, commonMaps=true, install=true.
+ /// Installing writes into the user's mods folder, so it is accepted only on POST, which the host middleware limits to JSON
+ /// requests from the editor's own origin; a GET (a link or image on any web page) can only rename the returned archive.</summary>
  public static NativeModOptions? Options(HttpRequest request){
   string? Text(string key)=>request.Query.TryGetValue(key,out var v)&&!string.IsNullOrWhiteSpace(v.ToString())?v.ToString().Trim():null;bool Flag(string key)=>Text(key) is "true" or "1";
-  var o=new NativeModOptions(Text("modId"),Text("mapFolder"),Text("modName"),Flag("commonMaps"),Flag("install"));if(!o.Renames&&!o.Install)return null;NativeModPackage.Validate(o);return o;
+  var o=new NativeModOptions(Text("modId"),Text("mapFolder"),Text("modName"),Flag("commonMaps"),Flag("install"));if(!o.Renames&&!o.Install)return null;
+  if(o.Install&&!HttpMethods.IsPost(request.Method))throw new ArgumentException("Installing into Zomboid/mods needs a POST request from the local editor.");NativeModPackage.Validate(o);return o;
  }
  /// <summary>Applies naming/layout to a finished archive, then streams it or installs it into the mods folder. Takes ownership of the archive.</summary>
  public IResult Package(Stream archive,string name,NativeModOptions? package){
