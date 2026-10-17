@@ -68,7 +68,8 @@ public static class NativeMapExporter {
                 var tiles=names.Order(StringComparer.Ordinal).ToArray();var ids=tiles.Select((name,id)=>(name,id)).ToDictionary(t=>t.name,t=>t.id);
                 Bytes(root+$"{p.WorldX+cellX}_{p.WorldY+cellY}.lotheader",Header(p,composer,tiles,cellX,cellY));
                 Bytes(root+$"world_{p.WorldX+cellX}_{p.WorldY+cellY}.lotpack",Pack(composer,ids));
-                Bytes(root+$"chunkdata_{p.WorldX+cellX}_{p.WorldY+cellY}.bin",Navigation(composer));context?.Cell();
+                Bytes(root+$"chunkdata_{p.WorldX+cellX}_{p.WorldY+cellY}.bin",Navigation(composer));
+                Bytes(root+$"maps/biomemap_{p.WorldX+cellX}_{p.WorldY+cellY}.png",BiomeMap.Png(p,cellX,cellY));context?.Cell();
             }
     }
     private static string Culture(FormattableString s)=>s.ToString(System.Globalization.CultureInfo.InvariantCulture);

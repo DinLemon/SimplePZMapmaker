@@ -16,14 +16,16 @@ public static class ServerCheck
  public sealed record Point(int X,int Y,string Name,bool ExpectBuilding);
  public sealed record Result(bool Started,bool Stopped,List<(Point Point,bool Building,string? Room)> Probes,string Log)
  {
+  /// <summary>Metagrid zone types the server reports at each probe point (foraging zones from the biome map included).</summary>
+  public Dictionary<int,string> Zones {get;init;}=[];
   public bool Passed=>Started&&Stopped&&Probes.Count>0&&Probes.All(p=>p.Building==p.Point.ExpectBuilding);
  }
  /// <summary>Up to <paramref name="count"/> ground-floor room tiles spread over the sections (and shared buildings), and one tile without a building.</summary>
  public static List<Point> Points(ZipArchive zip,int count=12){
   var source=zip.Entries.FirstOrDefault(e=>e.Name is "world.pzworld.json" or "project.pzmap.json")??throw new ArgumentException("The archive has no world.pzworld.json or project.pzmap.json source to pick test buildings from.");
-  using var stream=source.Open();var buildings=new List<(int OX,int OY,Building B)>();var occupied=new HashSet<(int,int)>();
-  if(source.Name=="world.pzworld.json"){var world=JsonSerializer.Deserialize<WorldProject>(stream,NativeMapExporter.JsonOptions)!;foreach(var m in world.Maps)foreach(var b in m.Project.Buildings)buildings.Add((m.Project.WorldX*256,m.Project.WorldY*256,b));foreach(var b in world.Buildings)buildings.Add((0,0,b));}
-  else{var p=JsonSerializer.Deserialize<MapProject>(stream,NativeMapExporter.JsonOptions)!;foreach(var b in p.Buildings)buildings.Add((p.WorldX*256,p.WorldY*256,b));}
+  using var stream=source.Open();var buildings=new List<(int OX,int OY,Building B)>();var occupied=new HashSet<(int,int)>();var projects=new List<MapProject>();
+  if(source.Name=="world.pzworld.json"){var world=JsonSerializer.Deserialize<WorldProject>(stream,NativeMapExporter.JsonOptions)!;foreach(var m in world.Maps)projects.Add(m.Project);foreach(var m in world.Maps)foreach(var b in m.Project.Buildings)buildings.Add((m.Project.WorldX*256,m.Project.WorldY*256,b));foreach(var b in world.Buildings)buildings.Add((0,0,b));}
+  else{var p=JsonSerializer.Deserialize<MapProject>(stream,NativeMapExporter.JsonOptions)!;projects.Add(p);foreach(var b in p.Buildings)buildings.Add((p.WorldX*256,p.WorldY*256,b));}
   var points=new List<Point>();
   foreach(var (ox,oy,b) in buildings.Where(x=>x.B.Design is not null)){var f=b.Design!.Floors[-b.Design.MinLevel];for(var i=0;i<f.Cells.Length;i++)if(f.Cells[i]!='.')occupied.Add((ox+b.X+i%b.Width,oy+b.Y+i/b.Width));}
   var step=Math.Max(1,buildings.Count/Math.Max(1,count));
@@ -31,6 +33,13 @@ public static class ServerCheck
   if(points.Count==0)throw new ArgumentException("The export has no buildings to look for on the server.");
   // A control tile two rows north of the first building, which no building covers.
   for(var d=2;d<64;d++){(int X,int Y) c=(points[0].X,points[0].Y-d);if(!occupied.Contains(c)&&!occupied.Contains((c.X,c.Y+1))){points.Add(new(c.X,c.Y,"control without a building",false));break;}}
+  // Zone checks: the centre of a fully wooded chunk and of an open chunk far from buildings, to read the foraging zones back.
+  foreach(var (terrain,name) in new[]{(Terrain.Forest,"forest (zone check)"),(Terrain.Grass,"open ground (zone check)")}){
+   foreach(var p in projects){var found=false;for(var cy=2;cy<p.Height/8-2&&!found;cy++)for(var cx=2;cx<p.Width/8-2&&!found;cx++){
+     var all=true;for(var y=cy*8-8;y<cy*8+16&&all;y++)for(var x=cx*8-8;x<cx*8+16&&all;x++)if(p.Terrain[y*p.Width+x]!=terrain||occupied.Contains((p.WorldX*256+x,p.WorldY*256+y)))all=false;
+     if(all){points.Add(new(p.WorldX*256+cx*8+4,p.WorldY*256+cy*8+4,name,false));found=true;}}
+    if(found)break;}
+  }
   return points;
  }
  public static Result Run(string archive,string game,TimeSpan timeout,Action<string>? log=null){
@@ -56,7 +65,8 @@ public static class ServerCheck
    var stopped=process.WaitForExit(TimeSpan.FromSeconds(120))&&process.ExitCode==0;if(!process.HasExited){process.Kill(true);process.WaitForExit();}
    var text=output.ToString();var probes=new List<(Point,bool,string?)>();
    foreach(Match m in Regex.Matches(text,@"SIMPLEPZ_PROBE (\d+) (true|false) (\S+)")){var i=int.Parse(m.Groups[1].Value);if(i<points.Count)probes.Add((points[i],m.Groups[2].Value=="true",m.Groups[3].Value=="nil"?null:m.Groups[3].Value));}
-   return new(ok&&started.Task.IsCompleted,stopped,probes,text);
+   var zones=Regex.Matches(text,@"SIMPLEPZ_ZONES (\d+) ?(\S*)").ToDictionary(m=>int.Parse(m.Groups[1].Value),m=>m.Groups[2].Value);
+   return new(ok&&started.Task.IsCompleted,stopped,probes,text){Zones=zones};
   }finally{try{Directory.Delete(root,true);}catch(IOException){}catch(UnauthorizedAccessException){}}
  }
  static string? ReadMapFolder(string mod)=>Directory.EnumerateDirectories(mod,"maps",SearchOption.AllDirectories).SelectMany(Directory.EnumerateDirectories).Select(Path.GetFileName).FirstOrDefault();
@@ -72,6 +82,10 @@ public static class ServerCheck
     for i, p in ipairs(points) do
      local room = grid:getRoomAt(p[1], p[2], 0)
      print(string.format("SIMPLEPZ_PROBE %d %s %s", i - 1, tostring(grid:getBuildingAt(p[1], p[2]) ~= nil), room and room:getName() or "nil"))
+     local ok, zones = pcall(function() return grid:getZonesAt(p[1], p[2], 0) end)
+     local names = {}
+     if ok and zones then for j = 0, zones:size() - 1 do table.insert(names, tostring(zones:get(j):getType())) end elseif not ok then table.insert(names, "error:" .. tostring(zones):gsub("%s", "_")) end
+     print(string.format("SIMPLEPZ_ZONES %d %s", i - 1, table.concat(names, ",")))
     end
     print("SIMPLEPZ_PROBE done")
    end)
