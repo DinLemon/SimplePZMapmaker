@@ -22,7 +22,7 @@ public static class NativeLightingGeometry
   var selected=member.Project;ValidateCrop(selected,x,y,size,level);
   var left=selected.WorldX*256+x-Halo;var top=selected.WorldY*256+y-Halo;var right=left+size+2*Halo;var bottom=top+size+2*Halo;
   // Project each intersecting section independently. Shared buildings retain both sides of a section seam.
-  var relevantWorld=new WorldProject{Id=world.Id,Name=world.Name,Version=world.Version,Maps=world.Maps,LinearFeatures=world.LinearFeatures,Buildings=world.Buildings.Where(b=>b.X<right&&b.Y<bottom&&b.X+b.Width>=left&&b.Y+b.Height>=top).ToList(),GeoReference=world.GeoReference,Elevation=world.Elevation};
+  var relevantWorld=new WorldProject{Id=world.Id,Name=world.Name,Version=world.Version,Maps=world.Maps,LinearFeatures=world.LinearFeatures,Buildings=world.Buildings.Where(b=>b.X<right&&b.Y<bottom&&b.X+b.Width>=left&&b.Y+b.Height>=top).ToList(),GeoReference=world.GeoReference,Elevation=world.Elevation,Decorations=world.Decorations};
   var projects=world.Maps.Where(m=>m.Project.WorldX*256<right&&m.Project.WorldY*256<bottom&&m.Project.WorldX*256+m.Project.Width>left&&m.Project.WorldY*256+m.Project.Height>top).Select(m=>WorldAssembler.ProjectSection(relevantWorld,m)).ToArray();
   return Build(selected,projects,x,y,size,level,roomLightsPowered,properties,cancellation);
  }

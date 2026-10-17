@@ -44,7 +44,9 @@ public class NativeGameProbe {
   int expectedMin=args.length>4?Integer.parseInt(args[4]):-16;
   if(expectedMin < -32 || expectedMin > -1)throw new AssertionError("Basement minimum outside supported range");
   if(args.length>5&&maxLoadedLevel!=Integer.parseInt(args[5]))throw new AssertionError("Expected top room was not loaded by the installed reader");
-  if(stairTiles==0||(!requireBasements&&upperRooms==0)||(requireBasements&&(minLoadedLevel!=expectedMin||basementRooms==0||basementStairs==0)))throw new AssertionError("Expected signed rooms/stair sprites not loaded");
+  // no-stairs checks a map that has no upper floors: headers, chunks, rooms and every tile sprite are still loaded and checked.
+  boolean requireStairs=!Arrays.asList(args).contains("no-stairs");
+  if(requireStairs&&(stairTiles==0||(!requireBasements&&upperRooms==0))||(requireBasements&&(minLoadedLevel!=expectedMin||basementRooms==0||basementStairs==0)))throw new AssertionError("Expected signed rooms/stair sprites not loaded");
   System.out.printf("NATIVE_GAME_PROBE cells=%d chunks=%d rooms=%d upperRooms=%d basementRooms=%d minLevel=%d maxRoomLevel=%d stairTiles=%d basementStairs=%d status=passed%n",cellCount,chunkCount,roomCount,upperRooms,basementRooms,minLoadedLevel,maxLoadedLevel,stairTiles,basementStairs);
  }
 }

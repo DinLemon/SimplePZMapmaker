@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/SimplePZMapmaker.Cli/SimplePZMapmaker.Cli.csproj" />
     <Project Path="src/SimplePZMapmaker.Core/SimplePZMapmaker.Core.csproj" />
     <Project Path="src/SimplePZMapmaker.Web/SimplePZMapmaker.Web.csproj" />
   </Folder>

@@ -12,8 +12,8 @@ public static class WorldEndpoints
    var world=WorldAssembler.Move(request.World,request.MemberId,request.CellX,request.CellY);var bounds=Validate(world,assets,models);
    return Results.Ok(new{world,bounds,warnings=WorldAssembler.SeamWarnings(world)});
   });
-  app.MapPost("/api/world/export",async(WorldProject world,GameAssetCatalog assets,StaticModelCatalog models,NativeExportService exporter,CancellationToken token)=>{
-   Validate(world,assets,models);return await exporter.World(world,token);
+  app.MapPost("/api/world/export",async(HttpRequest request,WorldProject world,GameAssetCatalog assets,StaticModelCatalog models,NativeExportService exporter,CancellationToken token)=>{
+   var package=NativeExportService.Options(request);Validate(world,assets,models);return await exporter.World(world,token,package);
   });
   app.MapPost("/api/world/buildings",(WorldBuildingRequest request,GameAssetCatalog assets,StaticModelCatalog models)=>{
    var world=WorldAssembler.PutBuilding(request.World,request.Building);Validate(world,assets,models);return Results.Ok(new{world});
@@ -23,6 +23,15 @@ public static class WorldEndpoints
   });
   app.MapPost("/api/world/buildings/remove",(WorldRemoveBuildingRequest request,GameAssetCatalog assets,StaticModelCatalog models)=>{
    var world=WorldAssembler.Clone(request.World);if(world.Buildings.RemoveAll(b=>b.Id==request.BuildingId)!=1)throw new ArgumentException("Shared building not found.");Validate(world,assets,models);return Results.Ok(new{world});
+  });
+  app.MapPost("/api/world/decorations",(WorldDecorationRequest request,GameAssetCatalog assets,StaticModelCatalog models)=>{
+   var world=WorldAssembler.PutDecoration(request.World,request.Decoration);Validate(world,assets,models);return Results.Ok(new{world});
+  });
+  app.MapPost("/api/world/decorations/promote",(WorldPromoteDecorationRequest request,GameAssetCatalog assets,StaticModelCatalog models)=>{
+   var world=WorldAssembler.PromoteDecoration(request.World,request.MemberId,request.DecorationId,request.X,request.Y);Validate(world,assets,models);return Results.Ok(new{world});
+  });
+  app.MapPost("/api/world/decorations/remove",(WorldRemoveDecorationRequest request,GameAssetCatalog assets,StaticModelCatalog models)=>{
+   var world=WorldAssembler.RemoveDecoration(request.World,request.DecorationId);Validate(world,assets,models);return Results.Ok(new{world});
   });
   app.MapPost("/api/world/seams/repair",(WorldSeamRequest request,GameAssetCatalog assets,StaticModelCatalog models)=>{
    var result=WorldSeams.Repair(request.World,request.Mode);Validate(result.World,assets,models);return Results.Ok(result);
@@ -45,11 +54,14 @@ public static class WorldEndpoints
   });
   app.MapPost("/api/world/recovery/{id}/clear",async(string id,WorldStore store,CancellationToken token)=>{await store.ClearAsync(id,token);return Results.Ok(new{cleared=true});});return app;
  }
- internal static WorldAssembler.Bounds Validate(WorldProject world,GameAssetCatalog assets,StaticModelCatalog models){var bounds=WorldAssembler.Validate(world);foreach(var member in world.Maps){AssetRules.Project(member.Project,assets);models.Validate(member.Project);}foreach(var building in world.Buildings){AssetRules.Building(building,assets);ModelRules.Building(building,models);}AssetRules.WorldInfrastructure(world,assets);return bounds;}
+ public static WorldAssembler.Bounds Validate(WorldProject world,GameAssetCatalog assets,StaticModelCatalog models){var bounds=WorldAssembler.Validate(world);foreach(var member in world.Maps){AssetRules.Project(member.Project,assets);models.Validate(member.Project);}foreach(var building in world.Buildings){AssetRules.Building(building,assets);ModelRules.Building(building,models);}foreach(var decoration in world.Decorations)AssetRules.SharedDecoration(decoration,assets);if(world.Decorations.Count>0)WorldAssembler.Validate(world);AssetRules.WorldInfrastructure(world,assets);return bounds;}
 }
 public sealed record WorldMoveRequest(WorldProject World,string MemberId,int CellX,int CellY);
 public sealed record WorldBuildingRequest(WorldProject World,Building Building);
 public sealed record WorldPromoteRequest(WorldProject World,string MemberId,string BuildingId,int X,int Y);
 public sealed record WorldRemoveBuildingRequest(WorldProject World,string BuildingId);
 public sealed record WorldSeamRequest(WorldProject World,string Mode);
+public sealed record WorldDecorationRequest(WorldProject World,SharedDecoration Decoration);
+public sealed record WorldPromoteDecorationRequest(WorldProject World,string MemberId,string DecorationId,int? X=null,int? Y=null);
+public sealed record WorldRemoveDecorationRequest(WorldProject World,string DecorationId);
 public sealed record WorldElevationRequest(WorldProject World,string Text,string CoordinateSystem,string Source,string License);

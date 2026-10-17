@@ -45,7 +45,7 @@ public static class MapGenerator
     public static bool CanPlace(MapProject p,Building b,bool avoidRoads=true) {
         if(b.X<1||b.Y<1||b.X+b.Width>=p.Width||b.Y+b.Height>=p.Height) return false;
         var occupied=BuildingDesigner.Occupied(b).Select(i=>(b.Y+i/(b.Width+1))*p.Width+b.X+i%(b.Width+1)).ToHashSet();
-        if(p.Buildings.Where(a=>a!=b&&b.X<a.X+a.Width+1&&b.X+b.Width+1>a.X&&b.Y<a.Y+a.Height+1&&b.Y+b.Height+1>a.Y).Any(a=>BuildingDesigner.Occupied(a).Any(i=>occupied.Contains((a.Y+i/(a.Width+1))*p.Width+a.X+i%(a.Width+1)))))return false;
+        if(p.Buildings.Where(a=>a!=b&&b.X<a.X+a.Width+1&&b.X+b.Width+1>a.X&&b.Y<a.Y+a.Height+1&&b.Y+b.Height+1>a.Y).Any(a=>BuildingDesigner.Occupied(a).Any(i=>{var x=a.X+i%(a.Width+1);var y=a.Y+i/(a.Width+1);return occupied.Contains(y*p.Width+x)&&!AttachedBuildings.MayShare(a,b,x,y);})))return false;
         if(p.Decorations.Any(d=>d.Parts.Any(part=>occupied.Contains((d.Y+part.Dy)*p.Width+d.X+part.Dx))))return false;
         for(var y=0;y<b.Height;y++) for(var x=0;x<b.Width;x++) if(BuildingDesigner.Occupies(b,x,y)&&(p.Terrain[(b.Y+y)*p.Width+b.X+x]==Terrain.Water||avoidRoads&&p.Terrain[(b.Y+y)*p.Width+b.X+x]==Terrain.Road)) return false;
         return true;

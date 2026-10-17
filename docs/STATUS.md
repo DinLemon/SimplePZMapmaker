@@ -1,10 +1,27 @@
+# Transfer items 2, 4–7 and 9 — 2026-10-17
+
+- **Building tags (item 4):** `pz:kind`, `pz:style`, `roof:colour` (named or `#rrggbb`, matched to roof sets by colours measured from the installed sprites), `pz:wall` and `pz:trim` are applied to section and shared imports and reach the native lot; unknown `pz:*` keys and unusable values are reported, never fatal.
+- **Attached buildings (item 2):** `pz:attached`/`pz:door-to` place a building against another with no free line; the larger one owns the single shared wall, the smaller one keeps its own entrance, and a door joins them. Map format 13.
+- **Mod export (item 6):** every export takes a mod id, map folder and title, can move `media/maps` under `common/`, and installs into `Zomboid/mods` without touching folders it did not create.
+- **Command line (items 7 and 9):** `simplepzmap build/validate/export/tiles/probe`; see [CLI](CLI.md). `--game` checks every exported tile name against the installed definitions.
+- **Tile mods (item 5):** `tiles` writes a PZPK v1 atlas and tdef v1 definitions from PNG frames, copying properties from installed tiles.
+- **Seam check (contract §3):** every source building and fence is placed in one section, once at world level, or kept as evidence with a reason.
+- Real Pilna OSM through `build --strict --game`: 26 sections, 1,640 section and 61 shared buildings, 0 lost or duplicated, 2,471 tile names found; installed game classes loaded 416 cells, 425,984 chunks and 9,565 rooms. Suites pass **404 C# tests and 262 JavaScript tests**.
+
+# Remaining streamed-world features — 2026-10-17
+
+- **Buildings under 6×6:** footprints from 2×2 tiles generate one accessible room; stairs fit only along a side of at least 6 tiles. Imported outlines are no longer inflated to 6×6, and tiny sheds/kiosks keep one floor with a report note. Geometry drafts, the building workshop and new one-room presets accept the smaller sizes.
+- **Imported fences across seams:** the OSM world importer promotes crossing barrier lines once into the world fence layer, merges per-section gates and keeps authored lines local. Preserve edits keeps authored world fences.
+- **Shared decorations:** world format 8 stores decoration groups once in world tiles. They are validated against every section, clipped into each section, protected in isolated editing, kept on their prior ground by preserve-edits reimport, stored in section workspaces and exported identically by streamed and complete-world exports.
+- Suites pass **392 C# tests and 261 JavaScript tests**. A live browser session against the installed game catalog placed a 3×3 kiosk, promoted a real two-tile bed across a seam, moved, removed and exported it, and edited it through the world inspector.
+
 # Streamed world editor verification — 2026-10-17
 
 - Integrated the companion rotation, native fence layer, barrier import and seam ownership changes from `develop`; retained polygon zones, density and reviewed room metadata. The combined suites pass **377 C# tests and 257 JavaScript tests**.
 - Section workspaces pin immutable revisions, read/save independent sections, retain old revisions and export without materializing a complete world. Explicit compatibility limits remain: 48 MiB per section, 16 MiB shared metadata, 128 MiB monolithic world JSON and 256 MiB compressed native output.
 - The self-contained browser test uses **13 synthetic 1024×1024 sections**, with a house and fence crossing a seam plus a shared road. Switching loads only the requested section; committed edits persist. Polygon density, resource-backed fence drawing with a wicket, reload restoration, historical section review and locked undo were exercised through the UI.
 - Independent native decoding accepts the selected section (**16 cells, 16,384 chunks, 16 rooms**) and combined world (**208 cells, 212,992 chunks, 20 room fragments**). Streamed authoring source hashes match the pinned index. Installed game classes accept the section and report **8 upper rooms and 6 stair tiles**. No interactive game session was started.
-- Private populated Pilna scenes were not used for acceptance. The illustrated [guide](STREAMED-WORLD-EDITOR.md) records remaining source fence promotion, tiny-building, shared-decoration and isolated-lighting boundaries. Public packaging excludes private art and local installation paths.
+- Private populated Pilna scenes were not used for acceptance. The illustrated [guide](STREAMED-WORLD-EDITOR.md) records the isolated-lighting boundary. Public packaging excludes private art and local installation paths.
 
 # Real-place transfer development verification — 2026-10-16
 

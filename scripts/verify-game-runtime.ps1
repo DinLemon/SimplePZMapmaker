@@ -1,4 +1,4 @@
-param([string]$MapArchive='examples/Pilna/Pilna-B42.zip',[string]$GamePath='',[switch]$Basements,[ValidateRange(-32,-1)][int]$BasementMinLevel=-16)
+param([string]$MapArchive='examples/Pilna/Pilna-B42.zip',[string]$GamePath='',[switch]$Basements,[switch]$NoStairs,[ValidateRange(-32,-1)][int]$BasementMinLevel=-16)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'WorkspaceEnv.ps1')
 if([string]::IsNullOrWhiteSpace($GamePath)){$GamePath=$env:PZMAP_GAME_PATH}
@@ -18,10 +18,11 @@ $javaOptions=@('--enable-native-access=ALL-UNNAMED',('-Duser.home='+$probeRoot),
 & $java @javaOptions -jar $compiler -25 -cp $gameJar -d $classes (Join-Path $PSScriptRoot 'NativeGameProbe.java')
 if($LASTEXITCODE -ne 0){throw 'Runtime probe compile failed.'}
 $extracted=Join-Path $probeRoot ('mods\'+[Guid]::NewGuid().ToString('N'))
-Expand-Archive -LiteralPath (Join-Path $taskRoot $MapArchive) -DestinationPath $extracted
+$archivePath=if([IO.Path]::IsPathRooted($MapArchive)){$MapArchive}else{Join-Path $taskRoot $MapArchive}
+Expand-Archive -LiteralPath $archivePath -DestinationPath $extracted
 $mapFolder=(Get-ChildItem -LiteralPath $extracted -Recurse -File -Filter '*.lotheader' | Select-Object -First 1).Directory.FullName
 if(-not $mapFolder){throw 'Archive contains no native map.'}
-$probeOptions=if($Basements){@('--basements',$BasementMinLevel.ToString())}else{@()}
+$probeOptions=@(if($Basements){'--basements',$BasementMinLevel.ToString()}elseif($NoStairs){'no-stairs'})
 & $java @javaOptions -cp ($classes+';'+$gameJar) NativeGameProbe $mapFolder (Join-Path $probeRoot 'cache') $GamePath @probeOptions
 if($LASTEXITCODE -ne 0){throw 'Installed game load/room/stair probe failed.'}
 Write-Host 'Native game classes loaded headers, chunks, checked room levels and staircase sprite properties. Character walking/visual playthrough is a separate check.'
