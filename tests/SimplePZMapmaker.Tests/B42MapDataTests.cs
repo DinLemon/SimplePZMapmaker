@@ -66,7 +66,7 @@ public static class ZoneImportTests
    p=GeographicImporter.Import(json,p,reference.Bounds,projection:projection).Project;
    Check(p.GameZones.Any(z=>z.Type=="TownZone"&&z.Polygon is not null)&&p.GameZones.Any(z=>z.Type=="Farm"),"Residential or farmland zone missing");
    Check(p.GameZones.Any(z=>z.Type=="DeepForest"),"A wood far from roads should be DeepForest");
-   var stalls=p.GameZones.Where(z=>z.Type=="ParkingStall").ToList();Check(stalls.Count==3&&stalls.All(z=>z.Polygon is null&&(z.Width%5==0&&z.Height%3==0||z.Width%3==0&&z.Height%5==0)),"Parking zones must measure whole 5x3 stalls");
+   var stalls=p.GameZones.Where(z=>z.Type=="ParkingStall").ToList();Check(stalls.Count==3&&stalls.All(z=>z.Polygon is null&&(z.Width%5==0&&z.Height%3==0||z.Width%3==0&&z.Height%5==0)),"Parking zones must measure whole 5x3 stalls: "+string.Join(",",stalls.Select(z=>$"{z.Width}x{z.Height} {z.Direction}"))+" "+string.Join(" | ",p.ImportSummary!.Notes.Where(n=>n.Contains("zones"))));
    Check(stalls.Any(z=>z.VehicleDistribution=="junkyard"&&z.Direction=="E")&&stalls.Count(z=>z.VehicleDistribution=="parkingstall")==2,"Vehicle distributions were not taken from the tags");
    Check(p.GameZones.Any(z=>z.Type=="ZombiesType"&&z.Name=="Farmer"),"ZombiesType zone missing; it may overlap the town zone");
    Check(p.ImportSummary!.Notes.Any(n=>n.Contains("no-such-cars")),"An unknown vehicle distribution must be reported");
@@ -157,6 +157,28 @@ public static class TemplateStyleTests
    Check(f.FloorTiles.Count>0&&f.FloorTiles.Values.All(t=>t=="location_restaurant_diner_01_40"),"Rooms take the template floor");
    BuildingDesigner.Validate(b);
    GeographicImporter.ApplyAppearanceTags(b,new Dictionary<string,string>{{"pz:style","tilezed:NoSuch"}},null,problems.Add);Check(problems.Count==1,"An unknown template is reported");
+  });
+ }
+ static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
+}
+public static class StreetDressingTests
+{
+ public static IEnumerable<(string,Action)> Cases(){
+  yield return("imported streets get curbside mailboxes and bins, stop signs on lesser roads and wheel stops in parking stalls",()=>{
+   var reference=new WorldGeoReference{Bounds=new(){West=32,East=32.01,South=54,North=54.01},MetresPerTile=1,OriginCellX=100,OriginCellY=100};var projection=new GeographicProjection(reference,100,100);
+   double[] At(double x,double y){var g=projection.Geographic(x,y);return[g.Longitude,g.Latitude];}
+   object Box(string id,double x,double y,double w,double h,Dictionary<string,string> t)=>new{type="Feature",id,properties=t,geometry=new{type="Polygon",coordinates=new[]{new[]{At(x,y),At(x+w,y),At(x+w,y+h),At(x,y+h),At(x,y)}}}};
+   object Line(string id,string highway,params double[][] points)=>new{type="Feature",id,properties=new Dictionary<string,string>{{"highway",highway}},geometry=new{type="LineString",coordinates=points.Select(v=>At(v[0],v[1])).ToArray()}};
+   var json=System.Text.Json.JsonSerializer.Serialize(new{type="FeatureCollection",pzTransfer=1,features=new object[]{
+    Line("osm-way-1","primary",[10,128],[246,128]),Line("osm-way-2","residential",[120,128],[120,20]),
+    Box("osm-way-3",130.2,60.2,14,12,new(){{"building","house"}}),Box("osm-way-4",160,150,15,10,new(){{"amenity","parking"},{"pz:direction","N"}})}});
+   var p=GeographicImporter.Import(json,MapGenerator.Generate(new(){Kind="blank"}),reference.Bounds,projection:projection).Project;
+   var dressing=p.Decorations.Where(d=>d.Id.StartsWith("street-")).ToList();
+   Check(dressing.Any(d=>d.Asset.StartsWith("street_decoration_01_")&&d.Id.Contains("mailbox"))&&dressing.Any(d=>d.Asset=="trashcontainers_01_17"),"A house needs a curbside mailbox and bin: "+string.Join(" | ",p.ImportSummary!.Notes.Where(n=>n.Contains("Street"))));
+   var mailbox=dressing.First(d=>d.Id.Contains("mailbox"));Check(new[]{(1,0),(-1,0),(0,1),(0,-1)}.Any(s=>p.Terrain[(mailbox.Y+s.Item2)*p.Width+mailbox.X+s.Item1]==Terrain.Road),"The mailbox should stand beside the road");
+   var stop=dressing.Where(d=>d.Id.Contains("-stop-")&&!d.Id.Contains("block")).ToList();Check(stop.Count==1&&stop[0].Asset=="street_decoration_01_2"&&stop[0].Y<128&&stop[0].X<120,"The residential road should get one stop sign on its right before the primary road: "+string.Join(",",stop.Select(d=>$"{d.X},{d.Y} {d.Asset}"))+" "+string.Join(" | ",p.ImportSummary!.Notes.Where(n=>n.Contains("Street"))));
+   var stall=p.GameZones.Single(z=>z.Type=="ParkingStall");Check(dressing.Count(d=>d.Id.Contains("stop-block"))==stall.Width/3*(stall.Height/5),"Every stall needs a wheel stop");
+   ProjectValidator.Validate(p);var again=GeographicImporter.Import(json,p,p.Bounds,preserveEdits:true,projection:projection).Project;Check(again.Decorations.Count(d=>d.Id.StartsWith("street-"))==dressing.Count,"Re-import must replace, not duplicate, the dressing");
   });
  }
  static void Check(bool ok,string message){if(!ok)throw new Exception(message);}

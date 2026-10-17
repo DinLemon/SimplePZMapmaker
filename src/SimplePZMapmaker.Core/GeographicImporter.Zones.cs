@@ -32,14 +32,16 @@ public static partial class GeographicImporter
   }
   void Add(string type,Dictionary<string,string> tags,int x,int y,int w,int h,List<ZonePoint>? polygon){
    x=Math.Max(0,x);y=Math.Max(0,y);w=Math.Min(w,p.Width-x);h=Math.Min(h,p.Height-y);
-   if(type=="ParkingStall"){ // Build 42 spawns cars only in parking zones measuring whole 5x3 stalls
-    var (sw,sh)=w>=h?(w/5*5,h/3*3):(w/3*3,h/5*5);if(sw<3||sh<3){Skip("parking area smaller than one 5x3 stall");return;}x+=(w-sw)/2;y+=(h-sh)/2;w=sw;h=sh;polygon=null;
+   string? facing=null;
+   if(type=="ParkingStall"){ // Build 42 spawns cars only in parking zones measuring whole 5x3 stalls: 3 wide and 5 deep for cars facing N or S
+    var northSouth=tags.GetValueOrDefault("pz:direction") switch{"N" or "S"=>true,"E" or "W"=>false,_=>w/3*(h/5)>=w/5*(h/3)};facing=tags.GetValueOrDefault("pz:direction") is "N" or "S" or "E" or "W"?tags["pz:direction"]:northSouth?"N":"E";
+    var (sw,sh)=northSouth?(w/3*3,h/5*5):(w/5*5,h/3*3);if(sw<3||sh<3){Skip("parking area smaller than one 5x3 stall");return;}x+=(w-sw)/2;y+=(h-sh)/2;w=sw;h=sh;polygon=null;
    }
    if(w<1||h<1){Skip("outline outside the map");return;}
    var zone=new GameZone{Id=Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes((tags.GetValueOrDefault("__pz_source")??"")+"|zone|"+x+","+y)))[..32],Type=type,X=x,Y=y,Width=w,Height=h,Polygon=polygon,
     Name=type=="ZombiesType"?(tags.GetValueOrDefault("pz:zombies")??tags.GetValueOrDefault("name")??""):tags.GetValueOrDefault("name")?[..Math.Min(100,tags["name"].Length)]??"",
     SourceTags=tags.Where(t=>!t.Key.StartsWith("__",StringComparison.Ordinal)&&t.Key.Length<=100).Take(32).ToDictionary(t=>t.Key,t=>t.Value[..Math.Min(300,t.Value.Length)])};
-   if(zone.Vehicle){var distribution=tags.GetValueOrDefault("pz:vehicles")??"parkingstall";if(!VanillaVehicleZones.Contains(distribution)){Skip($"vehicle zone '{distribution}' is not a vanilla distribution");distribution="parkingstall";}zone.VehicleDistribution=distribution;zone.Direction=tags.GetValueOrDefault("pz:direction") is "N" or "S" or "E" or "W"?tags["pz:direction"]:"N";}
+   if(zone.Vehicle){var distribution=tags.GetValueOrDefault("pz:vehicles")??"parkingstall";if(!VanillaVehicleZones.Contains(distribution)){Skip($"vehicle zone '{distribution}' is not a vanilla distribution");distribution="parkingstall";}zone.VehicleDistribution=distribution;zone.Direction=facing??"N";}
    candidates.Add((zone,(long)w*h));
   }
   // Smaller, more specific zones first; a zone that would overlap one already placed in its layer is left out.
