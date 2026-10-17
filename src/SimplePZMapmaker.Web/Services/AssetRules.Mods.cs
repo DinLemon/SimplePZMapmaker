@@ -26,6 +26,12 @@ public static partial class AssetRules
   p.RequiredMods=assets.ResolveRequirements(ids).Select(m=>m.ModId).Concat(p.Buildings.SelectMany(b=>b.RequiredMods)).Concat(p.StaticModels.SelectMany(m=>m.RequiredMods)).Distinct(StringComparer.Ordinal).ToList();if(p.RequiredMods.Count>0||p.AssetSources.Count>0)p.Version=Math.Max(p.Version,6);
  }
  public static void ValidateDependencies(MapProject p,GameAssetCatalog assets)=>StampDependencies(p,assets);
+ /// <summary>A shared decoration is a complete game tile group; its providers travel with it into every section that draws it.</summary>
+ public static void SharedDecoration(SharedDecoration d,GameAssetCatalog assets)
+ {
+  CheckParts(assets,d.Asset,d.Parts);if(!assets.HasActiveMods&&d.AssetSources.Count==0&&d.RequiredMods.Count==0)return;
+  var ids=d.Parts.Select(p=>p.Tile).Append(d.Asset).Distinct().ToArray();d.AssetSources=StampSources(ids,d.AssetSources,assets);d.RequiredMods=assets.ResolveRequirements(ids).Select(m=>m.ModId).Distinct(StringComparer.Ordinal).ToList();
+ }
  private static Dictionary<string,string> StampSources(IEnumerable<string> ids,Dictionary<string,string> saved,GameAssetCatalog assets)
  {
   var next=new Dictionary<string,string>(StringComparer.Ordinal);foreach(var id in ids){var provider=assets.Get(id).ModId??"game";if(saved.TryGetValue(id,out var original)&&original!=provider)throw new ArgumentException($"Tile {id} has a different source: expected {original}, active {provider}. Enable the original mod.");next[id]=provider;}return next;

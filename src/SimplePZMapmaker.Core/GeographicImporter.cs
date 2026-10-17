@@ -43,7 +43,7 @@ public static partial class GeographicImporter {
         double work=0;
         foreach(var f in transformed.Where(f=>f.Polygon&&!f.Tags.ContainsKey("building")&&(f.Tags.ContainsKey("landuse")||f.Tags.ContainsKey("natural")))){var outer=f.Rings[0];var rows=Math.Clamp(outer.Max(v=>v.Y)-outer.Min(v=>v.Y)+2,0,p.Height);var columns=Math.Clamp(outer.Max(v=>v.X)-outer.Min(v=>v.X)+2,0,p.Width);work+=rows*(columns+f.Rings.Sum(r=>r.Count));}
         if(work>40_000_000)throw new ArgumentException("The outlines are too complex for this map. Reduce the area or map size, or simplify the GeoJSON.");
-        var imported=0;var skipped=0;var limitedLevels=0;var approximateRoofs=0;var skipReasons=new Dictionary<string,int>();var skippedOutlines=new List<SkippedImportOutline>();
+        var imported=0;var skipped=0;var limitedLevels=0;var singleFloorSmall=0;var appearanceProblems=new Dictionary<string,int>(StringComparer.Ordinal);var approximateRoofs=0;var skipReasons=new Dictionary<string,int>();var skippedOutlines=new List<SkippedImportOutline>();
         foreach(var f in transformed.Where(f=>f.Polygon&&!f.Tags.ContainsKey("building")&&(f.Tags.ContainsKey("landuse")||f.Tags.ContainsKey("natural")))) {
             cancellationToken.ThrowIfCancellationRequested();
             var natural=f.Tags.GetValueOrDefault("natural");var land=f.Tags.GetValueOrDefault("landuse");
@@ -81,15 +81,19 @@ public static partial class GeographicImporter {
         var plannedLines=editableLines.Concat(preserveEdits?project.LinearFeatures.Where(f=>f.Modified).Select(NeighborhoodPlanner.Copy):[]).ToList();
         foreach(var line in plannedLines){line.Underlay=[];line.GeneratedDecorations=[];line.DecorationIds=[];}
         if(plannedLines.Count>0)p=LinearFeatureEditor.Rebuild(p,plannedLines);
-        foreach(var f in transformed.Where(f=>f.Polygon&&f.Tags.ContainsKey("building"))) {
+        // Attached outlines go last, so the building they touch is already placed.
+        foreach(var f in transformed.Where(f=>f.Polygon&&f.Tags.ContainsKey("building")).OrderBy(f=>f.Tags.ContainsKey("pz:attached")?1:0)) {
             cancellationToken.ThrowIfCancellationRequested();
             if(preserveEdits&&f.Tags.TryGetValue("__pz_source",out var sourceKey)&&p.Buildings.Any(b=>b.SourceId==sourceKey)){imported++;continue;}
             var ring=f.Rings[0]; var x=(int)Math.Floor(Math.Clamp(ring.Min(v=>v.X),-100000,100000));var y=(int)Math.Floor(Math.Clamp(ring.Min(v=>v.Y),-100000,100000));
             var w=(int)Math.Clamp(Math.Ceiling(ring.Max(v=>v.X)-x),0,100000);var h=(int)Math.Clamp(Math.Ceiling(ring.Max(v=>v.Y)-y),0,100000);
             var sourceKind=f.Tags.GetValueOrDefault("building","yes");
-            var kind=f.Tags.ContainsKey("shop")?"shop":sourceKind switch{"retail" or "commercial" or "train_station"=>"shop","apartments" or "residential"=>"apartments","school" or "college" or "kindergarten"=>"school","hospital"=>"clinic","hotel"=>"hotel","industrial"=>"industrial","warehouse" or "shed" or "service"=>"warehouse","garages" or "garage"=>"garage",_=>"house"};
-            var b=new Building{Id="import-"+Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(f.Tags["__pz_source"])))[..24].ToLowerInvariant(),X=x,Y=y,Width=Math.Max(6,w),Height=Math.Max(6,h),Kind=kind,Name=f.Tags.GetValueOrDefault("name",BuildingDesigner.Names[kind]),SourceKind=sourceKind,SourceId=f.Tags.GetValueOrDefault("__pz_source")};
+            var kind=KindFromTag(f.Tags)??(f.Tags.ContainsKey("shop")?"shop":sourceKind switch{"retail" or "commercial" or "train_station"=>"shop","apartments" or "residential"=>"apartments","school" or "college" or "kindergarten"=>"school","hospital"=>"clinic","hotel"=>"hotel","industrial"=>"industrial","warehouse" or "shed" or "service"=>"warehouse","garages" or "garage"=>"garage",_=>"house"});
+            var b=new Building{Id="import-"+Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(f.Tags["__pz_source"])))[..24].ToLowerInvariant(),X=x,Y=y,Width=Math.Max(BuildingDesigner.MinimumFootprint,w),Height=Math.Max(BuildingDesigner.MinimumFootprint,h),Kind=kind,Name=f.Tags.GetValueOrDefault("name",BuildingDesigner.Names[kind]),SourceKind=sourceKind,SourceId=f.Tags.GetValueOrDefault("__pz_source")};
             b.Name=b.Name[..Math.Min(100,b.Name.Length)];
+            var attachTo=f.Tags.TryGetValue("pz:attached",out var attachedSource)?p.Buildings.FirstOrDefault(a=>a.SourceId is {} s&&(s==attachedSource||s=="geo-"+attachedSource)):null;
+            if(attachedSource is not null&&attachTo is null)appearanceProblems["pz:attached names a building that was not placed on this map"]=appearanceProblems.GetValueOrDefault("pz:attached names a building that was not placed on this map")+1;
+            b.AttachedTo=attachTo?.Id;
             b.SourceLevels=f.Tags.GetValueOrDefault("building:levels")?[..Math.Min(100,f.Tags["building:levels"].Length)];b.SourceRoof=f.Tags.GetValueOrDefault("roof:shape")?[..Math.Min(100,f.Tags["roof:shape"].Length)];
             if(w<=64&&h<=64){
                 var levels=kind is "apartments" or "school" or "clinic" or "hotel"?2:1;
@@ -97,6 +101,7 @@ public static partial class GeographicImporter {
                 else if(f.Tags.TryGetValue("height",out var heightText)&&double.TryParse(heightText.Replace(" m",""),System.Globalization.NumberStyles.Float,System.Globalization.CultureInfo.InvariantCulture,out var height)&&height>0&&double.IsFinite(height)){levels=Math.Clamp((int)Math.Min(ZLevels.AboveGroundCount,Math.Round(height/3)),1,ZLevels.AboveGroundCount);b.LevelsOrigin="osm-height";}
                 var basements=0;b.SourceBasements=f.Tags.GetValueOrDefault("building:levels:underground")?[..Math.Min(100,f.Tags["building:levels:underground"].Length)];
                 if(b.SourceBasements is not null&&int.TryParse(b.SourceBasements,out var depth)&&depth>0){basements=Math.Clamp(depth,0,ZLevels.BasementCount);if(depth>ZLevels.BasementCount)limitedLevels++;}
+                if(levels+basements>1&&!BuildingDesigner.HoldsStairs(b.Width,b.Height)){levels=1;basements=0;singleFloorSmall++;}
                 var seed=unchecked(project.Seed^x*73856093^y*19349663);b.Design=BuildingDesigner.Generate(b,levels,seed,"rect",basements);
                 if(p.SurfaceTheme!="legacy")VisualStyles.Apply(b);
                 if(f.Tags.GetValueOrDefault("roof:shape") is "flat" or "gabled" or "shed" or "skillion" or "hipped")b.Design.Roof=f.Tags["roof:shape"]=="skillion"?"shed":f.Tags["roof:shape"];
@@ -104,13 +109,16 @@ public static partial class GeographicImporter {
                 if(RoofGeometry.SelectSafeAutomaticRoof(b))approximateRoofs++;
                 if(!ImportedBuildingGeometry.Apply(b,f.Rings,out var footprintReason)){skipped++;skipReasons[footprintReason]=skipReasons.GetValueOrDefault(footprintReason)+1;if(skippedOutlines.Count<256)skippedOutlines.Add(new(b.SourceId,b.Name,footprintReason,x,y,w,h));continue;}
                 b.SourceOutline=ImportedBuildingGeometry.Capture(f.OriginalRings!,out var sourceSimplified);b.SourceOutlineSimplified=sourceSimplified;
+                ApplyAppearanceTags(b,f.Tags,p.ResourcePalettes,problem=>appearanceProblems[problem]=appearanceProblems.GetValueOrDefault(problem)+1);
             }
             if(w>64||h>64||!MapGenerator.CanPlace(p,b)){
                 skipped++;
                 var reason=w>64||h>64?"Outline too large":b.X<1||b.Y<1||b.X+b.Width>=p.Width||b.Y+b.Height>=p.Height?"Outside the map":p.Buildings.Any(a=>b.X<a.X+a.Width+1&&b.X+b.Width+1>a.X&&b.Y<a.Y+a.Height+1&&b.Y+b.Height+1>a.Y)?"Building overlap":p.Decorations.Any(d=>d.Parts.Any(part=>d.X+part.Dx>=b.X&&d.X+part.Dx<=b.X+b.Width&&d.Y+part.Dy>=b.Y&&d.Y+part.Dy<=b.Y+b.Height))?"Environment object":"Water or road";
-                skipReasons[reason]=skipReasons.GetValueOrDefault(reason)+1;if(skippedOutlines.Count<256)skippedOutlines.Add(new(b.SourceId,b.Name,reason,x,y,w,h));continue;
+                skipReasons[reason]=skipReasons.GetValueOrDefault(reason)+1;// In a world section an outline outside the section belongs to a neighbour or the world layer, not to this report.
+                if(skippedOutlines.Count<256&&!(p.WorldSection&&reason=="Outside the map"))skippedOutlines.Add(new(b.SourceId,b.Name,reason,x,y,w,h));continue;
             }
             p.Buildings.Add(b);imported++;
+            if(attachTo is not null&&!AttachedBuildings.Join(b,attachTo,f.Tags.GetValueOrDefault("pz:door-to") is {} doorTo&&(doorTo==attachedSource||"geo-"+doorTo==attachTo.SourceId)))appearanceProblems["pz:door-to found no shared ground-floor wall between the rooms"]=appearanceProblems.GetValueOrDefault("pz:door-to found no shared ground-floor wall between the rooms")+1;
         }
         if(preserveEdits){p.Spawns=project.Spawns.Select(s=>new SpawnPoint{X=s.X,Y=s.Y}).ToList();foreach(var spawn in p.Spawns)p.Terrain[spawn.Y*p.Width+spawn.X]=preserved.Terrain[spawn.Y*p.Width+spawn.X];}else{try{p.Spawns=[MapGenerator.FindSafeSpawn(p)];}catch(ArgumentException) when(p.WorldSection){p.Spawns=[];}}
         CaptureEvidence(p,transformed,project,preserveEdits,cancellationToken);
@@ -120,6 +128,9 @@ public static partial class GeographicImporter {
         if(omittedRails>0)p.ImportSummary.Notes.Add($"Railway paths skipped because cardinal native artwork or authoring limits were not supported: {omittedRails}. No train simulation is provided.");
         if(simplifiedLines>0)p.ImportSummary.Notes.Add($"Long source paths simplified to 512 samples: {simplifiedLines}.");
         p.ImportSummary.Notes.Add($"OSM floor counts: {p.Buildings.Count(b=>b.LevelsOrigin=="osm-levels")}; estimated from height: {p.Buildings.Count(b=>b.LevelsOrigin=="osm-height")}; assumed: {p.Buildings.Count(b=>b.LevelsOrigin=="inferred")}.");
+        foreach(var (problem,count) in appearanceProblems.Take(32))p.ImportSummary.Notes.Add($"Appearance tag ignored: {problem} ({count} outlines).");
+        foreach(var note in UnknownPzKeys(features.Select(f=>(IReadOnlyDictionary<string,string>)f.Tags)))p.ImportSummary.Notes.Add(note);
+        if(singleFloorSmall>0)p.ImportSummary.Notes.Add($"Outlines under 6 tiles on both sides have room for one floor only (no straight five-tile stair run): {singleFloorSmall}. Source floor tags were preserved in the building properties.");
         if(limitedLevels>0)p.ImportSummary.Notes.Add($"Above-ground and basement levels were limited to 32 for {limitedLevels} source outlines.");if(approximateRoofs>0)p.ImportSummary.Notes.Add($"Unusual roof shapes were adapted for {approximateRoofs} outlines; original tags were preserved in the building properties.");
         if(preserveEdits)p.ImportSummary.Notes.Add($"Manually edited buildings preserved: {p.Buildings.Count(b=>b.Modified)}. Adjacent source outlines may be skipped to preserve these edits.");
         if(preserveEdits&&project.TerrainEdits.Length==0)p.ImportSummary.Notes.Add("Legacy manual terrain changes without a mask cannot be identified. Explicit surfaces, decoration, and buildings were preserved; unmarked terrain was refreshed from geographic data.");

@@ -51,7 +51,7 @@ The historical section must have the same origin and dimensions. It is validated
 
 Crossing buildings and infrastructure use the shared world geometry. Their projected footprints remain visible in an isolated section and participate in placement checks. Required nearby support samples are read for shared infrastructure; unrelated terrain sections remain unloaded. Missing required samples produce an error rather than invented ground.
 
-Shared geometry is **read-only** in an isolated section. To change a shared building or path, save the active section and choose **Load complete world**. That compatibility operation loads the whole world and retains the complete-world size budget; it is not a streaming shared-object editor.
+Shared geometry is **read-only** in an isolated section. To change a shared building, decoration or path, save the active section and choose **Load complete world**. That compatibility operation loads the whole world and retains the complete-world size budget; it is not a streaming shared-object editor.
 
 For native output, choose **Export saved section** or **Export saved world** inside **Section workspaces**. Dirty edits in the active selected workspace save first. The queued job pins a saved revision, checks resources and processes section rasters in sequence. Editing after queueing does not alter that job's input. Progress, cancellation and download use the existing [export queue](EXPORT-JOBS.md).
 
@@ -69,6 +69,17 @@ These are application storage/authoring budgets. They do not establish a 2,048-t
 ### Rotated real-place references
 
 The core geographic reference supports `RotationDegrees` from **−45° to +45°**, with zero preserving existing projection. Positive angles turn source content clockwise in the east/south tile plane. Rotation uses the centre of the geographic bounds and one shared origin for all sections; original WGS84 source coordinates stay unchanged. The [transfer contract](TRANSFER-CONTRACT.md#1-coordinates) provides formulas and the −11.22° Pilna example. This is a saved/import reference capability, not a free-rotation control for an already authored section.
+
+### Shared decorations
+
+A decoration group (a bench, bed, counter or any multi-tile game object) can cross a section seam when it lives in the world layer:
+
+1. Open the world, select the section that holds the decoration and expand **Shared decorations** in the world inspector.
+2. Choose the group in **Selected section decoration**. Its absolute world tile appears in **World tile X/Y**; change it to straddle the seam if needed.
+3. Select **Move to shared decorations**. The group leaves the section and is stored once in `.pzworld.json` (world format 8).
+4. To reposition it, choose it in **Shared decorations**, edit the coordinates and select **Apply decoration coordinates**. **Remove shared decoration** deletes it. Each action is one world history step.
+
+Every part must land on dry ground of an existing section, clear of buildings, spawns, models and other decorations. An isolated section shows the shared parts in light blue and refuses local edits that would cover or flood them. Mod tiles keep their provider; a section that draws a mod tile requires that mod in its export.
 
 ## Use map layers
 
@@ -92,7 +103,7 @@ Expand **Geometry tools**. Select **Polygon zone**, **Path**, **Fence line** or 
 
 The current path adapter creates a two-tile sidewalk. Its width and other path properties can then be changed through the existing path editor. A generic polygon applies as a `TownZone`; use the zone panel below when a particular type, density or room mapping is required.
 
-The current building adapter creates a ground-level outbuilding with an exact footprint of **6–64 tiles per side**. Add floors or edit its design afterward. A smaller draft keeps its requested dimensions and cannot be applied through this adapter. Tiny 2×2 sheds and shared-wall behavior await the companion core implementation.
+The building adapter creates a ground-level outbuilding with the exact footprint of **2–64 tiles per side**; a 2×2 shed is applied as drawn. Under 6 tiles on a side the building is one room; it can take more floors or a basement only when its long side has at least 6 tiles, because stairs need a straight run of five tiles plus a landing. The **Type** list also offers one-room presets (shed 3×3, kiosk 3×3, booth 2×2). Attached buildings are imported from `pz:attached` tags; there is no manual attach control yet.
 
 The merged core supports a native fence edge layer with separate fence/gate styles, posts and crossing world lines; see the [fence contract](TRANSFER-CONTRACT.md#4-fences-and-gates). Geometry tools enable **Apply draft** only for supported adapter operations. An unavailable operation keeps its exact draft. Fences are never approximated as ordinary decorations. Existing/imported fence data and dependencies remain part of map/world authoring; a basic drawing adapter does not imply that every gate/style setting has a visual editor.
 
@@ -139,7 +150,9 @@ Select an existing region in the list to edit it. **Preview removal** follows th
 
 Module tests cover revision conflicts, stale/cancelled section loads, explicit reload failure, unloaded-neighbour presentation, geometry capability gates, polygon coverage, density ownership and reviewed room changes. The self-contained browser check uses 13 synthetic 1024×1024 sections, a shared house/fence and a crossing road. It verifies save/switch/reload, polygon density, a drawn fence with a wicket, revision restoration and locked undo. Both the section and combined world archives pass independent native decoding; installed game classes load the section archive. See [verification status](STATUS.md).
 
-Current boundaries: native lighting requires **Load complete world** so that its neighbour halo is present; isolated editing refuses an incomplete lighting calculation. Small building footprints still follow the core's 6×6 minimum. Imported fences crossing sections still need authoritative world-layer promotion in the source importer; their retained source data is not proof of that promotion. Arbitrary shared decoration groups do not yet have a world-level authoring DTO. These limitations are separate from the bounded section readers and native fence export.
+Imported fences: the OpenStreetMap world importer moves every barrier line whose edges reach more than one section into the shared world fence layer, once, in absolute tiles. Gates found near each section are merged; authored section lines are never moved. A style conflict with an existing world style keeps the local copies and is reported. **Preserve edits** keeps authored world fences and shared decorations and rebuilds imported world fences from the refreshed source.
+
+Current boundaries: native lighting requires **Load complete world** so that its neighbour halo is present; isolated editing refuses an incomplete lighting calculation. Attached (shared-wall) buildings come from imports (`pz:attached`); the editor has no control to attach two buildings by hand yet. These limitations are separate from the bounded section readers and native fence export.
 
 The companion developer's private 13 populated Pilna scenes have not been used as an acceptance fixture for this change. Synthetic fixtures establish the tested behavior without claiming that the complete real settlement has already passed validation.
 

@@ -24,7 +24,9 @@ internal sealed partial class TileComposer
             var terrain=p.Terrain[(oy+y)*p.Width+ox+x];
             Navigation[y*256+x]=terrain==Terrain.Water?(byte)8:(byte)0;
         }
-        foreach(var b in p.Buildings.Where(b=>b.X<ox+256&&b.Y<oy+256&&b.X+b.Width>=ox&&b.Y+b.Height>=oy)){if(b.Design is null)Compose(b);else ComposeDesign(b);}
+        // The wall owner of an attached pair composes after its partner, so the shared wall lands on the partner's floor tile instead of being replaced by it.
+        suppressedEdges=AttachedBuildings.SuppressedEdges(p.Buildings);var yields=suppressedEdges.Select(e=>e.Building).ToHashSet(StringComparer.Ordinal);
+        foreach(var b in p.Buildings.OrderBy(b=>yields.Contains(b.Id)?0:1).Where(b=>b.X<ox+256&&b.Y<oy+256&&b.X+b.Width>=ox&&b.Y+b.Height>=oy)){if(b.Design is null)Compose(b);else ComposeDesign(b);}
         foreach(var d in p.Decorations)foreach(var part in d.Parts){var x=d.X+part.Dx-ox;var y=d.Y+part.Dy-oy;if(x>=0&&y>=0&&x<256&&y<256)Add(x,y,part.Tile,part.Flags);}
         if(p.Fences.Count>0){var blocked=FenceLines.Blocker(p);foreach(var piece in FenceLines.Compose(p.Fences,p.FenceStyles,p.GateStyles,256,256,-ox,-oy,(x,y)=>blocked(x+ox,y+oy)).Pieces)Add(piece.X,piece.Y,piece.Tile,piece.Flags);}
         ComposeInfrastructure(infrastructure);

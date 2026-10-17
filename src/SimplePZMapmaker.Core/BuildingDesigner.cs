@@ -12,8 +12,14 @@ public static class BuildingDesigner
   var result=new HashSet<int>();for(var y=0;y<b.Height;y++)for(var x=0;x<b.Width;x++)if(Occupies(b,x,y)){result.Add(y*(b.Width+1)+x);if(perimeter){result.Add(y*(b.Width+1)+x+1);result.Add((y+1)*(b.Width+1)+x);}}
   if(b.Design is null&&perimeter)for(var y=0;y<=b.Height;y++)for(var x=0;x<=b.Width;x++)result.Add(y*(b.Width+1)+x);return result;
  }
+ /// <summary>Smallest footprint side. Below <see cref="RoomyFootprint"/> a building is one room (a shed, kiosk or booth).</summary>
+ public const int MinimumFootprint=2,RoomyFootprint=6;
+ public static bool Small(int width,int height)=>width<RoomyFootprint||height<RoomyFootprint;
+ /// <summary>Stairs need five tiles in a straight line plus a landing, so a small footprint holds them only along a side of at least six tiles.</summary>
+ public static bool HoldsStairs(int width,int height)=>Math.Max(width,height)>=RoomyFootprint;
  public static BuildingDesign Generate(Building b,int levels,int seed,string shape="rect",int basements=0){
-  if(b.Width is <6 or >64||b.Height is <6 or >64||levels is <1 or >ZLevels.AboveGroundCount||basements is <0 or >ZLevels.BasementCount||!Kinds.Contains(b.Kind)||shape is not("rect" or "l" or "t" or "courtyard" or "annex"))throw new ArgumentException("Check the building type, dimensions, shape, and floor count: 1-32 above-ground floors (z=0 to 31) and 0-32 basement levels (z=-1 to -32).");
+  if(b.Width is <MinimumFootprint or >64||b.Height is <MinimumFootprint or >64||levels is <1 or >ZLevels.AboveGroundCount||basements is <0 or >ZLevels.BasementCount||!Kinds.Contains(b.Kind)||shape is not("rect" or "l" or "t" or "courtyard" or "annex"))throw new ArgumentException("Check the building type, dimensions, shape, and floor count: 2-64 tiles per side, 1-32 above-ground floors (z=0 to 31) and 0-32 basement levels (z=-1 to -32).");
+  if(Small(b.Width,b.Height))return GenerateSmall(b,levels,seed,shape,basements);
   levels+=basements;
   var rng=new Random(seed);var design=new BuildingDesign{MinLevel=-basements,Variant=seed,Shape=shape,Material=new[]{"wood","brick","plaster"}[rng.Next(3)],Roof=shape=="rect"?new[]{"flat","gabled","shed","hipped"}[rng.Next(4)]:"flat"};
   var names=b.Kind switch{"house"=>new[]{"livingroom","kitchen","bedroom","bathroom"},"apartments"=>new[]{"bedroom","kitchen","livingroom","bathroom"},"school"=>new[]{"classroom","office","classroom","bathroom"},"shop"=>new[]{"conveniencestore","storage","office","bathroom"},"clinic"=>new[]{"medical","office","medical","bathroom"},"hotel"=>new[]{"hotelroom","hotelroom","office","bathroom"},"garage"=>new[]{"garage","storage","garage","storage"},_=>new[]{"warehouse","storage","office","storage"}};
@@ -53,6 +59,22 @@ public static class BuildingDesigner
   Validate(b);
   return design;
  }
+ /// <summary>A footprint under 6 tiles on a side: one room, plus a hall strip for stairs when the long side holds them.</summary>
+ static BuildingDesign GenerateSmall(Building b,int levels,int seed,string shape,int basements){
+  if(shape!="rect")throw new ArgumentException("Footprints under 6 tiles on a side use the rectangular shape.");
+  if(levels+basements>1&&!HoldsStairs(b.Width,b.Height))throw new ArgumentException("A footprint under 6 tiles on both sides has room for one floor only: stairs need a straight run of five tiles plus a landing.");
+  var total=levels+basements;var rng=new Random(seed);var design=new BuildingDesign{MinLevel=-basements,Variant=seed,Shape="rect",Material=new[]{"wood","brick","plaster"}[rng.Next(3)],Roof=new[]{"flat","gabled","shed","hipped"}[rng.Next(4)]};
+  var room=b.Kind switch{"shop"=>"conveniencestore","garage"=>"garage","school" or "clinic" or "hotel" or "apartments"=>"office",_=>"storage"};
+  var direction=b.Height>=RoomyFootprint?"n":"w";var stairX=direction=="n"?0:1;var stairY=direction=="n"?1:0;
+  for(var z=0;z<total;z++){
+   var cells=Enumerable.Repeat('1',b.Width*b.Height).ToArray();var floor=new BuildingFloor{Rooms=new(){["0"]="hall",["1"]=z<basements?"storage":room}};
+   if(total>1)for(var i=0;i<5;i++)cells[(stairY+(direction=="n"?i:0))*b.Width+stairX+(direction=="w"?i:0)]='0';else floor.Rooms.Remove("0");
+   floor.Cells=new(cells);if(z<total-1)floor.Objects.Add(new(){X=stairX,Y=stairY,Kind="stairs",Direction=direction});design.Floors.Add(floor);
+  }
+  b.Design=design;
+  for(var z=0;z<total;z++){design.Floors[z].Edges=AutoEdges(b,design.Floors[z],z+design.MinLevel);Furnish(b,z,rng);}
+  RoofGeometry.SelectSafeAutomaticRoof(b);Validate(b);return design;
+ }
  public static void Furnish(Building b,int z,Random rng){
   var f=b.Design!.Floors[z];f.Objects.RemoveAll(o=>o.Kind!="stairs");
   foreach(var code in f.Rooms.Keys.Where(k=>k!="0"&&f.Rooms[k]!="balcony")){
@@ -77,7 +99,7 @@ public static class BuildingDesigner
   }return edges;
  }
  public static void Validate(Building b,bool requireAccess=true){
-  if(b is null||b.Width is <6 or >64||b.Height is <6 or >64||!Kinds.Contains(b.Kind))throw new ArgumentException("Check the building dimensions and type.");
+  if(b is null||b.Width is <MinimumFootprint or >64||b.Height is <MinimumFootprint or >64||!Kinds.Contains(b.Kind))throw new ArgumentException("Check the building dimensions (2-64 tiles per side) and type.");
   if(b.Attribution is null||b.Attribution.Count>30||b.Attribution.Any(s=>s is null||s.Length>1000))throw new ArgumentException("Invalid building template source.");
   ResourceDependencies.Validate(b.RequiredMods,b.AssetSources);
   if(b.Design is null)return;var d=b.Design;

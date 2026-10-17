@@ -3,6 +3,8 @@ internal sealed partial class TileComposer
 {
  private readonly Dictionary<int,List<string>> layers=[];
  private readonly Dictionary<int,int> upperRoomIds=[];
+ // Edges of an attached pair whose wall belongs to the partner building (AttachedBuildings.SuppressedEdges).
+ private HashSet<(string Building,int X,int Y,int Z,string Edge)> suppressedEdges=[];
  internal int MaxLevel {get;private set;}=1;
  internal int MinLevel {get;private set;}
  internal int RoomAt(int x,int y,int z)=>z==0?RoomIds[y*256+x]:upperRoomIds.GetValueOrDefault(z*65536+y*256+x,-1);
@@ -28,7 +30,7 @@ internal sealed partial class TileComposer
     for(var i=0;i<floor.Cells.Length;i++)if(floor.Cells[i]==room.Key[0]&&InCell(x0+i%b.Width,y0+i/b.Width)){var key=(y0+i/b.Width)*256+x0+i%b.Width;if(z==0)RoomIds[key]=id;else upperRoomIds[z*65536+key]=id;}
    }
    foreach(var e in floor.Edges){
-    if(e.Kind=="open")continue;var north=e.Edge=="n";var tile=(style?.WallBase??wallBase)+(e.Kind=="door"?10:e.Kind=="window"?8:0)+(north?1:0);
+    if(e.Kind=="open"||suppressedEdges.Contains((b.Id,b.X+e.X,b.Y+e.Y,z,e.Edge)))continue;var north=e.Edge=="n";var tile=(style?.WallBase??wallBase)+(e.Kind=="door"?10:e.Kind=="window"?8:0)+(north?1:0);
     var a=BuildingDesigner.Cell(b,floor,e.X,e.Y);var other=north?BuildingDesigner.Cell(b,floor,e.X,e.Y-1):BuildingDesigner.Cell(b,floor,e.X-1,e.Y);var inside=a=='.'?other:a;var balcony=(a=='.'||other=='.')&&floor.Rooms.GetValueOrDefault(inside.ToString())=="balcony";
     if(balcony&&e.Kind=="wall"){AddAt(x0+e.X,y0+e.Y,z,e.WallTile??$"carpentry_02_{(north?101:100)}",north?(byte)2:(byte)4);continue;}
     AddAt(x0+e.X,y0+e.Y,z,e.WallTile??$"{style?.Wall??"walls_exterior_house_01"}_{tile}",north?(byte)2:(byte)4);

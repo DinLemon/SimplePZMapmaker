@@ -77,7 +77,7 @@ A rebuild from the same source must reproduce the same identities, so that **Pre
   - placed at world level;
   - kept as evidence with a reason (`skipped: <reason>`).
 
-  The world import report lists the counts per source kind (`placed-section`, `placed-world`, `evidence`), and the seam check fails when a feature is in none or in more than one.
+  The world import report lists the counts per source kind (`placed-section`, `placed-world`, `evidence`), and the seam check fails when a feature is in none or in more than one. *Implemented:* `GeographicImporter.TransferCheck` re-reads the source and reports buildings and fences; `simplepzmap build`/`validate --source` print it and `--strict` fails on lost or duplicated features ([CLI](CLI.md#seam-check)).
 - A section may be built separately; the world build reads the per-section scene plus a seam list (features that crossed its edge), deduplicates by `SourceId` and imports them once at world level.
 
 ## 4. Fences and gates
@@ -127,20 +127,22 @@ Building feature properties read by the importer (OSM keys keep their OSM meanin
 
 | Key | Values | Effect |
 |---|---|---|
+*Implemented* for section and shared world imports. Tags are applied after the footprint is fitted, so regenerated edges never drop them; unusable values are reported once per value in the import notes.
+
 | `building:levels` | 1–8 | storeys (existing) |
 | `roof:shape` | `gabled`, `hipped`, `flat`, … | roof form (existing) |
-| `roof:colour` | `grey`, `red`, `blue`, `green`, `brown` | roof tile set |
-| `pz:wall` | wall set id from the palette, or `set:<first tile>` | exterior wall set |
+| `roof:colour` | `grey`, `red`, `blue`, `green`, `brown`, `white`, `black`, `silver`, or `#rrggbb` | roof tile set: grey `roofs_30_04`, red `roofs_30_09`, blue `roofs_30_01`, green `roofs_30_05`, brown `roofs_30_07`, white `roofs_30_03`; a hex colour takes the nearest set by the average colour measured from the installed Build 42 sprites. Flat roofs keep their own surface. |
+| `pz:wall` | `set:<first tile>`, a bare first tile, or the ID of a project palette whose first wall resource starts the set | exterior wall set: wall `+0/+1`, window frame `+8/+9`, door frame `+10/+11` (W/N), on every exterior edge except balconies |
 | `pz:trim` | overlay tile pair `<north tile>:<west tile>` | window surround overlay on exterior window edges (wall edge overlays, PR #1) |
 | `pz:style` | building style id | interior and furniture style |
-| `pz:kind` | `house`, `shed`, `garage`, `bathhouse`, `toilet`, `greenhouse` | building kind when OSM `building=*` is ambiguous |
+| `pz:kind` | `house`, `shed`, `garage`, `bathhouse`, `toilet`, `greenhouse` | building kind when OSM `building=*` is ambiguous; `bathhouse` and `toilet` make a one-room building a bathroom |
 
 Unknown `pz:*` keys are kept as source tags and reported once per key as a warning; they never fail an import.
 
 ## 6. Small and attached buildings
 
-- **Small buildings.** A building with `pz:kind` in {`shed`, `toilet`, `bathhouse`, `greenhouse`} may be as small as 2×2 tiles, and its footprint may be smaller than 16 cells. It has one room, no stairs and an optional door. Today such outbuildings are inflated to 4×4.
-- **Attached buildings.** `pz:attached = <source id>` lets a building touch the referenced building with no 1-tile gap. A typical case is a covered yard or barn joined to the house. The shared edge is a wall of the larger building; a door on it is allowed when `pz:door-to` names the other building.
+- **Small buildings (implemented).** Any outline may be as small as 2×2 tiles; it is no longer inflated, and its footprint may hold as few as 4 cells. Under 6 tiles on a side the building is one room with a door. It keeps one floor unless its long side has at least 6 tiles for a straight stair run; otherwise source floor tags are retained but only one floor is built, and the import report says so.
+- **Attached buildings (implemented).** `pz:attached = <source id>` lets a building touch the referenced building with no 1-tile gap. A typical case is a covered yard or barn joined to the house. The shared edge is a wall of the larger building (by floor area; the target on a tie); the smaller building draws nothing there, and the larger building's windows on that wall become plain wall. A door on it is added when `pz:door-to` names the other building. The smaller building keeps an exterior entrance off the shared wall. The relation is stored as `Building.AttachedTo` (map format 13) inside one section; shared world buildings cannot be attached. Wall rings of the pair may share tiles; rooms never overlap.
 
 ## 7. Game zones
 
@@ -161,12 +163,12 @@ Pipeline-generated verge wrecks are emitted as `pz:zone=Vehicle` polygons with `
 ## 8. Versions
 
 - Input GeoJSON declares `"pzTransfer": 1` at the FeatureCollection level. Without it, `pz:*` keys are still read, and the import report notes the missing declaration.
-- Writing `RotationDegrees ≠ 0` or a fence layer raises the world format to 7, and a fence layer raises the map format to 12. Small and attached buildings will raise it again when they land. All of this goes through `AuthoringFormats`, as for other new authoring features. An older editor refuses such files instead of silently dropping data, and files without these features keep their current version.
+- Writing `RotationDegrees ≠ 0` or a fence layer raises the world format to 7, and a fence layer raises the map format to 12. A shared decoration layer raises the world format to 8. Small buildings need no new format; attached buildings raise the map format to 13. All of this goes through `AuthoringFormats`, as for other new authoring features. An older editor refuses such files instead of silently dropping data, and files without these features keep their current version.
 - This document is versioned with the code. Incompatible changes create `TRANSFER-CONTRACT.md` version 2 and keep version 1 readable.
 
 ## Acceptance
 
-Implementation note: authoritative `WorldProject.Fences` now survive isolated section reads, editing validation and streamed export with gate/post phase preserved across seams. The OSM world-import pipeline still needs to promote and deduplicate crossing imported fence lines: the current per-section importer can retain a complete crossing source line in each touched section. This remains an import ownership gap; stored local lines are preserved rather than silently deleted or clipped. No zero-duplicate source-transfer acceptance claim follows from the fence layer alone.
+Implementation note: authoritative `WorldProject.Fences` survive isolated section reads, editing validation and streamed export with gate/post phase preserved across seams. The world importers (editor OSM import and `simplepzmap build`) promote every imported fence line whose edges reach two or more sections into the world layer once, merge the gates found near each section, and keep only the owning section's copy of a line that merely touches a neighbour. The seam check then verifies zero lost or duplicated buildings and fences.
 
 `PilnaVillage` is built from the section scenes of real Pilna data: 21 sections of 1024 tiles under the rotated reference (the earlier, pre-rotated frame had 13). It is accepted when all of the following hold:
 - `WorldAssembler.Validate` passes;

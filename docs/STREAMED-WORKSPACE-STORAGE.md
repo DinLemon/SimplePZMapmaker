@@ -23,6 +23,8 @@ The native writer composes one authored/projected section at a time. Shared supp
 
 World format 7 stores shared `Fences`, `FenceStyles`, and `GateStyles` in the metadata blob. A section source retains only its own fences. Projections translate complete shared lines before the native composer clips them, preserving gate position and post phase across seams. Conflicting world/section style definitions and duplicate local/shared fence IDs are rejected. Fence pieces resolve through the active resource catalog; existing section provider bindings are checked before they can be replaced. The current fence DTO has no independent world resource-binding field, so never infer an original provider for an unbound imported style.
 
+World format 8 adds shared `Decorations` to the metadata blob. Each group keeps absolute world tiles, its parts and its own `RequiredMods`/`AssetSources`. A section source never stores them; projection clips each group to the section and adds its providers to the projected section. A section save is refused when local content covers or floods a shared decoration, or repeats its ID.
+
 ## Explicit budgets
 
 - One section blob: 48 MiB; shared metadata: 16 MiB; manifest: 1 MiB.

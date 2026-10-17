@@ -11,10 +11,13 @@ A local visual map and building editor for **Project Zomboid Build 42**, written
 ## Streamed world editor (development branch)
 
 - **Work on one section:** save a world as a section workspace, browse its manifest and open only the section being edited. Switching saves committed edits first; stale revisions retain the local copy and offer an explicit reload/discard action.
-- **See neighbouring geometry:** section outlines distinguish loaded and unloaded terrain. Crossing buildings and infrastructure remain visible and reserved; shared geometry is read-only in an isolated section.
+- **See neighbouring geometry:** section outlines distinguish loaded and unloaded terrain. Crossing buildings, decorations, fences and infrastructure remain visible and reserved; shared geometry is read-only in an isolated section.
+- **Share decorations across seams:** move a section decoration group into the world's **Shared decorations** layer. It is stored once in world tiles, and every section draws the part inside it.
 - **Control editing layers:** hide or lock terrain, roads, paths, buildings, objects, models, spawns and authoring zones. Annotation order is adjustable; physical sprites keep their depth order.
-- **Draw and review:** finish geometry drafts before applying them. Author polygon game/vehicle zones, reversible zombie-density regions and reviewed whole-room mappings. The merged core supports native fence lines and geographic rotation; unsupported adapter operations stay downloadable drafts. The current building adapter accepts footprints from 6×6 tiles.
+- **Draw and review:** finish geometry drafts before applying them. Author polygon game/vehicle zones, reversible zombie-density regions and reviewed whole-room mappings. The merged core supports native fence lines and geographic rotation; unsupported adapter operations stay downloadable drafts. Buildings accept footprints from 2×2 tiles; under 6 tiles on a side a building is one room (a shed, kiosk or booth).
 - **Export a saved revision:** section and world export jobs read immutable section data in sequence. Compatibility whole-world JSON loading retains its separate size limit.
+- **Name and install the mod:** every export accepts a mod id, map folder and title, can place `media/maps` under `common/`, and can install straight into `Zomboid/mods` without replacing folders it did not create.
+- **Build without the browser:** `simplepzmap build scene.json` imports a real place into a world, honours building tags (`pz:kind`, `pz:style`, `roof:colour`, `pz:wall`, `pz:trim`, attached buildings), runs the seam check and exports; `validate --game` checks every tile name against the installed game, `tiles` builds `.pack`/`.tiles` tile mods from PNG frames and `probe` loads the export with the game's own classes. [Command line guide](docs/CLI.md).
 
 [Step-by-step section, layer and polygon guide](docs/STREAMED-WORLD-EDITOR.md) · [Zone semantics and API](docs/ZONE-AUTHORING.md) · [Core/editor integration contract](docs/SPZM-SCENE-CONTRACT.md)
 

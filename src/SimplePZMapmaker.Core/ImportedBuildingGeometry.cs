@@ -6,7 +6,7 @@ public static class ImportedBuildingGeometry {
   reason="";if(rings.Count==0||rings.Any(r=>r.Count<4||r[0]!=r[^1])){reason="Open or incomplete source footprint";return false;}
   var mask=new bool[b.Width*b.Height];var intersections=new List<double>();
   for(var y=0;y<b.Height;y++){intersections.Clear();var scan=b.Y+y+.5;foreach(var ring in rings)for(int i=0,j=ring.Count-1;i<ring.Count;j=i++)if((ring[i].Y>scan)!=(ring[j].Y>scan))intersections.Add(ring[i].X+(scan-ring[i].Y)*(ring[j].X-ring[i].X)/(ring[j].Y-ring[i].Y));intersections.Sort();for(var i=0;i+1<intersections.Count;i+=2){var first=Math.Clamp((int)Math.Ceiling(intersections[i]-b.X-.5),0,b.Width);var end=Math.Clamp((int)Math.Ceiling(intersections[i+1]-b.X-.5),0,b.Width);for(var x=first;x<end;x++)mask[y*b.Width+x]=true;}}
-  var count=mask.Count(v=>v);if(count<16){reason="Source footprint too narrow at this scale";return false;}
+  var count=mask.Count(v=>v);if(count<BuildingDesigner.MinimumFootprint*BuildingDesigner.MinimumFootprint){reason="Source footprint too narrow at this scale";return false;}
   var start=Array.FindIndex(mask,v=>v);var queue=new Queue<int>();var visited=new HashSet<int>{start};queue.Enqueue(start);while(queue.TryDequeue(out var i)){var x=i%b.Width;var y=i/b.Width;foreach(var (dx,dy) in new[]{(1,0),(-1,0),(0,1),(0,-1)}){var xx=x+dx;var yy=y+dy;if(xx>=0&&yy>=0&&xx<b.Width&&yy<b.Height&&mask[yy*b.Width+xx]&&visited.Add(yy*b.Width+xx))queue.Enqueue(yy*b.Width+xx);}}
   if(visited.Count!=count){reason="Disconnected source footprint at this scale";return false;}
   var original=b.Design??throw new ArgumentException("A source footprint needs a generated interior.");var direction="n";var stair=-1;

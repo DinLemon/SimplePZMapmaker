@@ -84,6 +84,44 @@ public static partial class GeographicImporter
         p.Fences=total;p.FenceStyles=styles;p.GateStyles=gates;
         p.ImportSummary?.Notes.Add($"Fence lines from barrier=* paths: {lines.Count}" +(skippedLines>0?$", {skippedLines} outside the map or beyond limits":"")+(droppedGates>0?$", {droppedGates} gates dropped (unknown placement)":"")+". Diagonal fences follow cell edges as staircases.");
     }
+    /// <summary>Moves imported fence lines whose edges reach more than one section into the world fence layer (absolute tiles), once.
+    /// Every section imports the whole barrier way, so a crossing line arrives as one copy per section; gates found near each
+    /// section are merged. Authored section lines (no source) are never moved.</summary>
+    public static int PromoteSharedFences(WorldProject world,List<string> warnings){
+        var copies=new Dictionary<string,List<(WorldMapMember Member,FenceLine Line)>>(StringComparer.Ordinal);
+        foreach(var m in world.Maps)foreach(var f in m.Project.Fences.Where(f=>f.SourceId is not null)){if(!copies.TryGetValue(f.Id,out var list))copies[f.Id]=list=[];list.Add((m,f));}
+        var promoted=0;var conflicts=0;var droppedGates=0;
+        foreach(var (id,list) in copies){
+            var (member,line)=list[0];var ox=member.Project.WorldX*256;var oy=member.Project.WorldY*256;
+            var points=line.Points.Select(v=>new FencePoint(v.X+ox,v.Y+oy)).ToList();
+            var owners=EdgeCells(points).Select(c=>WorldAssembler.MemberAt(world,c.X,c.Y)?.Id).Where(o=>o is not null).Distinct().ToList();
+            // A line owned by one section keeps only that section's copy; neighbours that merely touch its end hold no edge of it.
+            if(owners.Count==1){if(list.Any(c=>c.Member.Id==owners[0]))foreach(var (m,_) in list.Where(c=>c.Member.Id!=owners[0]))m.Project.Fences.RemoveAll(f=>f.Id==id);continue;}
+            if(owners.Count==0)continue;
+            if(world.Fences.Any(f=>f.Id==id)){conflicts++;continue;}
+            var style=member.Project.FenceStyles.Single(s=>s.Id==line.Style);
+            bool Same<T>(T a,T b)=>JsonSerializer.Serialize(a)==JsonSerializer.Serialize(b);
+            if(world.FenceStyles.FirstOrDefault(s=>s.Id==style.Id) is {} known&&!Same(known,style)){conflicts++;continue;}
+            var gates=new List<FenceGate>();
+            foreach(var (copyMember,copy) in list){var shift=copy.Points.Select(v=>new FencePoint(v.X+copyMember.Project.WorldX*256,v.Y+copyMember.Project.WorldY*256)).SequenceEqual(points);
+                foreach(var g in copy.Gates){if(!shift||gates.Any(o=>o.At==g.At)){droppedGates+=shift?0:1;continue;}gates.Add(new(){At=g.At,Style=g.Style,OpensTo=g.OpensTo,Open=g.Open});}}
+            var gateStyles=gates.Select(g=>g.Style).Distinct().Select(g=>list.SelectMany(c=>c.Member.Project.GateStyles).First(s=>s.Id==g)).ToList();
+            if(gateStyles.Any(g=>world.GateStyles.FirstOrDefault(s=>s.Id==g.Id) is {} known&&!Same(known,g))){conflicts++;continue;}
+            var shared=new FenceLine{Id=id,Style=line.Style,PostSpacing=line.PostSpacing,Points=points,Gates=gates.OrderBy(g=>g.At).ToList(),SourceId=line.SourceId,SourceTags=new(line.SourceTags),SourcePath=[..line.SourcePath]};
+            var styles=world.FenceStyles.Any(s=>s.Id==style.Id)?world.FenceStyles:[..world.FenceStyles,style];var gateLayer=world.GateStyles.Concat(gateStyles.Where(g=>world.GateStyles.All(s=>s.Id!=g.Id))).ToList();
+            try{FenceLines.Validate([..world.Fences,shared],styles,gateLayer,258048);}catch(ArgumentException){droppedGates+=shared.Gates.Count;shared.Gates=[];try{FenceLines.Validate([..world.Fences,shared],styles,gateLayer,258048);}catch(ArgumentException){conflicts++;continue;}}
+            world.Fences.Add(shared);world.FenceStyles=styles;world.GateStyles=gateLayer;foreach(var (m,_) in list)m.Project.Fences.RemoveAll(f=>f.Id==id);promoted++;
+        }
+        if(promoted>0)warnings.Add($"Fence lines crossing section boundaries moved to the shared world fence layer: {promoted}. Each is stored once in absolute tiles and drawn in every section it reaches.");
+        if(conflicts>0)warnings.Add($"Crossing fence lines kept in their sections because a shared style, ID or world fence limit conflicts: {conflicts}.");
+        if(droppedGates>0)warnings.Add($"Gates dropped while merging crossing fence lines: {droppedGates}.");
+        return promoted;
+    }
+    /// <summary>The cell holding each edge of a grid walk (south of a horizontal edge, east of a vertical one), as in <see cref="FenceLines.Compose"/>.</summary>
+    static IEnumerable<(int X,int Y)> EdgeCells(List<FencePoint> points){
+        for(var s=1;s<points.Count;s++){var a=points[s-1];var b=points[s];var horizontal=a.Y==b.Y;var step=horizontal?Math.Sign(b.X-a.X):Math.Sign(b.Y-a.Y);var run=horizontal?Math.Abs(b.X-a.X):Math.Abs(b.Y-a.Y);
+            for(var i=0;i<run;i++){var vx=horizontal?a.X+i*step:a.X;var vy=horizontal?a.Y:a.Y+i*step;yield return(horizontal?Math.Min(vx,vx+step):vx,horizontal?vy:Math.Min(vy,vy+step));}}
+    }
     static (double X,double Y) PointAlong(List<(double X,double Y)> path,double distance){
         for(var i=1;i<path.Count;i++){var a=path[i-1];var b=path[i];var length=Math.Sqrt(Math.Pow(b.X-a.X,2)+Math.Pow(b.Y-a.Y,2));if(distance<=length||i==path.Count-1){var t=length>0?Math.Clamp(distance/length,0,1):0;return(a.X+(b.X-a.X)*t,a.Y+(b.Y-a.Y)*t);}distance-=length;}
         return path[0];}

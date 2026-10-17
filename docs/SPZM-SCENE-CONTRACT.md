@@ -22,7 +22,7 @@ The implemented fence edge layer uses `Fences`, `FenceStyles` and `GateStyles` o
 
 Fence authoring requires map format **12** and world format **7**; nonzero geographic rotation also requires world format **7**. A browser adapter must commit the actual fence layer and retain its resource bindings, source paths and gate styles. It must never approximate fences as ordinary decorations. Unsupported geometry or unavailable adapter capabilities remain explicit drafts.
 
-Small-building drawing records the exact requested footprint and must not silently enlarge a 2×2 shed. Apply is enabled only for the active adapter's supported size and shared-wall behavior. The current general building adapter supports 6–64 tiles per side; the [canonical small/attached building extension](TRANSFER-CONTRACT.md#6-small-and-attached-buildings) must not be advertised as implemented merely because its schema is documented.
+Small-building drawing records the exact requested footprint and must not silently enlarge a 2×2 shed. Apply is enabled only for the active adapter's supported size and shared-wall behavior. The general building adapter supports 2–64 tiles per side; footprints under 6 tiles on a side are one room. Attached buildings from the [small/attached building extension](TRANSFER-CONTRACT.md#6-small-and-attached-buildings) are implemented in the importer (`pz:attached`, map format 13); the editor keeps and validates them but has no manual attach control.
 
 ## Source appearance tags
 
