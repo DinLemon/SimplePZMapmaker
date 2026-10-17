@@ -18,7 +18,9 @@ public static class ServerCheck
  {
   /// <summary>Metagrid zone types the server reports at each probe point (foraging zones from the biome map included).</summary>
   public Dictionary<int,string> Zones {get;init;}=[];
-  public bool Passed=>Started&&Stopped&&Probes.Count>0&&Probes.All(p=>p.Building==p.Point.ExpectBuilding);
+  /// <summary>Spawn regions as the server loads them: profession keys, unemployed points and how many of those lie in a building.</summary>
+  public List<(string Region,int Professions,int Points,int Inside)> Spawns {get;init;}=[];
+  public bool Passed=>Started&&Stopped&&Probes.Count>0&&Probes.All(p=>p.Building==p.Point.ExpectBuilding)&&Spawns.Count>0&&Spawns.All(s=>s.Points>0);
  }
  /// <summary>Up to <paramref name="count"/> ground-floor room tiles spread over the sections (and shared buildings), and one tile without a building.</summary>
  public static List<Point> Points(ZipArchive zip,int count=12){
@@ -66,7 +68,8 @@ public static class ServerCheck
    var text=output.ToString();var probes=new List<(Point,bool,string?)>();
    foreach(Match m in Regex.Matches(text,@"SIMPLEPZ_PROBE (\d+) (true|false) (\S+)")){var i=int.Parse(m.Groups[1].Value);if(i<points.Count)probes.Add((points[i],m.Groups[2].Value=="true",m.Groups[3].Value=="nil"?null:m.Groups[3].Value));}
    var zones=Regex.Matches(text,@"SIMPLEPZ_ZONES (\d+) ?(\S*)").ToDictionary(m=>int.Parse(m.Groups[1].Value),m=>m.Groups[2].Value);
-   return new(ok&&started.Task.IsCompleted,stopped,probes,text){Zones=zones};
+   var spawns=Regex.Matches(text,@"SIMPLEPZ_SPAWNS (\S+) (\d+) (\d+) (\d+)").Select(m=>(m.Groups[1].Value,int.Parse(m.Groups[2].Value),int.Parse(m.Groups[3].Value),int.Parse(m.Groups[4].Value))).ToList();
+   return new(ok&&started.Task.IsCompleted,stopped,probes,text){Zones=zones,Spawns=spawns};
   }finally{try{Directory.Delete(root,true);}catch(IOException){}catch(UnauthorizedAccessException){}}
  }
  static string? ReadMapFolder(string mod)=>Directory.EnumerateDirectories(mod,"maps",SearchOption.AllDirectories).SelectMany(Directory.EnumerateDirectories).Select(Path.GetFileName).FirstOrDefault();
@@ -87,6 +90,13 @@ public static class ServerCheck
      if ok and zones then for j = 0, zones:size() - 1 do table.insert(names, tostring(zones:get(j):getType())) end elseif not ok then table.insert(names, "error:" .. tostring(zones):gsub("%s", "_")) end
      print(string.format("SIMPLEPZ_ZONES %d %s", i - 1, table.concat(names, ",")))
     end
+    local loaded, regions = pcall(function() return SpawnRegionMgr.getSpawnRegionsAux() end)
+    if loaded and regions then for _, region in ipairs(regions) do
+     local professions, points, inside = 0, 0, 0
+     for _ in pairs(region.points) do professions = professions + 1 end
+     for _, p in ipairs(region.points.unemployed or {}) do points = points + 1; if grid:getBuildingAt(p.posX, p.posY) ~= nil then inside = inside + 1 end end
+     print(string.format("SIMPLEPZ_SPAWNS %s %d %d %d", tostring(region.name):gsub("%s", "_"), professions, points, inside))
+    end else print("SIMPLEPZ_SPAWNS_ERROR " .. tostring(regions)) end
     print("SIMPLEPZ_PROBE done")
    end)
    """);

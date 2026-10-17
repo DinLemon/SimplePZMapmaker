@@ -108,3 +108,21 @@ public static class WallCatalogTests
  }
  static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
 }
+public static class SpawnPlannerTests
+{
+ public static IEnumerable<(string,Action)> Cases(){
+  yield return("players spawn inside houses with a key for every profession and workplaces for some",()=>{
+   var p=MapGenerator.Generate(new(){Kind="blank"});var home=new Building{X=40,Y=40,Width=12,Height=10};home.Design=BuildingDesigner.Generate(home,1,7);
+   if(!home.Design.Floors[0].Rooms.ContainsValue("bedroom"))home.Design.Floors[0].Rooms[home.Design.Floors[0].Rooms.Keys.First(k=>k!="0")]="bedroom";
+   var police=new Building{X=120,Y=40,Width=12,Height=10};police.Design=BuildingDesigner.Generate(police,1,8);foreach(var k in police.Design.Floors[0].Rooms.Keys.Where(k=>k!="0").ToList())police.Design.Floors[0].Rooms[k]="policeoffice";
+   p.Buildings.AddRange([home,police]);ProjectValidator.Validate(p);
+   var lua=SpawnPlanner.Lua(p);var plan=new SpawnPlanner.Plan();plan.Add(p.Buildings,0,0);string At(MapProject m)=>$"posX = {m.WorldX*256+m.Spawns[0].X}, posY = {m.WorldY*256+m.Spawns[0].Y}";
+   Check(SpawnPlanner.Professions.Length==25&&SpawnPlanner.Professions.All(n=>lua.Contains("        "+n+" = ")),"Every vanilla profession needs a key");
+   var point=plan.Homes.Single();var floor=home.Design.Floors[0];var room=floor.Rooms[floor.Cells[(point.Y-40)*12+point.X-40].ToString()];
+   Check(room is "livingroom" or "kitchen" or "bedroom"&&!lua.Contains(At(p)),"The spawn should be inside the house, not at the authored outdoor point: "+room);
+   Check(plan.Work["policeofficer"].Single().X>=120&&lua.Contains("policeofficer = policeofficer_work")&&lua.Contains("unemployed = houses"),"Police officers should also start at the police station");
+   var empty=MapGenerator.Generate(new(){Kind="blank"});Check(SpawnPlanner.Lua(empty).Contains(At(empty)),"Without houses the authored spawn is used");
+  });
+ }
+ static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
+}

@@ -60,6 +60,7 @@ static int Run(string[] args){
   case "server-check":{
    var minutes=int.TryParse(Option("--timeout-minutes"),out var m)?m:10;var result=ServerCheck.Run(input,Option("--game")??throw new ArgumentException("server-check needs --game <Build 42 installation>."),TimeSpan.FromMinutes(minutes),Console.WriteLine);
    for(var i=0;i<result.Probes.Count;i++){var (point,building,room)=result.Probes[i];Console.WriteLine($"server metagrid {point.X},{point.Y} {point.Name}: building={building.ToString().ToLowerInvariant()} room={room??"none"} zones={(result.Zones.GetValueOrDefault(i) is {Length:>0} z?z:"none")}{(building==point.ExpectBuilding?"":" UNEXPECTED")}");}
+   foreach(var s in result.Spawns)Console.WriteLine($"server spawn region {s.Region}: {s.Professions} professions, {s.Points} spawn points, {s.Inside} inside buildings");
    Console.WriteLine($"server started: {result.Started}; stopped cleanly: {result.Stopped}; {(result.Passed?"server check: passed":"server check: FAILED")}");
    if(!result.Passed)File.WriteAllText(Path.ChangeExtension(input,null)+".server.log",result.Log);
    return result.Passed?0:1;}
