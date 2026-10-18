@@ -1,3 +1,17 @@
+# Build 42 map depth: 18 items from TileZed, PZ Mapping Tools and the wiki — 2026-10-18
+
+- **Biome maps (1):** `maps/biomemap_X_Y.png` per cell gives Build 42 its foraging zones; squares with authored content use the featureless `dirt` biome, so WorldGen does not replace authored vegetation with its own jumbo trees (5).
+- **Rooms (2):** 588 room names from TileZed `RoomNames.txt`; shop, amenity, building and `pz:room` tags pick vanilla rooms (bakery, barn, church…).
+- **Zones (3, 4, 12):** land use, parking and `pz:zone` become TownZone, Forest/DeepForest, Farm, Vegitation, ParkingStall and ZombiesType zones. Parking snaps to whole 3×5 stalls in the direction the cars face, in the importer and the editor.
+- **Walls and fences (7, 8):** the TileZed wall catalog (175 sets, 42 of them irregular) with NW corner pieces and SE pillars; 14 reference fences with alternation, posts, gate frames and matching wickets.
+- **Spawns (13):** `spawnpoints.lua` starts players inside houses, has all 25 profession keys and adds workplaces.
+- **Map files (6):** a 256×256 `thumb.png`. A separate `worldmap-forest.xml` is not written: the game merges it with `worldmap.xml` from the same folder, and ours already has the forest polygons.
+- **Interiors (9, 10):** TileZed furniture against the walls of bedrooms, kitchens, bathrooms and living rooms (map format 14, world format 9); `pz:style=tilezed:<template>` applies one of 25 building templates. The distributed housing templates keep their legacy furnishing until they are re-exported.
+- **Streets and villages (11, 15):** curbside mailboxes and bins, stop signs on lesser roads, parking wheel stops, village yard props and scarecrows. Curbs, lane and parking lines and drains are not placed, because their sprites carry no properties that identify them.
+- **Tools (14, 16, 17, 18):** `conflicts` and `build --game` list installed maps on the same cells; sections import only their neighbourhood of the source (PilnaVillage build and export: 2:35 → 1:30); `simplepzmap.exe` ships in the release and CI builds a two-section scene with `--strict`; `serve` starts a playtest server, with a [checklist](PLAYTEST.md).
+- Real PilnaVillage through `build --strict --game`: 1,640 section and 61 shared buildings, 0 lost, 4,939 tile names found. `server-check`: 25 professions, 256 spawn points, all 256 inside buildings. Cell check: 118 cells shared with Raven Creek from the Workshop.
+- **Not verified in a client:** foraging zones read from the biome maps, WorldGen around authored squares, furniture and sign orientation, cars in stalls. See the [playtest checklist](PLAYTEST.md).
+
 # Transfer items 2, 4–7 and 9 — 2026-10-17
 
 - **Building tags (item 4):** `pz:kind`, `pz:style`, `roof:colour` (named or `#rrggbb`, matched to roof sets by colours measured from the installed sprites), `pz:wall` and `pz:trim` are applied to section and shared imports and reach the native lot; unknown `pz:*` keys and unusable values are reported, never fatal.

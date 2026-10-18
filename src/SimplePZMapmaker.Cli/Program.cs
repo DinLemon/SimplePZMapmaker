@@ -13,6 +13,7 @@ simplepzmap export <map.pzmap.json|world.pzworld.json> --out mod.zip [--game <pa
 simplepzmap probe <mod.zip> --game <path> [--expect-stairs]
 simplepzmap server-check <mod.zip> --game <path> [--timeout-minutes 10]
 simplepzmap conflicts <mod.zip|map.pzmap.json|world.pzworld.json> --game <path> [--mods-dir <dir>]
+simplepzmap serve <mod.zip> --game <path> [--server-dir <dir>] [--port 16261] [--fresh]
 simplepzmap tiles <tileset.json> --out tiles.zip [--game <path>] [--install] [--mods-dir <dir>]
 
 mod options: --mod-id <id> --map-folder <name> --mod-name "<title>" --common-maps --install [--mods-dir <dir>]
@@ -70,6 +71,7 @@ static int Run(string[] args){
    if(input.EndsWith(".zip",StringComparison.OrdinalIgnoreCase)){using var zip=System.IO.Compression.ZipFile.OpenRead(input);cells=CellConflicts.Cells(zip);own=zip.Entries.Select(e=>e.FullName.Split('/')).Where(p=>p.Length>4&&p[^3]=="maps"&&p[^4]=="media").Select(p=>p[^2]).FirstOrDefault();}
    else{var (map,world)=Load(input);cells=world is not null?CellConflicts.Cells(world):CellConflicts.Cells(map!);}
    return Conflicts(cells,Path.GetFullPath(installation),Option("--mods-dir"),own)?1:0;}
+  case "serve":return PlaytestServer.Run(input,Option("--game")??throw new ArgumentException("serve needs --game <Build 42 installation>."),Option("--server-dir")??Path.Combine(workspace,"work","playtest-server",Path.GetFileNameWithoutExtension(input)),Flag("--fresh"),int.TryParse(Option("--port"),out var port)?port:16261,Console.WriteLine);
   case "probe":return Probe(input,Option("--game")??throw new ArgumentException("probe needs --game <Build 42 installation>."),Flag("--expect-stairs"));
   default:Console.Error.WriteLine(Usage);return 2;
  }
@@ -92,7 +94,7 @@ static int Fetch(Dictionary<string,string> options){
  return 0;
 }
 static Dictionary<string,string> Options(string[] args){
- var flags=new HashSet<string>{"--common-maps","--install","--strict","--expect-stairs","--save-workspace"};var result=new Dictionary<string,string>(StringComparer.Ordinal);
+ var flags=new HashSet<string>{"--common-maps","--install","--strict","--expect-stairs","--save-workspace","--fresh"};var result=new Dictionary<string,string>(StringComparer.Ordinal);
  for(var i=0;i<args.Length;i++){if(!args[i].StartsWith("--",StringComparison.Ordinal))throw new ArgumentException("Unexpected argument: "+args[i]);if(flags.Contains(args[i])){result[args[i]]="true";continue;}if(i+1>=args.Length)throw new ArgumentException(args[i]+" needs a value.");result[args[i]]=args[++i];}
  return result;
 }
