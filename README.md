@@ -2,7 +2,7 @@
 
 A local visual map and building editor for **Project Zomboid Build 42**, written in C#/.NET 10 with a browser interface. Create maps without programming, assemble rooms from your installed game's resources, import OpenStreetMap geography, and join adjacent sections into one world.
 
-**Current release: 0.11.2.** The Windows x64 download includes the .NET Runtime. The editor supports 24 original editable building plans, up to 32 above-ground levels and basements **−1 to −32** (64 signed levels, **Z −32…31**), game/mod sprites and static models, shared buildings across section boundaries, measured DEM elevation, and MCP planning with a review before changes enter your project.
+**Current release: 0.12.0.** The Windows x64 download includes the .NET Runtime. The editor supports 24 original editable building plans, up to 32 above-ground levels and basements **−1 to −32** (64 signed levels, **Z −32…31**), game/mod sprites and static models, shared buildings across section boundaries, measured DEM elevation, and MCP planning with a review before changes enter your project.
 
 [Download releases](https://github.com/DinLemon/SimplePZMapmaker/releases) · [Verification status](docs/STATUS.md) · [Code and data provenance](docs/PROVENANCE.md)
 
@@ -44,6 +44,15 @@ A local visual map and building editor for **Project Zomboid Build 42**, written
 [Step-by-step generation studio guide](docs/GENERATION-STUDIO.md)
 
 ![Generation studio with two alternatives and coordinate-based quality findings](docs/screenshots/27-generation-studio.png)
+
+## What's new in 0.12.0
+
+- **Build 42 map data:** every native cell gets a biome map (foraging zones), maps get a `thumb.png`, and `spawnpoints.lua` starts players inside houses with all 25 professions and their workplaces.
+- **Rooms, zones and parking:** 588 vanilla room names; land use, parking and `pz:zone` tags become game zones, ZombiesType included; parking areas snap to whole 3×5 stalls.
+- **TileZed data:** wall sets with real door and window pieces, NW corners and SE pillars; 14 reference fences with gates; furniture against the walls of bedrooms, kitchens, bathrooms and living rooms, the 24 housing templates included; `pz:style=tilezed:<template>` for 25 building templates.
+- **Streets:** curbside mailboxes and bins, stop signs on lesser roads, parking wheel stops, village yard props and scarecrows.
+- **Command line in the package:** `artifacts/app/simplepzmap.exe` builds, checks and exports maps. `conflicts` lists installed maps on the same cells, and `serve` starts a playtest server; see the [playtest checklist](docs/PLAYTEST.md). The Pilna examples moved to cells 150,150, away from Raven Creek.
+- Maps with furniture are saved as map format 14 and world format 9; older editors refuse them instead of dropping the furniture.
 
 ## What's new in 0.11.2
 
@@ -154,12 +163,12 @@ Validation for this implementation: **190 C# checks, 129 JavaScript checks and 1
 ### 2. Download the application ZIP
 
 1. Open [GitHub Releases](https://github.com/DinLemon/SimplePZMapmaker/releases).
-2. Select **v0.11.2**, or a newer published release. The project publishes prereleases, so use the release list rather than assuming GitHub's `/latest` page shows the newest build.
-3. Expand **Assets** and download **`SimplePZMapmaker-0.11.2-win-x64.zip`**. Example map ZIPs contain game mods, not the editor. GitHub's automatic **Source code** archives are development sources, not the ready-to-run application.
+2. Select **v0.12.0**, or a newer published release. The project publishes prereleases, so use the release list rather than assuming GitHub's `/latest` page shows the newest build.
+3. Expand **Assets** and download **`SimplePZMapmaker-0.12.0-win-x64.zip`**. Example map ZIPs contain game mods, not the editor. GitHub's automatic **Source code** archives are development sources, not the ready-to-run application.
 4. Optionally download the release checksum file and compare the archive's SHA-256 before extracting it. Run this command from the folder containing the downloaded archive:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath './SimplePZMapmaker-0.11.2-win-x64.zip'
+Get-FileHash -Algorithm SHA256 -LiteralPath './SimplePZMapmaker-0.12.0-win-x64.zip'
 ```
 
 ### 3. Extract the entire archive
@@ -368,7 +377,7 @@ QA downloads/screenshots/logs stay in `work/qa-results/` or `work/logs/`. Develo
 1. Open **Actions** in the GitHub repository and select **Build and verify**.
 2. Choose **Run workflow**, select `develop` or the branch to verify, then start.
 3. Inspect build/startup/browser steps in the run.
-4. Download the completed application artifact for local use. Extract GitHub's outer artifact archive, then extract the contained `SimplePZMapmaker-0.11.2-win-x64.zip` into the application folder and follow the installation steps above. The diagnostic artifact contains startup evidence and screenshots. GitHub may require sign-in for artifacts.
+4. Download the completed application artifact for local use. Extract GitHub's outer artifact archive, then extract the contained `SimplePZMapmaker-0.12.0-win-x64.zip` into the application folder and follow the installation steps above. The diagnostic artifact contains startup evidence and screenshots. GitHub may require sign-in for artifacts.
 
 CI runs on pushes to `develop`, pull requests and manual dispatch. The Windows runner uses its mapped checkout as the workspace and keeps task caches there. Its no-game fallback check does not replace local installed-game probes.
 
