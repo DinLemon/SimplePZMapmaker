@@ -13,6 +13,7 @@ simplepzmap export <map.pzmap.json|world.pzworld.json> --out mod.zip [--game <pa
 simplepzmap probe <mod.zip> --game <path> [--expect-stairs]
 simplepzmap server-check <mod.zip> --game <path> [--timeout-minutes 10]
 simplepzmap conflicts <mod.zip|map.pzmap.json|world.pzworld.json> --game <path> [--mods-dir <dir>]
+simplepzmap housing-templates <examples/HousingTemplates>
 simplepzmap serve <mod.zip> --game <path> [--server-dir <dir>] [--port 16261] [--fresh]
 simplepzmap tiles <tileset.json> --out tiles.zip [--game <path>] [--install] [--mods-dir <dir>]
 
@@ -71,6 +72,7 @@ static int Run(string[] args){
    if(input.EndsWith(".zip",StringComparison.OrdinalIgnoreCase)){using var zip=System.IO.Compression.ZipFile.OpenRead(input);cells=CellConflicts.Cells(zip);own=zip.Entries.Select(e=>e.FullName.Split('/')).Where(p=>p.Length>4&&p[^3]=="maps"&&p[^4]=="media").Select(p=>p[^2]).FirstOrDefault();}
    else{var (map,world)=Load(input);cells=world is not null?CellConflicts.Cells(world):CellConflicts.Cells(map!);}
    return Conflicts(cells,Path.GetFullPath(installation),Option("--mods-dir"),own)?1:0;}
+  case "housing-templates":return HousingExamples.Refresh(input,Console.WriteLine);
   case "serve":return PlaytestServer.Run(input,Option("--game")??throw new ArgumentException("serve needs --game <Build 42 installation>."),Option("--server-dir")??Path.Combine(workspace,"work","playtest-server",Path.GetFileNameWithoutExtension(input)),Flag("--fresh"),int.TryParse(Option("--port"),out var port)?port:16261,Console.WriteLine);
   case "probe":return Probe(input,Option("--game")??throw new ArgumentException("probe needs --game <Build 42 installation>."),Flag("--expect-stairs"));
   default:Console.Error.WriteLine(Usage);return 2;

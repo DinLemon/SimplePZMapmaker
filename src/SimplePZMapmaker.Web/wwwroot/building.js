@@ -7,6 +7,8 @@ import visualStyles from './visual-styles.json' with {type:'json'};
 import roomCatalog from './room-catalog.json' with {type:'json'};
 import furnitureCatalog from './furniture-catalog.json' with {type:'json'};
 /** TileZed furniture (kind 'furniture', asset = item id): the orientation is the wall the item backs onto. */
+/** Building template format 8 carries TileZed furniture. */
+export const usesFurniture=b=>!!b?.design?.floors?.some(f=>f.objects?.some(o=>o?.kind==='furniture'));
 export const furnitureItem=(asset,direction)=>Object.hasOwn(furnitureCatalog.furniture,asset??'')?furnitureCatalog.furniture[asset][direction]:undefined;
 export {visualStyles};
 // Keep optional appearance fields identical across browser edits and .NET roundtrips.

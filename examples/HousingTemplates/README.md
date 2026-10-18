@@ -27,6 +27,6 @@
 - `urban-shop-house`:30×28, shops under two smaller residential levels.
 - `urban-townhouse-row`:42×20, three independent three-level blocks.
 
-For one building, import its `.pzbuilding.json` through the template JSON control. `catalog.json` lists descriptions and references. Open `housing-templates.pzmap.json` to inspect all 24 plans; `HousingTemplates-B42.zip` exports them together.
+For one building, import its `.pzbuilding.json` through the template JSON control. `catalog.json` lists descriptions and references. Open `housing-templates.pzmap.json` to inspect all 24 plans; `HousingTemplates-B42.zip` exports them together. Rooms carry TileZed furniture (template format 8, map format 14); `simplepzmap housing-templates examples/HousingTemplates` regenerates every file from the built-in catalog.
 
 The sample occupies one native cell of 256×256 tiles at origin **100,100**, spawn(4,4). Enable separately from other examples at these coordinates, or move origin and export again. It contains vanilla tile identifiers, not reference photographs or game artwork. Each plan is editable by rooms, edges, levels and resources.
