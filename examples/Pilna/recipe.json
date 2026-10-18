@@ -2,8 +2,8 @@
   "name": "Pilna",
   "size": 2048,
   "seed": 42,
-  "worldX": 100,
-  "worldY": 100,
+  "worldX": 150,
+  "worldY": 150,
   "bounds": {
     "south": 55.5363,
     "north": 55.5781,

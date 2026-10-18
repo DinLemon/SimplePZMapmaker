@@ -35,6 +35,8 @@ dotnet run --project src/SimplePZMapmaker.Cli -- server-check work/PilnaVillage.
 
 Result on 2026-10-17: 26 sections, 1,640 section buildings and 61 shared buildings across seams; the seam check reports 0 lost and 0 duplicated outlines (88 kept as evidence: 42 water or road, 27 outlines over 64 tiles, 18 overlaps, 1 crossing outline rejected at world level). All 2,471 exported tile names exist in the game. The structural verifier, the installed-class probe (416 cells, 425,984 chunks, 9,565 rooms, 249 stair tiles) and the dedicated server check pass: the server loads the mod, its metagrid holds the sampled Pilna buildings with their rooms, and it stops cleanly. The build takes about five minutes; the world JSON is about 200 MB, so open it through the saved section workspace.
 
+Both Pilna builds start at native cell 150,150. Cells 100–121 are taken by Raven Creek, a popular Workshop map, and loading the two together would overwrite one with the other; `simplepzmap conflicts` lists such overlaps for the maps you have installed.
+
 The OpenStreetMap source contains almost no fences, gates or sheds, so the village has none. Field-survey fences and outbuildings can be added as GeoJSON `sources` with the transfer-contract tags.
 
 The server logs that the spawn points stand outside buildings (`initSpawnBuildings: no room or building`): the exporter places spawns on open dry ground, while vanilla maps spawn players inside houses. No client joined the server, so spawning itself was not tested.
