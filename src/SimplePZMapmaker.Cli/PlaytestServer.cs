@@ -13,7 +13,7 @@ public static class PlaytestServer
   game=Path.GetFullPath(game);var java=Path.Combine(game,"jre64","bin","java.exe");var jar=Path.Combine(game,"projectzomboid.jar");
   if(!File.Exists(java)||!File.Exists(jar))throw new ArgumentException("The Build 42 installation needs jre64/bin/java.exe and projectzomboid.jar: "+game);
   if(port is <1024 or >65000)throw new ArgumentException("Choose a port between 1024 and 65000.");
-  root=Path.GetFullPath(root);if(fresh&&Directory.Exists(root))Directory.Delete(root,true);Directory.CreateDirectory(root);
+  root=Path.GetFullPath(root);if(fresh&&Directory.Exists(root)){if(!File.Exists(Path.Combine(root,"Server","playtest.ini")))throw new ArgumentException("--fresh only clears a folder an earlier serve created (Server/playtest.ini is missing): "+root);Directory.Delete(root,true);}Directory.CreateDirectory(root);
   string mod;using(var zip=ZipFile.OpenRead(archive))mod=zip.Entries.First(e=>e.FullName.Contains('/')).FullName.Split('/')[0];
   if(!System.Text.RegularExpressions.Regex.IsMatch(mod,"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,63}$")||mod.Contains(".."))throw new ArgumentException("The archive's mod folder name is not a safe folder name: "+mod);
   var mods=Path.GetFullPath(Path.Combine(root,"mods"));var installed=Path.GetFullPath(Path.Combine(mods,mod));
