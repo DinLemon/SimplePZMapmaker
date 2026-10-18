@@ -2,7 +2,9 @@
 
 `simplepzmap` builds, checks and exports maps without the browser editor. It uses the same importer, validators and native exporter as the application, so a scene built here opens unchanged in the editor.
 
-Run it from the repository with `dotnet run --project src/SimplePZMapmaker.Cli -- <command> …`, or build it once with `dotnet build src/SimplePZMapmaker.Cli -c Release` and call `simplepzmap.exe`.
+The release package ships it as `artifacts/app/simplepzmap.exe`, next to the editor and with the same bundled runtime. From the repository, run `dotnet run --project src/SimplePZMapmaker.Cli -- <command> …`, or build it once with `dotnet build src/SimplePZMapmaker.Cli -c Release` and call `simplepzmap.exe`. CI builds [examples/CiScene](../examples/CiScene/README.md), a two-section scene with a shared building and a seam-crossing fence, with `build --strict` and checks it with `validate --source`.
+
+Without `--game`, generated street dressing and vanilla vehicle distributions are accepted from built-in lists of Build 42 tiles and names. Tags that select game resources, such as `roof:colour`, `pz:wall` or `pz:style=tilezed:…`, still need `--game`.
 
 | Command | What it does |
 |---|---|

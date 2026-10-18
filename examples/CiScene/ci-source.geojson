@@ -1,0 +1,241 @@
+{
+ "type": "FeatureCollection",
+ "pzTransfer": 1,
+ "features": [
+  {
+   "type": "Feature",
+   "id": "ci-way-1",
+   "properties": {
+    "highway": "secondary"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      32.0001528,
+      54.0011498
+     ],
+     [
+      32.0038208,
+      54.0011498
+     ],
+     [
+      32.0076417,
+      54.0011498
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "id": "ci-way-2",
+   "properties": {
+    "highway": "residential"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      32.0038208,
+      54.0011498
+     ],
+     [
+      32.0038208,
+      54.00212
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "id": "ci-way-3",
+   "properties": {
+    "building": "house"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       32.0015283,
+       54.0014912
+      ],
+      [
+       32.0017423,
+       54.0014912
+      ],
+      [
+       32.0017423,
+       54.0013834
+      ],
+      [
+       32.0015283,
+       54.0013834
+      ],
+      [
+       32.0015283,
+       54.0014912
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "id": "ci-way-4",
+   "properties": {
+    "building": "house"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       32.004585,
+       54.0014912
+      ],
+      [
+       32.0047684,
+       54.0014912
+      ],
+      [
+       32.0047684,
+       54.0014014
+      ],
+      [
+       32.004585,
+       54.0014014
+      ],
+      [
+       32.004585,
+       54.0014912
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "id": "ci-way-5",
+   "properties": {
+    "building": "house"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       32.0038056,
+       54.0008624
+      ],
+      [
+       32.0040501,
+       54.0008624
+      ],
+      [
+       32.0040501,
+       54.0007546
+      ],
+      [
+       32.0038056,
+       54.0007546
+      ],
+      [
+       32.0038056,
+       54.0008624
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "id": "ci-way-6",
+   "properties": {
+    "amenity": "parking"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       32.001834,
+       54.0007725
+      ],
+      [
+       32.0021397,
+       54.0007725
+      ],
+      [
+       32.0021397,
+       54.0006378
+      ],
+      [
+       32.001834,
+       54.0006378
+      ],
+      [
+       32.001834,
+       54.0007725
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "id": "ci-way-7",
+   "properties": {
+    "landuse": "farmland"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       32.0048907,
+       54.0007725
+      ],
+      [
+       32.0058077,
+       54.0007725
+      ],
+      [
+       32.0058077,
+       54.0003234
+      ],
+      [
+       32.0048907,
+       54.0003234
+      ],
+      [
+       32.0048907,
+       54.0007725
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "id": "ci-way-8",
+   "properties": {
+    "barrier": "fence",
+    "fence_type": "wood"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      32.0030567,
+      54.0017607
+     ],
+     [
+      32.0047378,
+      54.0017607
+     ]
+    ]
+   }
+  }
+ ]
+}

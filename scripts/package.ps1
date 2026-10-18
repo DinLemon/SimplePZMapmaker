@@ -5,13 +5,13 @@ if([IO.Path]::GetFileName($ArchiveName) -ne $ArchiveName -or -not $ArchiveName.E
 $stage=Join-Path $taskRoot ('work\packages\'+[Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $stage,(Join-Path $stage 'artifacts'),(Join-Path $stage 'scripts') -Force | Out-Null
 $published=Join-Path $taskRoot 'artifacts\app'
-if(-not(Test-Path -LiteralPath (Join-Path $published 'SimplePZMapmaker.Web.exe'))){throw 'Run scripts/publish.ps1 before packaging.'}
+if(-not(Test-Path -LiteralPath (Join-Path $published 'SimplePZMapmaker.Web.exe'))-or-not(Test-Path -LiteralPath (Join-Path $published 'simplepzmap.exe'))){throw 'Run scripts/publish.ps1 before packaging.'}
 Copy-Item -LiteralPath $published -Destination (Join-Path $stage 'artifacts\app') -Recurse
 foreach($name in @('Start.cmd','README.md','LICENSE')){Copy-Item -LiteralPath (Join-Path $taskRoot $name) -Destination $stage}
 foreach($name in @('Start.ps1','WorkspaceEnv.ps1')){Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination (Join-Path $stage 'scripts')}
 Copy-Item -LiteralPath (Join-Path $taskRoot 'examples') -Destination $stage -Recurse
 New-Item -ItemType Directory -Path (Join-Path $stage 'docs') -Force | Out-Null
-foreach($name in @('STREAMED-WORKSPACE-STORAGE.md','STREAMED-WORLD-EDITOR.md','ZONE-AUTHORING.md','SPZM-SCENE-CONTRACT.md','TRANSFER-CONTRACT.md','REAL-PLACE-TRANSFER.md','GENERATION-STUDIO.md','WORLD-INFRASTRUCTURE.md','PARAMETRIC-ENSEMBLES.md','ACCESS-DIAGNOSTICS.md','EXPORT-JOBS.md','EDITOR-EXPANSION.md','DIRECT-EDITING.md','NATIVE-LIGHTING.md','GAMEPLAY-AUTHORING.md','STATUS.md','EDITOR-TOOLS.md','PUBLICATION-PRIVACY.md','PILNA-STATUS.md','PROVENANCE.md','PROGRESS.md','BUILDINGS-REVIEW.md','HOUSING-REFERENCES.md','MOD-RESOURCES.md','STATIC-MODELS.md','MCP.md','WORLD-AND-ENVIRONMENT.md','RUNTIME.md')){Copy-Item -LiteralPath (Join-Path $taskRoot ('docs\'+$name)) -Destination (Join-Path $stage 'docs')}
+foreach($name in @('STREAMED-WORKSPACE-STORAGE.md','STREAMED-WORLD-EDITOR.md','ZONE-AUTHORING.md','SPZM-SCENE-CONTRACT.md','TRANSFER-CONTRACT.md','REAL-PLACE-TRANSFER.md','GENERATION-STUDIO.md','WORLD-INFRASTRUCTURE.md','PARAMETRIC-ENSEMBLES.md','ACCESS-DIAGNOSTICS.md','EXPORT-JOBS.md','EDITOR-EXPANSION.md','DIRECT-EDITING.md','NATIVE-LIGHTING.md','GAMEPLAY-AUTHORING.md','STATUS.md','EDITOR-TOOLS.md','PUBLICATION-PRIVACY.md','PILNA-STATUS.md','PROVENANCE.md','PROGRESS.md','BUILDINGS-REVIEW.md','HOUSING-REFERENCES.md','MOD-RESOURCES.md','STATIC-MODELS.md','MCP.md','WORLD-AND-ENVIRONMENT.md','RUNTIME.md','CLI.md')){Copy-Item -LiteralPath (Join-Path $taskRoot ('docs\'+$name)) -Destination (Join-Path $stage 'docs')}
 Copy-Item -LiteralPath (Join-Path $taskRoot 'docs\screenshots') -Destination (Join-Path $stage 'docs') -Recurse
 if(Test-Path -LiteralPath (Join-Path $taskRoot 'docs\images')){Copy-Item -LiteralPath (Join-Path $taskRoot 'docs\images') -Destination (Join-Path $stage 'docs') -Recurse}
 $archive=Join-Path $taskRoot ('artifacts\'+$ArchiveName)

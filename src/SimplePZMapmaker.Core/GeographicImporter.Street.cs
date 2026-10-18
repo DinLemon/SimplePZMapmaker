@@ -13,6 +13,11 @@ public static partial class GeographicImporter
  /// <summary>Yard props of a village house (CustomName in the tile definitions): chopping block, rain collector barrel, composter.</summary>
  static readonly string[] YardProps=["crafted_02_85","carpentry_02_52","camping_01_19"];
  const string Scarecrow="location_farm_accesories_01_36";
+ /// <summary>Every dressing tile with the navigation flags the game's own properties give it (1 for solid or solidtrans).</summary>
+ static readonly Dictionary<string,byte> DressingTiles=StopSigns.Values.Concat(Mailboxes.Values).Select(t=>(t,(byte)0)).Concat([(WheelStopNS,(byte)0),(WheelStopEW,(byte)0),(Scarecrow,(byte)0),(GarbageBin,(byte)1),..YardProps.Select(t=>(t,(byte)1))]).ToDictionary(x=>x.Item1,x=>x.Item2);
+ /// <summary>True for an item of the generated street dressing: built-in vanilla tiles checked against Build 42's tile definitions, so a
+ /// map can be validated without a game installation.</summary>
+ public static bool IsBuiltInDressing(WorldDecoration d)=>d.Id.StartsWith(DressingPrefix,StringComparison.Ordinal)&&d.Parts.Count==1&&d.Parts[0] is {Dx:0,Dy:0} part&&part.Tile==d.Asset&&DressingTiles.TryGetValue(d.Asset,out var flags)&&part.Flags==flags;
  static int RoadRank(string? highway)=>highway switch{"motorway" or "trunk" or "motorway_link" or "trunk_link"=>5,"primary" or "primary_link"=>4,"secondary" or "secondary_link"=>3,"tertiary" or "tertiary_link"=>2,"unclassified" or "residential" or "living_street" or "service" or "road"=>1,_=>0};
  static double RoadWidthMetres(string? highway)=>highway is "motorway" or "trunk"?16:highway is "primary" or "secondary"?10:6;
 

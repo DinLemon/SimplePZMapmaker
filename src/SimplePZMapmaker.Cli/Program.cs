@@ -39,7 +39,7 @@ static int Run(string[] args){
    foreach(var w in build.Warnings)Console.WriteLine("note: "+w);
    var world=build.World;Console.WriteLine($"world {world.Name}: {world.Maps.Count} sections, {world.Maps.Sum(m=>m.Project.Buildings.Count)} section buildings, {world.Buildings.Count} shared buildings, {world.Fences.Count} shared fences");
    var failed=Report(build.Report,Option("--report"));if(assets is not null){failed|=CheckTiles(world,assets);failed|=Conflicts(CellConflicts.Cells(world),assets.GamePath,Option("--mods-dir"),scene.Export?.MapFolder??scene.Export?.ModId);}
-   var output=Path.GetFullPath(Option("--out")??Path.ChangeExtension(input,null)+".pzworld.json");using(var file=File.Create(output))JsonSerializer.Serialize(file,world,NativeMapExporter.JsonOptions);Console.WriteLine("wrote "+output);
+   var output=Path.GetFullPath(Option("--out")??Path.ChangeExtension(input,null)+".pzworld.json");Directory.CreateDirectory(Path.GetDirectoryName(output)!);using(var file=File.Create(output))JsonSerializer.Serialize(file,world,NativeMapExporter.JsonOptions);Console.WriteLine("wrote "+output);
    if(Option("--export") is {} target)Export(s=>NativeWorldExporter.ExportToStream(world,s),Path.GetFullPath(target),Mod(scene.Export),Option("--mods-dir"));
    if(Flag("--save-workspace")){using var store=new WorldStore(Path.Combine(workspace,"work","world-recovery"));store.SaveAsync(world.Id,world).GetAwaiter().GetResult();Console.WriteLine($"saved section workspace {world.Id} under {Path.Combine(workspace,"work","world-recovery")}; open it in the editor under World > Section workspaces");}
    return failed&&Flag("--strict")?1:0;}
@@ -118,7 +118,7 @@ static bool CheckTiles(object project,GameAssetCatalog assets){
  return missing.Count>0;
 }
 static void Export(Action<Stream> write,string target,NativeModOptions? package,string? modsDirectory){
- var temporary=target+".tmp";try{
+ Directory.CreateDirectory(Path.GetDirectoryName(target)!);var temporary=target+".tmp";try{
   using(var file=File.Create(temporary))write(file);
   if(package?.Renames==true){using(var source=File.OpenRead(temporary))using(var file=File.Create(target))NativeModPackage.Repack(source,file,package);}else File.Copy(temporary,target,true);
  }finally{if(File.Exists(temporary))File.Delete(temporary);}

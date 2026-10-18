@@ -1,0 +1,24 @@
+{
+  "format": "SimplePZScene",
+  "version": 1,
+  "name": "CiScene",
+  "source": "ci-source.geojson",
+  "reference": {
+    "bounds": {
+      "south": 54.0,
+      "north": 54.0022997,
+      "west": 32.0,
+      "east": 32.0078251
+    },
+    "metresPerTile": 1,
+    "originCellX": 200,
+    "originCellY": 200
+  },
+  "sectionSize": 256,
+  "seed": 7,
+  "skipEmptySections": true,
+  "export": {
+    "modId": "SimplePZCiScene",
+    "name": "SimplePZ CI scene"
+  }
+}
