@@ -7,7 +7,7 @@ namespace SimplePZMapmaker.Core;
 public static partial class GeographicImporter
 {
     /// <summary>pz:* keys the importer understands; any other pz:* key is kept with the source and reported once.</summary>
-    public static readonly HashSet<string> KnownPzKeys=["pz:wall","pz:trim","pz:style","pz:kind","pz:attached","pz:door-to","pz:fence","pz:posts","pz:gates","pz:zone","pz:vehicles","pz:direction"];
+    public static readonly HashSet<string> KnownPzKeys=["pz:room","pz:wall","pz:trim","pz:style","pz:kind","pz:attached","pz:door-to","pz:fence","pz:posts","pz:gates","pz:zone","pz:vehicles","pz:direction"];
     /// <summary>Average opaque colour of the first sprite of each Build 42 roofs_30_NN set, measured from the installed game.</summary>
     static readonly (string Tileset,int R,int G,int B)[] RoofSwatches=[("roofs_30_01",55,63,70),("roofs_30_02",70,58,55),("roofs_30_03",211,209,209),("roofs_30_04",57,59,63),("roofs_30_05",48,60,45),("roofs_30_06",93,91,84),("roofs_30_07",121,95,79),("roofs_30_08",80,93,80),("roofs_30_09",131,83,88),("roofs_30_10",76,44,34)];
     static readonly Dictionary<string,string> RoofColourNames=new(StringComparer.OrdinalIgnoreCase){["grey"]="roofs_30_04",["gray"]="roofs_30_04",["black"]="roofs_30_04",["red"]="roofs_30_09",["maroon"]="roofs_30_09",["blue"]="roofs_30_01",["green"]="roofs_30_05",["brown"]="roofs_30_07",["white"]="roofs_30_03",["silver"]="roofs_30_06"};
@@ -33,7 +33,7 @@ public static partial class GeographicImporter
     /// <summary>Applies the appearance tags to a building whose final footprint and edges are already set. Unusable values are reported through <paramref name="problem"/>.</summary>
     public static void ApplyAppearanceTags(Building b,IReadOnlyDictionary<string,string> tags,IReadOnlyList<ResourcePalette>? palettes,Action<string> problem){
         if(b.Design is not {} d)return;
-        if(tags.TryGetValue("pz:style",out var style)){if(VisualStyles.All.ContainsKey(style))VisualStyles.Apply(b,style);else problem($"pz:style '{style}' is not a known building style");}
+        if(tags.TryGetValue("pz:style",out var style)){if(BuildingTemplateStyles.Find(style) is {} template)BuildingTemplateStyles.Apply(b,template);else if(VisualStyles.All.ContainsKey(style))VisualStyles.Apply(b,style);else problem($"pz:style '{style}' is not a known building style or tilezed:<template>");}
         if(tags.GetValueOrDefault("pz:kind") is "bathhouse" or "toilet")foreach(var f in d.Floors.Where(f=>f.Rooms.Count(r=>r.Key!="0")==1))f.Rooms[f.Rooms.Keys.Single(k=>k!="0")]="bathroom";
         if(tags.TryGetValue("roof:colour",out var colour)){if(RoofTilesetFor(colour) is {} roof)d.RoofTileset=roof;else problem($"roof:colour '{colour}' has no matching roof set");}
         (string Prefix,int Base)? wall=null;if(tags.TryGetValue("pz:wall",out var wallTag)&&(wall=WallSetFor(wallTag,palettes)) is null)problem($"pz:wall '{wallTag}' is not a wall set");
@@ -42,7 +42,7 @@ public static partial class GeographicImporter
         foreach(var f in d.Floors)foreach(var e in f.Edges){
             var north=e.Edge=="n";var a=BuildingDesigner.Cell(b,f,e.X,e.Y);var other=north?BuildingDesigner.Cell(b,f,e.X,e.Y-1):BuildingDesigner.Cell(b,f,e.X-1,e.Y);
             if(e.Kind=="open"||(a=='.')==(other=='.')||f.Rooms.GetValueOrDefault((a=='.'?other:a).ToString())=="balcony")continue;
-            if(wall is {} set)e.WallTile=$"{set.Prefix}_{set.Base+(e.Kind=="door"?10:e.Kind=="window"?8:0)+(north?1:0)}";
+            if(wall is {} set)e.WallTile=WallCatalog.Tile(set.Prefix,set.Base,e.Kind,north);
             if(trim is {} t&&e.Kind=="window")e.OverlayTile=north?t.N:t.W;
         }
     }

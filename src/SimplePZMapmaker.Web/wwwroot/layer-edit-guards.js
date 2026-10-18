@@ -20,7 +20,7 @@ export function nativeLayer(node,project,shared=[]){
  return node.z!==0?'paths':terrainLayer(project.terrain?.[node.y*project.width+node.x]);
 }
 export function nativeLayerClassifier(project,shared=[]){
- const fenceTiles=new Set((project.fenceStyles??[]).flatMap(s=>[s.w,s.n,s.nw,s.post,s.wAlt,s.nAlt]).filter(Boolean).concat((project.gateStyles??[]).flatMap(s=>[...s.closedW,...s.closedN,...s.openW,...s.openN])));
+ const fenceTiles=new Set((project.fenceStyles??[]).flatMap(s=>[s.w,s.n,s.nw,s.post,s.wAlt,s.nAlt,s.gateSpaceW,s.gateSpaceN]).filter(Boolean).concat((project.gateStyles??[]).flatMap(s=>[...s.closedW,...s.closedN,...s.openW,...s.openN])));
  const owner=new Uint8Array(project.width*project.height),write=(x,y,code)=>{if(x>=0&&y>=0&&x<project.width&&y<project.height)owner[y*project.width+x]=code;};
  for(const b of [...(project.buildings??[]),...shared]){
   if(!b.design){for(let y=Math.max(0,b.y);y<Math.min(project.height,b.y+b.height);y++)for(let x=Math.max(0,b.x);x<Math.min(project.width,b.x+b.width);x++)write(x,y,1);continue;}

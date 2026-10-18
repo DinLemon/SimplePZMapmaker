@@ -43,7 +43,7 @@ export function canPlace(p,b){
 }
 export function validateProject(p){
  const fail=m=>{throw Error(m);};
- if(!p||![1,2,3,4,5,6,7,8,9,10,11,12,13].includes(p.version)||!Number.isInteger(p.width)||!Number.isInteger(p.height)||p.width<256||p.height<256||p.width>2048||p.height>2048||p.width%256||p.height%256)fail('Unsupported project size or version.');
+ if(!p||![1,2,3,4,5,6,7,8,9,10,11,12,13,14].includes(p.version)||!Number.isInteger(p.width)||!Number.isInteger(p.height)||p.width<256||p.height<256||p.width>2048||p.height>2048||p.width%256||p.height%256)fail('Unsupported project size or version.');
  validateFenceLines(p);validateGameZones(p);validateZoneAuthoring(p,roomNames);validateLinearFeatures(p);validateModelProject(p);validateGeneration(p);validateSourceSites(p);
  validatePalettes(p.resourcePalettes===undefined?[]:p.resourcePalettes);if(p.resourcePalettes?.length&&p.version<8)fail('Resource palettes require project format 8.');
  decodeTerrainEdits(p);if(p.version<6&&(p.terrainEdits?.length||p.worldSection)||p.worldSection!==undefined&&typeof p.worldSection!=='boolean')fail('Manual terrain edits and world sections require format 6.');
@@ -68,6 +68,7 @@ export function validateProject(p){
  if(p.importSummary?.notes!==undefined&&(!Array.isArray(p.importSummary.notes)||p.importSummary.notes.length>20||p.importSummary.notes.some(s=>typeof s!=='string'||s.length>1000)))fail('Import notes are corrupted.');
  if([...p.buildings,...library].reduce((sum,b)=>sum+(b?.design?.floors?.reduce((n,f)=>n+(f?.cells?.length||0),0)||0),0)>20_000_000)fail('There are too many tiles on the floors.');
  const ids=new Set();for(const b of p.buildings){validateDesign(b);if(!b||typeof b.id!=='string'||!b.id||ids.has(b.id)||typeof b.name!=='string'||b.name.length>100||b.sourceId?.length>100||b.sourceKind?.length>100||!['inferred','osm-levels','osm-height','manual'].includes(b.levelsOrigin??'inferred')||!canPlace(p,b))fail('The building is damaged, intersects with another, or sits on water.');ids.add(b.id);}
+ if(p.version<14&&[...p.buildings,...(p.buildingLibrary??[])].some(b=>b.design?.floors?.some(f=>f.objects?.some(o=>o?.kind==='furniture'))))fail('TileZed furniture requires project format 14.');
  for(const b of p.buildings)if(b.attachedTo!==undefined&&b.attachedTo!==null&&(typeof b.attachedTo!=='string'||b.attachedTo===b.id||!ids.has(b.attachedTo)||p.version<13))fail(`Building “${b.name}” is attached to a building that is not on this map, or the map format is older than 13.`);
  for(const s of p.spawns)if(!s||!Number.isInteger(s.x)||!Number.isInteger(s.y)||s.x<0||s.y<0||s.x>=p.width||s.y>=p.height||p.terrain[s.y*p.width+s.x]===3||p.buildings.some(b=>containsPoint(b,s.x-b.x,s.y-b.y)))fail('The spawn point should be on the ground outside the building.');
  return p;

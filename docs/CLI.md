@@ -2,7 +2,9 @@
 
 `simplepzmap` builds, checks and exports maps without the browser editor. It uses the same importer, validators and native exporter as the application, so a scene built here opens unchanged in the editor.
 
-Run it from the repository with `dotnet run --project src/SimplePZMapmaker.Cli -- <command> …`, or build it once with `dotnet build src/SimplePZMapmaker.Cli -c Release` and call `simplepzmap.exe`.
+The release package ships it as `artifacts/app/simplepzmap.exe`, next to the editor and with the same bundled runtime. From the repository, run `dotnet run --project src/SimplePZMapmaker.Cli -- <command> …`, or build it once with `dotnet build src/SimplePZMapmaker.Cli -c Release` and call `simplepzmap.exe`. CI builds [examples/CiScene](../examples/CiScene/README.md), a two-section scene with a shared building and a seam-crossing fence, with `build --strict` and checks it with `validate --source`.
+
+Without `--game`, generated street dressing and vanilla vehicle distributions are accepted from built-in lists of Build 42 tiles and names. Tags that select game resources, such as `roof:colour`, `pz:wall` or `pz:style=tilezed:…`, still need `--game`.
 
 | Command | What it does |
 |---|---|
@@ -12,7 +14,9 @@ Run it from the repository with `dotnet run --project src/SimplePZMapmaker.Cli -
 | `export <file> --out mod.zip` | Writes the Build 42 mod of a map or world. |
 | `tiles <tileset.json> --out tiles.zip` | Builds a tile mod (`.pack` + `.tiles`) from PNG frames. |
 | `probe <mod.zip> --game <path>` | Loads the exported lots with the installed game's own classes (headers, chunks, rooms, every tile sprite; stairs with `--expect-stairs`). Needs the repository's `scripts/` folder and Java from the game. |
-| `server-check <mod.zip> --game <path>` | Starts the installed Build 42 dedicated server (`zombie.network.GameServer`, `-nosteam`) in a temporary cache folder with the mod and a test-only Lua probe. The probe asks the server's own metagrid for buildings at room tiles taken from the archive's authoring source, plus one empty control tile; the server is then stopped with `quit`. Your `Zomboid` folder is not touched. |
+| `conflicts <mod.zip\|map\|world> --game <path>` | Lists installed maps that already use one of the map's native cells: the game's own maps (challenge maps excluded), Steam Workshop items next to the installation and the local mods folder (`--mods-dir`), all read only. It fails when the base game is hit. `build --game` runs the same check, and `--strict` then fails on it. |
+| `serve <mod.zip> --game <path>` | Starts a dedicated server for playtesting in `work/playtest-server/<name>` (`--server-dir`), never in your `Zomboid` folder: the map loads next to Muldraugh with its spawn regions, the window prints the address and admin login, and `quit` stops it. `--fresh` starts a new world, `--port` sets the port (16261). See the [playtest checklist](PLAYTEST.md). |
+| `server-check <mod.zip> --game <path>` | Starts the installed Build 42 dedicated server (`zombie.network.GameServer`, `-nosteam`) in a temporary cache folder with the mod and a test-only Lua probe. The probe asks the server's own metagrid for buildings at room tiles taken from the archive's authoring source, plus one empty control tile, and loads the map's spawn regions as the game does (profession keys, spawn points and how many lie in a building); the server is then stopped with `quit`. Your `Zomboid` folder is not touched. |
 
 Common options:
 

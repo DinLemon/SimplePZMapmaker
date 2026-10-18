@@ -8,7 +8,7 @@ public static class FenceAuthoringEndpoints
  public sealed record Result(MapProject Project,Dictionary<string,int> Skipped,int Pieces);
  public static void MapFenceAuthoringEndpoints(this WebApplication app)
  {
-  app.MapGet("/api/fences/catalog",()=>new{styles=GeographicImporter.DefaultFenceStyles,wicket=GeographicImporter.DefaultWicket,maximumPostSpacing=64,geometry="cardinal-tile-edges"});
+  app.MapGet("/api/fences/catalog",()=>new{styles=GeographicImporter.DefaultFenceStyles,wicket=GeographicImporter.DefaultWicket,gates=GeographicImporter.DefaultGateStyles,maximumPostSpacing=64,geometry="cardinal-tile-edges"});
   app.MapPost("/api/fences/put",(Request request,GameAssetCatalog assets)=>Build(request,assets));
  }
  public static MapProject Prepare(Request request)
@@ -20,7 +20,7 @@ public static class FenceAuthoringEndpoints
   var line=NeighborhoodPlanner.Copy(request.Line);var style=request.Style??GeographicImporter.DefaultFenceStyles.FirstOrDefault(s=>s.Id==line.Style);
   if(style is not null){if(style.Id!=line.Style)throw new ArgumentException("The selected fence style does not match the line.");Merge(candidate.FenceStyles,style,s=>s.Id);}
   foreach(var gate in request.GateStyles??[]){if(gate is null)throw new ArgumentException("A gate style is missing.");Merge(candidate.GateStyles,gate,g=>g.Id);}
-  if(line.Gates?.Any(g=>g?.Style==GeographicImporter.DefaultWicket.Id)==true&&candidate.GateStyles.All(g=>g.Id!=GeographicImporter.DefaultWicket.Id))Merge(candidate.GateStyles,GeographicImporter.DefaultWicket,g=>g.Id);
+  foreach(var reference in GeographicImporter.DefaultGateStyles)if(line.Gates?.Any(g=>g?.Style==reference.Id)==true&&candidate.GateStyles.All(g=>g.Id!=reference.Id))Merge(candidate.GateStyles,reference,g=>g.Id);
   candidate.Fences.RemoveAll(f=>f.Id==line.Id);candidate.Fences.Add(line);candidate.Version=Math.Max(candidate.Version,12);FenceLines.Validate(candidate);
   if(line.Points.Any(p=>p.X<0||p.Y<0||p.X>candidate.Width||p.Y>candidate.Height))throw new ArgumentException("Draw the fence on tile edges inside the active section. Shared world fences are edited in their authoritative world.");
   for(var i=1;i<line.Points.Count;i++){var a=line.Points[i-1];var b=line.Points[i];if(a.X==b.X&&a.X==candidate.Width||a.Y==b.Y&&a.Y==candidate.Height)throw new ArgumentException("East and south boundary edges belong to the adjacent section. Draw inside this section, or use a shared world fence.");}

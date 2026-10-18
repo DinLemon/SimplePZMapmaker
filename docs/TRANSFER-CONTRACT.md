@@ -98,7 +98,10 @@ Fences are their own layer, not decorations and not `LinearFeature`s (which are 
 - `W`, `N`: the edge tiles;
 - `NW`: optional corner tile;
 - `Post`: optional post tile;
-- `WAlt`, `NAlt` with `AltEvery`: optional alternative edges, used for a style that repeats every N edges, such as a brick pillar between forged sections.
+- `WAlt`, `NAlt` with `AltEvery`: optional alternative edges, used for a style that repeats every N edges, such as a brick pillar between forged sections;
+- `GateSpaceW`, `GateSpaceN`: optional gate frame drawn under a gate on that edge.
+
+The built-in styles are TileZed's reference fences (`Fences.txt`): `vanilla-planks`, `vanilla-short-planks`, `vanilla-tall-planks-2`, `vanilla-picket`, `vanilla-short-picket`, `vanilla-wire`, `vanilla-tall-wire`, `vanilla-cattle`, `vanilla-black-metal`, `vanilla-black-bars`, `vanilla-sheet` (tall concrete), `vanilla-military`, `vanilla-construction` and `vanilla-construction-barbed`. Two-piece fences alternate `west1`/`west2` with `AltEvery = 2`. A gate added without a style gets the wicket that TileZed pairs with the fence: `vanilla-wicket`, `-short`, `-picket`, `-wire` or `-metal`, each a full closed/open set.
 
 `GateStyle`: `Width` 1–8 edges, `ClosedW`, `ClosedN` and optional `OpenW`, `OpenN`, each with one piece per edge in line direction. `OpensTo = "left"` mirrors the order. Vanilla example: `fixtures_doors_fences_01_12`…`15`, the solid wooden wicket (closed W, closed N, open W, open N). Tiles from a resource mod add that mod to `RequiredMods`. A style ID used by both the world and a section must mean the same tiles.
 
@@ -132,9 +135,9 @@ Building feature properties read by the importer (OSM keys keep their OSM meanin
 | `building:levels` | 1–8 | storeys (existing) |
 | `roof:shape` | `gabled`, `hipped`, `flat`, … | roof form (existing) |
 | `roof:colour` | `grey`, `red`, `blue`, `green`, `brown`, `white`, `black`, `silver`, or `#rrggbb` | roof tile set: grey `roofs_30_04`, red `roofs_30_09`, blue `roofs_30_01`, green `roofs_30_05`, brown `roofs_30_07`, white `roofs_30_03`; a hex colour takes the nearest set by the average colour measured from the installed Build 42 sprites. Flat roofs keep their own surface. |
-| `pz:wall` | `set:<first tile>`, a bare first tile, or the ID of a project palette whose first wall resource starts the set | exterior wall set: wall `+0/+1`, window frame `+8/+9`, door frame `+10/+11` (W/N), on every exterior edge except balconies |
+| `pz:wall` | `set:<first tile>`, a bare first tile, or the ID of a project palette whose first wall resource starts the set | exterior wall set, on every exterior edge except balconies. The pieces come from TileZed's wall catalog (`wall-catalog.json`, 175 sets); a set outside it uses wall `+0/+1`, window frame `+8/+9`, door frame `+10/+11` (W/N). Export draws the set's NW corner piece where plain N and W walls meet, and its SE pillar on outer corners |
 | `pz:trim` | overlay tile pair `<north tile>:<west tile>` | window surround overlay on exterior window edges (wall edge overlays, PR #1) |
-| `pz:style` | building style id | interior and furniture style |
+| `pz:style` | building style id, or `tilezed:<template>` | interior and furniture style; a TileZed template (`Bank`, `Barn`, `Diner`, `Police`, `Spiffo`, `Gigamart`… 25 in `building-templates.json`) sets the exterior wall set, door, window, and per room the floor and interior wall |
 | `pz:kind` | `house`, `shed`, `garage`, `bathhouse`, `toilet`, `greenhouse` | building kind when OSM `building=*` is ambiguous; `bathhouse` and `toilet` make a one-room building a bathroom |
 
 Unknown `pz:*` keys are kept as source tags and reported once per key as a warning; they never fail an import.

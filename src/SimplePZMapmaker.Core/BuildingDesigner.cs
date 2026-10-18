@@ -5,6 +5,9 @@ public static class BuildingDesigner
  public static readonly string[] Kinds=["house","apartments","school","shop","warehouse","industrial","clinic","hotel","garage"];
  public static readonly Dictionary<string,string> Names=new(){["house"]="Detached house",["apartments"]="Apartment building",["school"]="School",["shop"]="Shop",["warehouse"]="Warehouse",["industrial"]="Industrial building",["clinic"]="Clinic",["hotel"]="Hotel",["garage"]="Garage"};
  public static readonly string[] RoomNames=["hall","livingroom","kitchen","bedroom","bathroom","classroom","office","conveniencestore","warehouse","medical","hotelroom","garage","storage","balcony"];
+ /// <summary>Every room name a floor may use: the editor's own names plus the Build 42 internal room names (loot and zombie room filters).</summary>
+ public static readonly HashSet<string> AllRoomNames=[..RoomNames,..LoadRoomCatalog()];
+ static IEnumerable<string> LoadRoomCatalog(){using var s=typeof(BuildingDesigner).Assembly.GetManifestResourceStream("SimplePZMapmaker.Core.RoomCatalog.json")!;using var d=System.Text.Json.JsonDocument.Parse(s);return d.RootElement.GetProperty("rooms").EnumerateArray().Select(e=>e.GetString()!).ToArray();}
  public static char Cell(Building b,BuildingFloor floor,int x,int y)=>x<0||y<0||x>=b.Width||y>=b.Height?'.':floor.Cells[y*b.Width+x];
  public static bool Occupies(Building b,int x,int y)=>b.Design is null?x>=0&&y>=0&&x<b.Width&&y<b.Height:b.Design.Floors.Any(f=>Cell(b,f,x,y)!='.');
  public static bool OccupiesAbove(Building b,int x,int y)=>b.Design is null?Occupies(b,x,y):b.Design.Floors.Where((_,i)=>i+b.Design.MinLevel>=0).Any(f=>Cell(b,f,x,y)!='.');
@@ -75,10 +78,13 @@ public static class BuildingDesigner
   for(var z=0;z<total;z++){design.Floors[z].Edges=AutoEdges(b,design.Floors[z],z+design.MinLevel);Furnish(b,z,rng);}
   RoofGeometry.SelectSafeAutomaticRoof(b);Validate(b);return design;
  }
- public static void Furnish(Building b,int z,Random rng){
+ /// <summary>Furnishes one floor. Bedrooms, kitchens, bathrooms and living rooms take TileZed furniture against their walls (map format 14);
+ /// <paramref name="catalog"/> false keeps the single legacy object per room, as the distributed housing templates do.</summary>
+ public static void Furnish(Building b,int z,Random rng,bool catalog=true){
   var f=b.Design!.Floors[z];f.Objects.RemoveAll(o=>o.Kind!="stairs");
   foreach(var code in f.Rooms.Keys.Where(k=>k!="0"&&f.Rooms[k]!="balcony")){
    var passages=f.Edges.Where(e=>e.Kind is "door" or "open").SelectMany(e=>e.Edge=="n"?new[]{e.Y*b.Width+e.X,(e.Y-1)*b.Width+e.X}:new[]{e.Y*b.Width+e.X,e.Y*b.Width+e.X-1}).ToHashSet();
+   if(catalog&&FurnitureCatalog.Furnishes(f.Rooms[code])){FurnitureCatalog.Furnish(b,f,z,code[0],f.Rooms[code],passages,rng);continue;}
    var kind=f.Rooms[code] switch{"kitchen"=>"counter","bedroom" or "hotelroom"=>"bed","livingroom"=>"seat","bathroom"=>"sink",_=>"storage"};var taken=f.Objects.Where(o=>o.Kind!="stairs").SelectMany(BuildingObjects.Cells).ToHashSet();
    var candidates=Enumerable.Range(0,f.Cells.Length).Where(i=>f.Cells[i]==code[0]).SelectMany(i=>new[]{"n","w"}.Select(direction=>new BuildingObject{X=i%b.Width,Y=i/b.Width,Kind=kind,Direction=direction,Style=b.Design.Style})).Where(o=>BuildingObjects.Cells(o).All(point=>Cell(b,f,point.X,point.Y)==code[0]&&!StairSpace(b,z,point.X,point.Y)&&!passages.Contains(point.Y*b.Width+point.X)&&!taken.Contains(point))).ToArray();
    if(candidates.Length>6)f.Objects.Add(candidates[rng.Next(candidates.Length)]);
@@ -109,13 +115,13 @@ public static class BuildingDesigner
   if(d.FlatRoofTile is not null&&!VisualStyles.TileId(d.FlatRoofTile))Fail("invalid flat roof surface resource.");
   if(d.Floors.Any(f=>f is null||f.Cells is null||f.Cells.Length!=b.Width*b.Height||f.Objects is null||f.Objects.Count>512||f.Edges is null||f.Edges.Count>2*(b.Width+1)*(b.Height+1)||f.Edges.Any(e=>e is null)||f.Rooms is null))Fail("invalid floor layer.");
   for(var z=0;z<d.Floors.Count;z++){
-   var f=d.Floors[z];if(f is null||f.Cells is null||f.Cells.Length!=b.Width*b.Height||f.Rooms is null||f.Rooms.Count is <1 or >35||f.Rooms.Any(r=>r.Key.Length!=1||!"0123456789abcdefghijklmnopqrstuvwxyz".Contains(r.Key[0])||!RoomNames.Contains(r.Value))||f.Cells.Any(c=>c!='.'&&!f.Rooms.ContainsKey(c.ToString()))||!f.Cells.Any(c=>c!='.')||f.Edges is null||f.Edges.Count>2*(b.Width+1)*(b.Height+1)||f.Objects is null||f.Objects.Count>512)Fail($"invalid level {z+d.MinLevel}.");
+   var f=d.Floors[z];if(f is null||f.Cells is null||f.Cells.Length!=b.Width*b.Height||f.Rooms is null||f.Rooms.Count is <1 or >35||f.Rooms.Any(r=>r.Key.Length!=1||!"0123456789abcdefghijklmnopqrstuvwxyz".Contains(r.Key[0])||!AllRoomNames.Contains(r.Value))||f.Cells.Any(c=>c!='.'&&!f.Rooms.ContainsKey(c.ToString()))||!f.Cells.Any(c=>c!='.')||f.Edges is null||f.Edges.Count>2*(b.Width+1)*(b.Height+1)||f.Objects is null||f.Objects.Count>512)Fail($"invalid level {z+d.MinLevel}.");
    if(f.FloorTile is not null&&!VisualStyles.TileId(f.FloorTile)||f.FloorTiles is null||f.FloorTiles.Count>f.Cells.Length||f.FloorTiles.Any(v=>v.Key<0||v.Key>=f.Cells.Length||f.Cells[v.Key]=='.'||!VisualStyles.TileId(v.Value)))Fail("floor resources are invalid or outside a room.");
    if(f.StaticModels is null||f.StaticModels.Count>512)Fail("invalid model layer.");var modelIds=new HashSet<string>();foreach(var model in f.StaticModels){StaticModelPlacement.Validate(model,b.Width,b.Height,z+d.MinLevel,z+d.MinLevel);if(!modelIds.Add(model.Id)||StaticModelPlacement.FootprintCells(model).Any(c=>Cell(b,f,model.X+c.Dx,model.Y+c.Dy)=='.'))Fail("the complete model footprint is outside a room.");}
    foreach(var e in f.Edges)if(e.WallTile is not null&&!VisualStyles.TileId(e.WallTile)||e.OpeningTile is not null&&!VisualStyles.TileId(e.OpeningTile)||e.OverlayTile is not null&&(!VisualStyles.TileId(e.OverlayTile)||e.Kind=="open"))Fail("invalid wall or opening resource.");
    var keys=new HashSet<string>();foreach(var e in f.Edges){if(e is null||e.X<0||e.Y<0||e.X>b.Width||e.Y>b.Height||e.Edge is not("n" or "w")||e.Kind is not("wall" or "door" or "window" or "open")||!keys.Add($"{e.X},{e.Y},{e.Edge}")||Cell(b,f,e.X,e.Y)=='.'&&(e.Edge=="n"?Cell(b,f,e.X,e.Y-1):Cell(b,f,e.X-1,e.Y))=='.')Fail($"check the walls on level {z+d.MinLevel}.");}
-   var objectPositions=new HashSet<int>();foreach(var o in f.Objects){if(o is null||o.Kind is not("stairs" or "bed" or "storage" or "counter" or "seat" or "sink" or "asset")||o.Direction is not("n" or "w")||o.Style is null||o.Style.Length>0&&!VisualStyles.All.ContainsKey(o.Style)||Cell(b,f,o.X,o.Y)=='.'||!objectPositions.Add(o.Y*b.Width+o.X))Fail($"furniture on level {z+d.MinLevel} is outside a room or overlaps.");
-    if(o.Kind=="asset")VisualStyles.ValidateParts(o.Asset,o.Parts);else if(o.Asset is not null||o.Parts is null||o.Parts.Count>0)Fail("the object resource does not match its type.");
+   var objectPositions=new HashSet<int>();foreach(var o in f.Objects){if(o is null||o.Kind is not("stairs" or "bed" or "storage" or "counter" or "seat" or "sink" or "asset" or "furniture")||(o.Kind=="furniture"?!FurnitureCatalog.Known(o.Asset,o.Direction):o.Direction is not("n" or "w"))||o.Style is null||o.Style.Length>0&&!VisualStyles.All.ContainsKey(o.Style)||Cell(b,f,o.X,o.Y)=='.'||!objectPositions.Add(o.Y*b.Width+o.X))Fail($"furniture on level {z+d.MinLevel} is outside a room or overlaps.");
+    if(o.Kind=="asset")VisualStyles.ValidateParts(o.Asset,o.Parts);else if(o.Kind!="furniture"&&o.Asset is not null||o.Parts is null||o.Parts.Count>0)Fail("the object resource does not match its type.");
     if(o.Kind=="stairs"){
      if(z==d.Floors.Count-1)Fail("stairs must lead to the next floor.");
      for(var i=0;i<5;i++){var x=o.X+(o.Direction=="w"?i:0);var y=o.Y+(o.Direction=="n"?i:0);if(Cell(b,f,x,y)=='.'||Cell(b,d.Floors[z+1],x,y)=='.')Fail("stairs need three steps and landings on both floors.");}

@@ -32,8 +32,8 @@ public static class NativeMapExporter {
             Text($"{slug}/42/mod.info",$"name={p.Name}\nid={slug}\ndescription=Map created with SimplePZMapmaker. Build 42; new world.\nversionMin=42.0\n{require}");
             StaticModelExporter.Write(zip,slug,StaticModelExporter.Gather(p).Where(m=>m.X>=p.WorldX*256&&m.Y>=p.WorldY*256&&m.X<p.WorldX*256+p.Width&&m.Y<p.WorldY*256+p.Height));
             Text(root+"map.info",$"title={p.Name}\nfixed2x=true\ndescription=Map {p.Width} x {p.Height}, SimplePZMapmaker\nzoomX={p.WorldX*256+p.Width/2}\nzoomY={p.WorldY*256+p.Height/2}\nzoomS=8\n");
-            var spawns=string.Join(",\n",p.Spawns.Select(s=>$"        {{ posX = {p.WorldX*256+s.X}, posY = {p.WorldY*256+s.Y}, posZ = 0 }}"));
-            Text(root+"spawnpoints.lua",$"function SpawnPoints()\n    local points = {{\n{spawns}\n    }}\n    return {{ unemployed = points }}\nend\n");
+            
+            Text(root+"spawnpoints.lua",SpawnPlanner.Lua(p));Bytes(root+"thumb.png",MapThumbnail.Png(p));
             Text(root+"spawnregions.lua",$"function SpawnRegions()\n return {{ {{ name = \"{slug}\", file = \"media/maps/{slug}/spawnpoints.lua\" }} }}\nend\n");
             var zones=new StringBuilder("objects = {\n");
             for(var cy=0;cy<p.Height/8;cy++)for(var cx=0;cx<p.Width/8;cx++) {
@@ -68,7 +68,8 @@ public static class NativeMapExporter {
                 var tiles=names.Order(StringComparer.Ordinal).ToArray();var ids=tiles.Select((name,id)=>(name,id)).ToDictionary(t=>t.name,t=>t.id);
                 Bytes(root+$"{p.WorldX+cellX}_{p.WorldY+cellY}.lotheader",Header(p,composer,tiles,cellX,cellY));
                 Bytes(root+$"world_{p.WorldX+cellX}_{p.WorldY+cellY}.lotpack",Pack(composer,ids));
-                Bytes(root+$"chunkdata_{p.WorldX+cellX}_{p.WorldY+cellY}.bin",Navigation(composer));context?.Cell();
+                Bytes(root+$"chunkdata_{p.WorldX+cellX}_{p.WorldY+cellY}.bin",Navigation(composer));
+                Bytes(root+$"maps/biomemap_{p.WorldX+cellX}_{p.WorldY+cellY}.png",BiomeMap.Png(p,cellX,cellY));context?.Cell();
             }
     }
     private static string Culture(FormattableString s)=>s.ToString(System.Globalization.CultureInfo.InvariantCulture);

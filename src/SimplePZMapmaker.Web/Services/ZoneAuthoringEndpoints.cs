@@ -6,7 +6,7 @@ public static class ZoneAuthoringEndpoints
  public sealed record Result(MapProject Project,RoomRegionChange[] Rooms,DensityRasterChange[] Density,string[] Notes);
  public static void MapZoneAuthoringEndpoints(this WebApplication app)
  {
-  app.MapGet("/api/zones/catalog",()=>new{roomNames=BuildingDesigner.RoomNames.Select(name=>new{id=name,sourceId="game",nativeName=name switch{"hotelroom"=>"motelroom","garage"=>"garagestorage","balcony"=>"emptyoutside",_=>name},requiredMods=Array.Empty<string>()}),selectionRules=new[]{"intersects","contained"},polygonCoverage="tile-centres",densityRasterSize=8});
+  app.MapGet("/api/zones/catalog",()=>new{roomNames=BuildingDesigner.AllRoomNames.Order(StringComparer.Ordinal).Select(name=>new{id=name,sourceId="game",nativeName=name switch{"hotelroom"=>"motelroom","garage"=>"garagestorage","balcony"=>"emptyoutside",_=>name},requiredMods=Array.Empty<string>()}),selectionRules=new[]{"intersects","contained"},polygonCoverage="tile-centres",densityRasterSize=8});
   app.MapPost("/api/zones/preview",(Request request,GameplayCatalog catalog,CancellationToken token)=>Build(request,catalog,false,token));
   app.MapPost("/api/zones/apply",(Request request,GameplayCatalog catalog,CancellationToken token)=>Build(request,catalog,true,token));
  }

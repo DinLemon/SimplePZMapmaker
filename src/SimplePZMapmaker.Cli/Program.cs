@@ -12,6 +12,8 @@ simplepzmap validate <map.pzmap.json|world.pzworld.json> [--game <path>] [--sour
 simplepzmap export <map.pzmap.json|world.pzworld.json> --out mod.zip [--game <path>] [mod options]
 simplepzmap probe <mod.zip> --game <path> [--expect-stairs]
 simplepzmap server-check <mod.zip> --game <path> [--timeout-minutes 10]
+simplepzmap conflicts <mod.zip|map.pzmap.json|world.pzworld.json> --game <path> [--mods-dir <dir>]
+simplepzmap serve <mod.zip> --game <path> [--server-dir <dir>] [--port 16261] [--fresh]
 simplepzmap tiles <tileset.json> --out tiles.zip [--game <path>] [--install] [--mods-dir <dir>]
 
 mod options: --mod-id <id> --map-folder <name> --mod-name "<title>" --common-maps --install [--mods-dir <dir>]
@@ -37,8 +39,8 @@ static int Run(string[] args){
    var scene=SceneBuilder.Read(input);var build=SceneBuilder.Build(scene,Path.GetDirectoryName(input)!,w=>WorldEndpoints.Validate(w,catalog,models),Console.WriteLine);
    foreach(var w in build.Warnings)Console.WriteLine("note: "+w);
    var world=build.World;Console.WriteLine($"world {world.Name}: {world.Maps.Count} sections, {world.Maps.Sum(m=>m.Project.Buildings.Count)} section buildings, {world.Buildings.Count} shared buildings, {world.Fences.Count} shared fences");
-   var failed=Report(build.Report,Option("--report"));if(assets is not null)failed|=CheckTiles(world,assets);
-   var output=Path.GetFullPath(Option("--out")??Path.ChangeExtension(input,null)+".pzworld.json");using(var file=File.Create(output))JsonSerializer.Serialize(file,world,NativeMapExporter.JsonOptions);Console.WriteLine("wrote "+output);
+   var failed=Report(build.Report,Option("--report"));if(assets is not null){failed|=CheckTiles(world,assets);failed|=Conflicts(CellConflicts.Cells(world),assets.GamePath,Option("--mods-dir"),scene.Export?.MapFolder??scene.Export?.ModId);}
+   var output=Path.GetFullPath(Option("--out")??Path.ChangeExtension(input,null)+".pzworld.json");Directory.CreateDirectory(Path.GetDirectoryName(output)!);using(var file=File.Create(output))JsonSerializer.Serialize(file,world,NativeMapExporter.JsonOptions);Console.WriteLine("wrote "+output);
    if(Option("--export") is {} target)Export(s=>NativeWorldExporter.ExportToStream(world,s),Path.GetFullPath(target),Mod(scene.Export),Option("--mods-dir"));
    if(Flag("--save-workspace")){using var store=new WorldStore(Path.Combine(workspace,"work","world-recovery"));store.SaveAsync(world.Id,world).GetAwaiter().GetResult();Console.WriteLine($"saved section workspace {world.Id} under {Path.Combine(workspace,"work","world-recovery")}; open it in the editor under World > Section workspaces");}
    return failed&&Flag("--strict")?1:0;}
@@ -59,13 +61,27 @@ static int Run(string[] args){
    return 0;}
   case "server-check":{
    var minutes=int.TryParse(Option("--timeout-minutes"),out var m)?m:10;var result=ServerCheck.Run(input,Option("--game")??throw new ArgumentException("server-check needs --game <Build 42 installation>."),TimeSpan.FromMinutes(minutes),Console.WriteLine);
-   foreach(var (point,building,room) in result.Probes)Console.WriteLine($"server metagrid {point.X},{point.Y} {point.Name}: building={building.ToString().ToLowerInvariant()} room={room??"none"}{(building==point.ExpectBuilding?"":" UNEXPECTED")}");
+   for(var i=0;i<result.Probes.Count;i++){var (point,building,room)=result.Probes[i];Console.WriteLine($"server metagrid {point.X},{point.Y} {point.Name}: building={building.ToString().ToLowerInvariant()} room={room??"none"} zones={(result.Zones.GetValueOrDefault(i) is {Length:>0} z?z:"none")}{(building==point.ExpectBuilding?"":" UNEXPECTED")}");}
+   foreach(var s in result.Spawns)Console.WriteLine($"server spawn region {s.Region}: {s.Professions} professions, {s.Points} spawn points, {s.Inside} inside buildings");
    Console.WriteLine($"server started: {result.Started}; stopped cleanly: {result.Stopped}; {(result.Passed?"server check: passed":"server check: FAILED")}");
    if(!result.Passed)File.WriteAllText(Path.ChangeExtension(input,null)+".server.log",result.Log);
    return result.Passed?0:1;}
+  case "conflicts":{
+   var installation=Option("--game")??throw new ArgumentException("conflicts needs --game <Build 42 installation>.");HashSet<(int X,int Y)> cells;string? own=null;
+   if(input.EndsWith(".zip",StringComparison.OrdinalIgnoreCase)){using var zip=System.IO.Compression.ZipFile.OpenRead(input);cells=CellConflicts.Cells(zip);own=zip.Entries.Select(e=>e.FullName.Split('/')).Where(p=>p.Length>4&&p[^3]=="maps"&&p[^4]=="media").Select(p=>p[^2]).FirstOrDefault();}
+   else{var (map,world)=Load(input);cells=world is not null?CellConflicts.Cells(world):CellConflicts.Cells(map!);}
+   return Conflicts(cells,Path.GetFullPath(installation),Option("--mods-dir"),own)?1:0;}
+  case "serve":return PlaytestServer.Run(input,Option("--game")??throw new ArgumentException("serve needs --game <Build 42 installation>."),Option("--server-dir")??Path.Combine(workspace,"work","playtest-server",Path.GetFileNameWithoutExtension(input)),Flag("--fresh"),int.TryParse(Option("--port"),out var port)?port:16261,Console.WriteLine);
   case "probe":return Probe(input,Option("--game")??throw new ArgumentException("probe needs --game <Build 42 installation>."),Flag("--expect-stairs"));
   default:Console.Error.WriteLine(Usage);return 2;
  }
+}
+/// <summary>Prints the installed maps (game, Workshop, local mods) that use one of the cells; true when the game's own maps are hit.</summary>
+static bool Conflicts(HashSet<(int X,int Y)> cells,string game,string? modsDirectory,string? own){
+ var mods=modsDirectory??NativeModPackage.DefaultModsDirectory();var conflicts=CellConflicts.Check(cells,CellConflicts.Installed(game,Directory.Exists(mods)?mods:null),own);
+ foreach(var c in conflicts)Console.WriteLine($"cell conflict: {c.Count} cell(s) shared with {c.Source} map '{c.Map}', first {c.First.X},{c.First.Y}");
+ Console.WriteLine(conflicts.Count==0?$"cells: none of {cells.Count} is used by an installed map":$"cells: {conflicts.Sum(c=>c.Count)} shared with {conflicts.Count} installed map(s); move the map with the scene origin (originCellX/originCellY) or skip loading them together");
+ return conflicts.Any(c=>c.Source=="game");
 }
 /// <summary>Downloads OpenStreetMap data with the editor's own client: tiled Overpass requests, retries, provider fallback and a seven-day cache.</summary>
 static int Fetch(Dictionary<string,string> options){
@@ -78,7 +94,7 @@ static int Fetch(Dictionary<string,string> options){
  return 0;
 }
 static Dictionary<string,string> Options(string[] args){
- var flags=new HashSet<string>{"--common-maps","--install","--strict","--expect-stairs","--save-workspace"};var result=new Dictionary<string,string>(StringComparer.Ordinal);
+ var flags=new HashSet<string>{"--common-maps","--install","--strict","--expect-stairs","--save-workspace","--fresh"};var result=new Dictionary<string,string>(StringComparer.Ordinal);
  for(var i=0;i<args.Length;i++){if(!args[i].StartsWith("--",StringComparison.Ordinal))throw new ArgumentException("Unexpected argument: "+args[i]);if(flags.Contains(args[i])){result[args[i]]="true";continue;}if(i+1>=args.Length)throw new ArgumentException(args[i]+" needs a value.");result[args[i]]=args[++i];}
  return result;
 }
@@ -104,7 +120,7 @@ static bool CheckTiles(object project,GameAssetCatalog assets){
  return missing.Count>0;
 }
 static void Export(Action<Stream> write,string target,NativeModOptions? package,string? modsDirectory){
- var temporary=target+".tmp";try{
+ Directory.CreateDirectory(Path.GetDirectoryName(target)!);var temporary=target+".tmp";try{
   using(var file=File.Create(temporary))write(file);
   if(package?.Renames==true){using(var source=File.OpenRead(temporary))using(var file=File.Create(target))NativeModPackage.Repack(source,file,package);}else File.Copy(temporary,target,true);
  }finally{if(File.Exists(temporary))File.Delete(temporary);}

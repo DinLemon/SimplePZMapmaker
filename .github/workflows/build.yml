@@ -33,6 +33,13 @@ jobs:
       - name: Publish Windows application
         shell: pwsh
         run: ./scripts/publish.ps1
+      - name: Build a two-section scene with the published command line
+        shell: pwsh
+        run: |
+          ./artifacts/app/simplepzmap.exe build examples/CiScene/ci-scene.json --out work/ci/ci.pzworld.json --export work/ci/ci.zip --strict
+          if ($LASTEXITCODE -ne 0) { throw 'simplepzmap build --strict failed.' }
+          ./artifacts/app/simplepzmap.exe validate work/ci/ci.pzworld.json --source examples/CiScene/ci-source.geojson
+          if ($LASTEXITCODE -ne 0) { throw 'simplepzmap validate --source failed.' }
       - name: Install isolated browser check dependencies
         shell: pwsh
         run: |

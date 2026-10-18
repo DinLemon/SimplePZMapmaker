@@ -14,7 +14,7 @@ public static class RoomRegionRules
  static void Validate(MapProject p,IReadOnlyList<RoomRegionRule> rules)
  {
   if(rules is null||rules.Count>256||rules.Any(r=>r is null)||rules.Select(r=>r.Id).Distinct().Count()!=rules.Count)throw new ArgumentException("A map supports up to 256 distinct room rules.");
-  foreach(var r in rules){ZombieDensityRegions.ValidateIdentity(r.Id,r.Name);ZoneGeometry.Validate(r.X,r.Y,r.Width,r.Height,r.Polygon,p.Width,p.Height);ZoneGeometry.ValidateSourceTags(r.SourceTags);if(r.Level is <-32 or >31||r.Selection is not ("intersects" or "contained")||!BuildingDesigner.RoomNames.Contains(r.RoomName)||r.SourceId!="game"||r.RequiredMods is null||r.RequiredMods.Count>0)throw new ArgumentException("Choose an existing supported game room name and whole-room selection rule. Custom loot-zone types are unsupported.");}
+  foreach(var r in rules){ZombieDensityRegions.ValidateIdentity(r.Id,r.Name);ZoneGeometry.Validate(r.X,r.Y,r.Width,r.Height,r.Polygon,p.Width,p.Height);ZoneGeometry.ValidateSourceTags(r.SourceTags);if(r.Level is <-32 or >31||r.Selection is not ("intersects" or "contained")||!BuildingDesigner.AllRoomNames.Contains(r.RoomName)||r.SourceId!="game"||r.RequiredMods is null||r.RequiredMods.Count>0)throw new ArgumentException("Choose an existing supported game room name and whole-room selection rule. Custom loot-zone types are unsupported.");}
  }
  public static RoomRegionChange[] Preview(MapProject p,RoomRegionRule[] rules)
  {

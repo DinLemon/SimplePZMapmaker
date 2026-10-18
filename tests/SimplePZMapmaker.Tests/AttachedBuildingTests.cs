@@ -7,7 +7,7 @@ public static class AttachedBuildingTests
   yield return("pz:attached places a shed against the house with one shared wall and a door between them",()=>{
    var p=Import(new(){{"building","shed"},{"pz:kind","shed"},{"pz:attached","osm-way-1"},{"pz:door-to","osm-way-1"}});
    var house=p.Buildings.Single(b=>b.SourceId=="geo-osm-way-1");var shed=p.Buildings.Single(b=>b.SourceId=="geo-osm-way-2");
-   Check(shed.AttachedTo==house.Id&&p.Version==13,"The shed is not attached or the map format was not raised");
+   Check(shed.AttachedTo==house.Id&&p.Version>=13,"The shed is not attached or the map format was not raised");
    var houseCells=Cells(house);var shedCells=Cells(shed);Check(!houseCells.Overlaps(shedCells)&&shedCells.Any(c=>houseCells.Contains((c.X-1,c.Y))),"The rooms do not touch without a free line");
    var suppressed=AttachedBuildings.SuppressedEdges(p.Buildings);Check(suppressed.Count>0&&suppressed.All(e=>e.Building==shed.Id&&e.Edge=="w"&&e.X==shedCells.Min(c=>c.X)),"Only the shed's side of the shared wall should be suppressed");
    var ground=house.Design!.Floors[-house.Design.MinLevel];var sharedX=shedCells.Min(c=>c.X)-house.X;

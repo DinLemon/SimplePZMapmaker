@@ -35,7 +35,7 @@ public static partial class HousingTemplates
    default:AdditionalPlan(b,id);break;
   }
   for(var z=0;z<b.Design.Floors.Count;z++){
-   BuildingDesigner.Furnish(b,z,new Random(20261012+z));
+   BuildingDesigner.Furnish(b,z,new Random(20261012+z),catalog:false);
    var f=b.Design.Floors[z];f.Objects.RemoveAll(o=>o.Kind!="stairs"&&f.Rooms[BuildingDesigner.Cell(b,f,o.X,o.Y).ToString()]=="hall");
    if(id=="urban-panel-five")AddCombinedLivingBeds(b,z);
   }
