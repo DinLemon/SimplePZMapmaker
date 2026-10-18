@@ -53,11 +53,12 @@ public static class SceneBuilder
   var reference=scene.Reference;WorldGeoReference.Validate(reference);var size=GeographicProjection.RequiredTiles(reference);
   var columns=Math.Max(1,(int)Math.Ceiling(size.Width/(double)scene.SectionSize));var rows=Math.Max(1,(int)Math.Ceiling(size.Height/(double)scene.SectionSize));var step=scene.SectionSize/256;
   if(columns*rows>128||columns*rows*step*step>8192)throw new ArgumentException($"The area needs {columns}x{rows} sections; a world holds up to 128 sections and 8,192 native cells. Increase metresPerTile or the section size.");
+  var index=new GeographicSourceIndex(json);   // each section imports only its neighbourhood of the source
   var world=new WorldProject{Name=scene.Name,Id=Hash("world|"+scene.Name),GeoReference=reference};var warnings=new HashSet<string>(StringComparer.Ordinal);var skipped=0;
   for(var y=0;y<rows;y++)for(var x=0;x<columns;x++){
    token.ThrowIfCancellationRequested();var cellX=reference.OriginCellX+x*step;var cellY=reference.OriginCellY+y*step;var projection=new GeographicProjection(reference,cellX,cellY);
    var project=MapGenerator.Generate(new(){Kind="blank",Size=scene.SectionSize,Seed=scene.Seed,Name=$"{scene.Name[..Math.Min(60,scene.Name.Length)]} {x+1}/{y+1}"});project.WorldX=cellX;project.WorldY=cellY;project.WorldSection=true;project.Version=Math.Max(project.Version,6);
-   var result=GeographicImporter.Import(json,project,projection.SectionBounds(scene.SectionSize,scene.SectionSize),token,projection:projection);project=result.Project;foreach(var w in result.Warnings)warnings.Add(w);
+   var bounds=projection.SectionBounds(scene.SectionSize,scene.SectionSize);var result=GeographicImporter.Import(index.For(bounds),project,bounds,token,projection:projection);project=result.Project;foreach(var w in result.Warnings)warnings.Add(w);
    if(scene.SkipEmptySections&&project.Buildings.Count==0&&project.Fences.Count==0&&project.LinearFeatures.Count==0){skipped++;continue;}
    world.Maps.Add(new(){Id=SectionId(scene.Name,cellX,cellY),Project=project});progress?.Invoke($"section {x+1}/{y+1}: {project.Buildings.Count} buildings, {project.Fences.Count} fence lines");
   }

@@ -216,3 +216,19 @@ public static class VillageYardTests
  }
  static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
 }
+public static class SourceIndexTests
+{
+ public static IEnumerable<(string,Action)> Cases(){
+  yield return("source index gives each section only nearby GeoJSON features and Overpass elements",()=>{
+   var geo=System.Text.Json.JsonSerializer.Serialize(new{type="FeatureCollection",pzTransfer=1,features=new object[]{
+    new{type="Feature",id="near",properties=new{},geometry=new{type="Point",coordinates=new[]{32.005,54.005}}},
+    new{type="Feature",id="far",properties=new{},geometry=new{type="LineString",coordinates=new[]{new[]{33.0,55.0},new[]{33.1,55.1}}}},
+    new{type="Feature",id="edge",properties=new{},geometry=new{type="Point",coordinates=new[]{32.0125,54.005}}}}});
+   var bounds=new GeoBounds{West=32,East=32.01,South=54,North=54.01};var cut=new GeographicSourceIndex(geo).For(bounds);
+   Check(cut.Contains("\"near\"")&&cut.Contains("\"edge\"")&&!cut.Contains("\"far\"")&&cut.Contains("pzTransfer"),"GeoJSON cut is wrong: "+cut);
+   var overpass="{\"version\":0.6,\"elements\":[{\"type\":\"node\",\"id\":1,\"lat\":54.005,\"lon\":32.005},{\"type\":\"way\",\"id\":2,\"bounds\":{\"minlat\":56,\"minlon\":30,\"maxlat\":56.1,\"maxlon\":30.1}},{\"type\":\"relation\",\"id\":3}]}";
+   var part=new GeographicSourceIndex(overpass).For(bounds);Check(part.Contains("\"id\":1")&&!part.Contains("\"id\":2")&&part.Contains("\"id\":3")&&part.StartsWith("{\"version\":0.6,\"elements\":["),"Overpass cut is wrong: "+part);
+  });
+ }
+ static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
+}
