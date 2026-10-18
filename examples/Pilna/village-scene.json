@@ -6,8 +6,8 @@
   "reference": {
     "bounds": { "south": 55.5363, "north": 55.5781, "west": 45.8833, "east": 45.9422 },
     "metresPerTile": 1,
-    "originCellX": 100,
-    "originCellY": 100,
+    "originCellX": 150,
+    "originCellY": 150,
     "rotationDegrees": -11.22
   },
   "sectionSize": 1024,

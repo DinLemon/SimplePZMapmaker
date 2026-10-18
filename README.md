@@ -2,7 +2,7 @@
 
 A local visual map and building editor for **Project Zomboid Build 42**, written in C#/.NET 10 with a browser interface. Create maps without programming, assemble rooms from your installed game's resources, import OpenStreetMap geography, and join adjacent sections into one world.
 
-**Current release: 0.11.2.** The Windows x64 download includes the .NET Runtime. The editor supports 24 original editable building plans, up to 32 above-ground levels and basements **−1 to −32** (64 signed levels, **Z −32…31**), game/mod sprites and static models, shared buildings across section boundaries, measured DEM elevation, and MCP planning with a review before changes enter your project.
+**Current release: 0.12.0.** The Windows x64 download includes the .NET Runtime. The editor supports 24 original editable building plans, up to 32 above-ground levels and basements **−1 to −32** (64 signed levels, **Z −32…31**), game/mod sprites and static models, shared buildings across section boundaries, measured DEM elevation, and MCP planning with a review before changes enter your project.
 
 [Download releases](https://github.com/DinLemon/SimplePZMapmaker/releases) · [Verification status](docs/STATUS.md) · [Code and data provenance](docs/PROVENANCE.md)
 
@@ -44,6 +44,15 @@ A local visual map and building editor for **Project Zomboid Build 42**, written
 [Step-by-step generation studio guide](docs/GENERATION-STUDIO.md)
 
 ![Generation studio with two alternatives and coordinate-based quality findings](docs/screenshots/27-generation-studio.png)
+
+## What's new in 0.12.0
+
+- **Build 42 map data:** every native cell gets a biome map (foraging zones), maps get a `thumb.png`, and `spawnpoints.lua` starts players inside houses with all 25 professions and their workplaces.
+- **Rooms, zones and parking:** 588 vanilla room names; land use, parking and `pz:zone` tags become game zones, ZombiesType included; parking areas snap to whole 3×5 stalls.
+- **TileZed data:** wall sets with real door and window pieces, NW corners and SE pillars; 14 reference fences with gates; furniture against the walls of bedrooms, kitchens, bathrooms and living rooms, the 24 housing templates included; `pz:style=tilezed:<template>` for 25 building templates.
+- **Streets:** curbside mailboxes and bins, stop signs on lesser roads, parking wheel stops, village yard props and scarecrows.
+- **Command line in the package:** `artifacts/app/simplepzmap.exe` builds, checks and exports maps. `conflicts` lists installed maps on the same cells, and `serve` starts a playtest server; see the [playtest checklist](docs/PLAYTEST.md). The Pilna examples moved to cells 150,150, away from Raven Creek.
+- Maps with furniture are saved as map format 14 and world format 9; older editors refuse them instead of dropping the furniture.
 
 ## What's new in 0.11.2
 
@@ -154,12 +163,12 @@ Validation for this implementation: **190 C# checks, 129 JavaScript checks and 1
 ### 2. Download the application ZIP
 
 1. Open [GitHub Releases](https://github.com/DinLemon/SimplePZMapmaker/releases).
-2. Select **v0.11.2**, or a newer published release. The project publishes prereleases, so use the release list rather than assuming GitHub's `/latest` page shows the newest build.
-3. Expand **Assets** and download **`SimplePZMapmaker-0.11.2-win-x64.zip`**. Example map ZIPs contain game mods, not the editor. GitHub's automatic **Source code** archives are development sources, not the ready-to-run application.
+2. Select **v0.12.0**, or a newer published release. The project publishes prereleases, so use the release list rather than assuming GitHub's `/latest` page shows the newest build.
+3. Expand **Assets** and download **`SimplePZMapmaker-0.12.0-win-x64.zip`**. Example map ZIPs contain game mods, not the editor. GitHub's automatic **Source code** archives are development sources, not the ready-to-run application.
 4. Optionally download the release checksum file and compare the archive's SHA-256 before extracting it. Run this command from the folder containing the downloaded archive:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath './SimplePZMapmaker-0.11.2-win-x64.zip'
+Get-FileHash -Algorithm SHA256 -LiteralPath './SimplePZMapmaker-0.12.0-win-x64.zip'
 ```
 
 ### 3. Extract the entire archive
@@ -308,7 +317,7 @@ History is bounded/sparse, so large actions can remove older entries. A world re
 4. Create a **new game** using the exported map. Existing saves are not migrated.
 5. Enable overlapping example mods separately, or relocate and re-export them.
 
-Exports include Build 42 `mod.info`, `common/`, native `.lotheader/.lotpack/chunkdata_*.bin`, room/building definitions, spawn points, zones, biome maps (`maps/biomemap_X_Y.png`, which Build 42 needs for foraging zones; squares with buildings, roads, fences, decorations or spawns use the featureless `dirt` biome so WorldGen never replaces authored vegetation there with its own jumbo trees), a 256×256 `thumb.png`, world map XML, editable project, attribution and installation instructions. Generated bedrooms, kitchens, bathrooms and living rooms are furnished with TileZed furniture standing against their walls (map format 14); the distributed housing templates keep their single legacy object per room. Imported streets are dressed with Build 42 street props: a mailbox at the curb in front of each house with a garbage bin beside it, a stop sign on every approach of a lesser road to a junction, a concrete wheel stop in each 3×5 parking stall, one to three yard props (chopping block, rain barrel, composter) behind each village house with no pavement nearby, and a scarecrow on farmland (parking zones snap to whole stalls in the direction the cars face). Like the vanilla maps, `spawnpoints.lua` starts players inside houses (the living room, kitchen or bedroom of every building with a bedroom, up to 256), gives all 25 Build 42 professions a key, and adds workplaces such as a police office or a restaurant kitchen for matching professions. Authored spawns are used only when the map has no house. Name/seed determine the mod ID; changing either creates a different ID. Origin defaults to native cell 100,100.
+Exports include Build 42 `mod.info`, `common/`, native `.lotheader/.lotpack/chunkdata_*.bin`, room/building definitions, spawn points, zones, biome maps (`maps/biomemap_X_Y.png`, which Build 42 needs for foraging zones; squares with buildings, roads, fences, decorations or spawns use the featureless `dirt` biome so WorldGen never replaces authored vegetation there with its own jumbo trees), a 256×256 `thumb.png`, world map XML, editable project, attribution and installation instructions. Generated bedrooms, kitchens, bathrooms and living rooms are furnished with TileZed furniture standing against their walls (map format 14, building template format 8), including the 24 distributed housing templates. Imported streets are dressed with Build 42 street props: a mailbox at the curb in front of each house with a garbage bin beside it, a stop sign on every approach of a lesser road to a junction, a concrete wheel stop in each 3×5 parking stall, one to three yard props (chopping block, rain barrel, composter) behind each village house with no pavement nearby, and a scarecrow on farmland (parking zones snap to whole stalls in the direction the cars face). Like the vanilla maps, `spawnpoints.lua` starts players inside houses (the living room, kitchen or bedroom of every building with a bedroom, up to 256), gives all 25 Build 42 professions a key, and adds workplaces such as a police office or a restaurant kitchen for matching professions. Authored spawns are used only when the map has no house. Name/seed determine the mod ID; changing either creates a different ID. Origin defaults to native cell 100,100.
 
 ## Build from source
 
@@ -368,7 +377,7 @@ QA downloads/screenshots/logs stay in `work/qa-results/` or `work/logs/`. Develo
 1. Open **Actions** in the GitHub repository and select **Build and verify**.
 2. Choose **Run workflow**, select `develop` or the branch to verify, then start.
 3. Inspect build/startup/browser steps in the run.
-4. Download the completed application artifact for local use. Extract GitHub's outer artifact archive, then extract the contained `SimplePZMapmaker-0.11.2-win-x64.zip` into the application folder and follow the installation steps above. The diagnostic artifact contains startup evidence and screenshots. GitHub may require sign-in for artifacts.
+4. Download the completed application artifact for local use. Extract GitHub's outer artifact archive, then extract the contained `SimplePZMapmaker-0.12.0-win-x64.zip` into the application folder and follow the installation steps above. The diagnostic artifact contains startup evidence and screenshots. GitHub may require sign-in for artifacts.
 
 CI runs on pushes to `develop`, pull requests and manual dispatch. The Windows runner uses its mapped checkout as the workspace and keeps task caches there. Its no-game fallback check does not replace local installed-game probes.
 

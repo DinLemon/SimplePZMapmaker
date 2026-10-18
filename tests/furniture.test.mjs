@@ -6,3 +6,6 @@ test('TileZed furniture resolves all four layouts and rotates with the building'
  assert.deepEqual(objectParts(bed).map(p=>[p.dx,p.dy]),[[0,0],[1,0]]);assert.deepEqual(objectParts({...bed,direction:'s'}).map(p=>[p.dx,p.dy]),[[0,0],[0,1]]);
  assert.equal(furnitureItem('no-such','n'),undefined);assert.equal(transformFacing('W','cw'),'N');assert.equal(transformFacing('N','mirror-y'),'S');
 });
+test('a world with furniture in a shared building or a format 14 section is world format 9',async()=>{const {worldAuthoringVersion}=await import('../src/SimplePZMapmaker.Web/wwwroot/world-geography.js');
+ const furnished={design:{floors:[{objects:[{kind:'furniture',asset:'bed:0',direction:'n',x:1,y:1}]}]}};
+ assert.equal(worldAuthoringVersion({version:2,buildings:[furnished],maps:[]}),9);assert.equal(worldAuthoringVersion({version:2,buildings:[],maps:[{project:{version:14}}]}),9);assert.equal(worldAuthoringVersion({version:10,buildings:[furnished],maps:[]}),10);});
