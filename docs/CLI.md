@@ -12,6 +12,7 @@ Run it from the repository with `dotnet run --project src/SimplePZMapmaker.Cli -
 | `export <file> --out mod.zip` | Writes the Build 42 mod of a map or world. |
 | `tiles <tileset.json> --out tiles.zip` | Builds a tile mod (`.pack` + `.tiles`) from PNG frames. |
 | `probe <mod.zip> --game <path>` | Loads the exported lots with the installed game's own classes (headers, chunks, rooms, every tile sprite; stairs with `--expect-stairs`). Needs the repository's `scripts/` folder and Java from the game. |
+| `conflicts <mod.zip\|map\|world> --game <path>` | Lists installed maps that already use one of the map's native cells: the game's own maps (challenge maps excluded), Steam Workshop items next to the installation and the local mods folder (`--mods-dir`), all read only. It fails when the base game is hit. `build --game` runs the same check, and `--strict` then fails on it. |
 | `server-check <mod.zip> --game <path>` | Starts the installed Build 42 dedicated server (`zombie.network.GameServer`, `-nosteam`) in a temporary cache folder with the mod and a test-only Lua probe. The probe asks the server's own metagrid for buildings at room tiles taken from the archive's authoring source, plus one empty control tile, and loads the map's spawn regions as the game does (profession keys, spawn points and how many lie in a building); the server is then stopped with `quit`. Your `Zomboid` folder is not touched. |
 
 Common options:

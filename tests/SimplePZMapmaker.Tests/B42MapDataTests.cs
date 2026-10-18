@@ -183,3 +183,19 @@ public static class StreetDressingTests
  }
  static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
 }
+public static class CellConflictTests
+{
+ public static IEnumerable<(string,Action)> Cases(){
+  yield return("cell check finds installed maps on the same cells and ignores challenge maps and the map's own copy",()=>{
+   var root=Path.Combine(Path.GetTempPath(),"simplepz-cells-"+Guid.NewGuid().ToString("N")[..8]);
+   try{
+    void Lot(string folder,int x,int y){var dir=Path.Combine(root,folder);Directory.CreateDirectory(dir);File.WriteAllBytes(Path.Combine(dir,$"{x}_{y}.lotheader"),[]);}
+    Lot("game/media/maps/Muldraugh, KY",100,100);Lot("game/media/maps/challengemaps/Kingsmouth",101,100);Lot("workshop/1/mods/Other/42/media/maps/Other",100,101);Lot("workshop/2/mods/Mine/42/media/maps/Mine",100,100);Lot("game/media/maps/Far",300,300);
+    var p=MapGenerator.Generate(new(){Kind="blank",Size=512});var maps=CellConflicts.Scan(Path.Combine(root,"game"),"game").Concat(CellConflicts.Scan(Path.Combine(root,"workshop"),"workshop")).ToList();
+    var conflicts=CellConflicts.Check(CellConflicts.Cells(p),maps,own:"Mine");
+    Check(conflicts.Count==2&&conflicts[0].Map=="Muldraugh, KY"&&conflicts[0].Source=="game"&&conflicts[1].Map=="Other"&&conflicts.All(c=>c.Count==1),"Expected Muldraugh and Other only: "+string.Join(",",conflicts.Select(c=>c.Map)));
+   }finally{Directory.Delete(root,true);}
+  });
+ }
+ static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
+}
