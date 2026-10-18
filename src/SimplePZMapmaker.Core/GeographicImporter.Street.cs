@@ -10,6 +10,9 @@ public static partial class GeographicImporter
  static readonly Dictionary<string,string> StopSigns=new(){["S"]="street_decoration_01_0",["E"]="street_decoration_01_1",["N"]="street_decoration_01_2",["W"]="street_decoration_01_3"};
  static readonly Dictionary<string,string> Mailboxes=new(){["E"]="street_decoration_01_18",["S"]="street_decoration_01_19",["W"]="street_decoration_01_20",["N"]="street_decoration_01_21"};
  const string GarbageBin="trashcontainers_01_17",WheelStopNS="street_decoration_01_28",WheelStopEW="street_decoration_01_29";
+ /// <summary>Yard props of a village house (CustomName in the tile definitions): chopping block, rain collector barrel, composter.</summary>
+ static readonly string[] YardProps=["crafted_02_85","carpentry_02_52","camping_01_19"];
+ const string Scarecrow="location_farm_accesories_01_36";
  static int RoadRank(string? highway)=>highway switch{"motorway" or "trunk" or "motorway_link" or "trunk_link"=>5,"primary" or "primary_link"=>4,"secondary" or "secondary_link"=>3,"tertiary" or "tertiary_link"=>2,"unclassified" or "residential" or "living_street" or "service" or "road"=>1,_=>0};
  static double RoadWidthMetres(string? highway)=>highway is "motorway" or "trunk"?16:highway is "primary" or "secondary"?10:6;
 
@@ -19,7 +22,7 @@ public static partial class GeographicImporter
   foreach(var d in p.Decorations)foreach(var part in d.Parts)taken.Add((d.Y+part.Dy)*p.Width+d.X+part.Dx);foreach(var s in p.Spawns)taken.Add(s.Y*p.Width+s.X);
   foreach(var m in p.StaticModels)taken.Add(m.Y*p.Width+m.X);
   if(p.Fences.Count>0){var blocked=FenceLines.Blocker(p);foreach(var piece in FenceLines.Compose(p.Fences,p.FenceStyles,p.GateStyles,p.Width,p.Height,blocked:blocked).Pieces)taken.Add(piece.Y*p.Width+piece.X);}
-  int mailboxes=0,bins=0,signs=0,stops=0,skipped=0;
+  int mailboxes=0,bins=0,signs=0,stops=0,yard=0,scarecrows=0,skipped=0;
   bool Road(int x,int y)=>x>=0&&y>=0&&x<p.Width&&y<p.Height&&p.Terrain[y*p.Width+x] is Terrain.Road;
   bool Free(int x,int y)=>x>=0&&y>=0&&x<p.Width&&y<p.Height&&!taken.Contains(y*p.Width+x)&&p.Terrain[y*p.Width+x] is not(Terrain.Water or Terrain.Road);
   bool Place(string kind,int x,int y,string tile,byte flags){if(!Free(x,y)){skipped++;return false;}
@@ -41,6 +44,19 @@ public static partial class GeographicImporter
    if(Place("mailbox",c.X,c.Y,Mailboxes[Facing(roadSide.X,roadSide.Y)],0))mailboxes++;
    foreach(var side in new[]{1,-1}){var (bx,by)=(c.X+roadSide.Y*side,c.Y+roadSide.X*side);if(Road(bx+roadSide.X,by+roadSide.Y)&&Place("bin",bx,by,GarbageBin,1)){bins++;break;}}
   }
+
+  // Village yards: a house with no pavement within 10 squares gets one to three yard props 2-5 squares from its walls, kept two
+  // squares away from its doorways so the way in stays clear; a farm zone gets a scarecrow in its middle.
+  foreach(var b in p.Buildings.Where(b=>b.Design?.Floors.Any(f=>f.Rooms.ContainsValue("bedroom"))==true).OrderBy(b=>b.Y).ThenBy(b=>b.X)){
+   var rural=true;for(var y=Math.Max(0,b.Y-10);y<Math.Min(p.Height,b.Y+b.Height+10)&&rural;y++)for(var x=Math.Max(0,b.X-10);x<Math.Min(p.Width,b.X+b.Width+10);x++)if(p.Terrain[y*p.Width+x]==Terrain.Pavement){rural=false;break;}
+   if(!rural)continue;var d=b.Design!;var f=d.Floors[-d.MinLevel];
+   var doors=f.Edges.Where(e=>e.Kind is "door" or "open").Select(e=>(X:b.X+e.X,Y:b.Y+e.Y)).ToList();
+   int Ring(int x,int y){var dx=Math.Max(0,Math.Max(b.X-x,x-(b.X+b.Width-1)));var dy=Math.Max(0,Math.Max(b.Y-y,y-(b.Y+b.Height-1)));return Math.Max(dx,dy);}
+   var hash=b.Id.Aggregate(2166136261u,(h,c)=>unchecked((h^c)*16777619u));var wanted=1+(int)(hash%3);var spots=new List<(int X,int Y)>();
+   for(var y=b.Y-5;y<b.Y+b.Height+5;y++)for(var x=b.X-5;x<b.X+b.Width+5;x++)if(Ring(x,y) is >=2 and <=5&&Free(x,y)&&p.Terrain[y*p.Width+x] is Terrain.Grass or Terrain.Dirt&&doors.All(o=>Math.Abs(o.X-x)+Math.Abs(o.Y-y)>4)&&steps.All(s=>!Road(x+s.X,y+s.Y)))spots.Add((x,y));
+   for(var i=0;i<wanted&&spots.Count>0;i++){var spot=spots[(int)((hash>>(i*5))%(uint)spots.Count)];if(Place("yard",spot.X,spot.Y,YardProps[(i+(int)(hash%3))%YardProps.Length],1))yard++;spots.RemoveAll(o=>Math.Abs(o.X-spot.X)<=1&&Math.Abs(o.Y-spot.Y)<=1);}
+  }
+  foreach(var z in p.GameZones.Where(z=>z.Type=="Farm"))if(Place("scarecrow",z.X+z.Width/2,z.Y+z.Height/2,Scarecrow,0))scarecrows++;
 
   // Junctions: where two road lines cross or one ends on another. An approach of the lesser road, or of an equal road that ends
   // there while the other passes through, gets a stop sign on the drivers' right before the crossing road.
@@ -76,6 +92,6 @@ public static partial class GeographicImporter
    if(northSouth){for(var x=z.X;x<z.X+z.Width;x+=3)for(var y=z.Y;y<z.Y+z.Height;y+=5)if(Place("stop-block",x+1,dir=="N"?y:y+4,WheelStopNS,0))stops++;}
    else for(var y=z.Y;y<z.Y+z.Height;y+=3)for(var x=z.X;x<z.X+z.Width;x+=5)if(Place("stop-block",dir=="W"?x:x+4,y+1,WheelStopEW,0))stops++;
   }
-  if(mailboxes+bins+signs+stops>0||skipped>0)notes.Add($"Street dressing: {mailboxes} mailboxes, {bins} garbage bins, {signs} stop signs, {stops} parking wheel stops"+(skipped>0?$"; {skipped} left out where the square was taken or no road was near":"")+".");
+  if(mailboxes+bins+signs+stops+yard+scarecrows>0||skipped>0)notes.Add($"Street dressing: {mailboxes} mailboxes, {bins} garbage bins, {signs} stop signs, {stops} parking wheel stops, {yard} village yard props, {scarecrows} scarecrows"+(skipped>0?$"; {skipped} left out where the square was taken or no road was near":"")+".");
  }
 }

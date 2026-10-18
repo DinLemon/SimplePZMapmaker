@@ -199,3 +199,20 @@ public static class CellConflictTests
  }
  static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
 }
+public static class VillageYardTests
+{
+ public static IEnumerable<(string,Action)> Cases(){
+  yield return("village houses away from pavement get yard props clear of their doors, and farms a scarecrow",()=>{
+   var reference=new WorldGeoReference{Bounds=new(){West=32,East=32.01,South=54,North=54.01},MetresPerTile=1,OriginCellX=100,OriginCellY=100};var projection=new GeographicProjection(reference,100,100);
+   double[] At(double x,double y){var g=projection.Geographic(x,y);return[g.Longitude,g.Latitude];}
+   object Box(string id,double x,double y,double w,double h,Dictionary<string,string> t)=>new{type="Feature",id,properties=t,geometry=new{type="Polygon",coordinates=new[]{new[]{At(x,y),At(x+w,y),At(x+w,y+h),At(x,y+h),At(x,y)}}}};
+   var json=System.Text.Json.JsonSerializer.Serialize(new{type="FeatureCollection",pzTransfer=1,features=new object[]{Box("osm-way-1",60.2,60.2,12,10,new(){{"building","house"}}),Box("osm-way-2",150,150,40,30,new(){{"landuse","farmland"}})}});
+   var p=GeographicImporter.Import(json,MapGenerator.Generate(new(){Kind="blank"}),reference.Bounds,projection:projection).Project;
+   var yard=p.Decorations.Where(d=>d.Id.StartsWith("street-yard")).ToList();var house=p.Buildings.Single();
+   Check(yard.Count is >=1 and <=3&&yard.All(d=>d.X<house.X-1||d.X>house.X+house.Width||d.Y<house.Y-1||d.Y>house.Y+house.Height),"A village house needs one to three yard props outside its walls");
+   Check(p.Decorations.Count(d=>d.Asset=="location_farm_accesories_01_36")==1,"Farmland gets a scarecrow");ProjectValidator.Validate(p);
+   var again=GeographicImporter.Import(json,MapGenerator.Generate(new(){Kind="blank"}),reference.Bounds,projection:projection).Project;Check(again.Decorations.Select(d=>d.Id).SequenceEqual(p.Decorations.Select(d=>d.Id)),"Yard props must be deterministic");
+  });
+ }
+ static void Check(bool ok,string message){if(!ok)throw new Exception(message);}
+}
