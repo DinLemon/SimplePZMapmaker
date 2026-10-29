@@ -26,7 +26,7 @@ A local visual map and building editor for **Project Zomboid Build 42**, written
 - **Detailed terrain:** large forest and water outlines use active-edge rasterization, retaining holes and section continuity without counting a distant perimeter on every row. Retained sources can be rebuilt without another download. See [terrain import and recovery](docs/OSM-TERRAIN-COMPLEXITY.md).
 - **A complete local toolchain:** offline saved geographic sources, an interactive guide, Project Doctor, building exchange, reviewed agent assets, native transport authoring and the headless CLI ship with the application. The Windows ZIP includes .NET.
 
-Validation for the release candidate: **1,015 C# checks**, **511 JavaScript checks**, a production offline large-world import, section opening and selected native export. See [verification details and limitations](docs/STATUS.md) and [incremental world import](docs/WORKSPACE-UI.md).
+Validation for the release candidate: **1,016 C# checks**, **511 JavaScript checks**, a production offline large-world import, section opening and selected native export. See [verification details and limitations](docs/STATUS.md) and [incremental world import](docs/WORKSPACE-UI.md).
 
 ## Real-place creation workflow
 

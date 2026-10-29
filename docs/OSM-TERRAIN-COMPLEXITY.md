@@ -13,3 +13,7 @@ The 40-million processing budget remains, measured against edge preparation, act
 3. If the new message specifically reports the actual terrain processing budget, use smaller **section dimensions**, such as 512 instead of 1024 tiles, while keeping the area's bounds and metres per tile. This creates more connected sections without shrinking the selected place.
 
 Regression checks cover a detailed covering forest, off-section geometry, water holes and pixel-centre boundaries, independent-section continuity, and rejection of excessive actual painting without input mutation.
+
+## Dense-source validation
+
+The map format is inferred from buildings and geographic evidence. The evidence validator snapshots that result once per read-only validation call, rather than rescanning the whole map for each source record. No persistent version cache is introduced: later edits are still detected on the next call. This also reduces repeated validation costs while reading dense sections for seam-building placement.
