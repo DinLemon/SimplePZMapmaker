@@ -1,3 +1,7 @@
+# Dense-source validation cost — 2026-10-29
+
+A managed stack from the retained real-world import showed geographic evidence validation repeatedly inferring the map format, rescanning every building and source record for each feature. Validation now snapshots that inferred format once per read-only call; later calls still observe edits. A regression fixture failed at 4.44 seconds before the fix and passed afterward, while retaining independent-geometry acceptance and malformed-coordinate rejection. Full C# suite: **1016/1016**. The same source reached 50 composed sections in about 184 seconds, versus 504 seconds in the previous run; complete-world timing is separate.
+
 # Detailed terrain rasterization — 2026-10-29
 
 Replaced the perimeter-times-height admission estimate with active-edge scanlines and an actual bounded work counter. Detailed off-section forest/water boundaries retain their coordinates, holes and section continuity. Excessive actual painting still fails without mutating the input. See [terrain recovery](OSM-TERRAIN-COMPLEXITY.md).
