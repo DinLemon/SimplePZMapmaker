@@ -4,14 +4,14 @@ import {mkdir,readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 const base=process.env.PZMAP_TEST_URL||'http://127.0.0.1:48768';
 const out=new URL('../work/actions-smoke/',import.meta.url);await mkdir(out,{recursive:true});
-const browser=await chromium.launch({headless:true});
+const browser=await chromium.launch({headless:true,channel:process.env.PZMAP_BROWSER_CHANNEL});
 const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
 page.on('pageerror',error=>errors.push(error.message));
 try {
  await page.goto(base);assert.equal(await page.title(),'SimplePZMapmaker');
  assert.equal(await page.locator('html').getAttribute('lang'),'en');
  await page.waitForFunction(()=>document.querySelector('#map-summary')?.textContent.includes('256'));
- await page.locator('#new-map').click();await page.locator('#new-kind').selectOption('blank');
+ await page.locator('[data-command-menu=project]>summary').click();await page.locator('#new-map').click();await page.locator('#new-kind').selectOption('blank');
  await page.locator('#new-form [type=submit]').click();
  await page.waitForFunction(()=>document.querySelector('#building-count')?.textContent==='0');
  assert.ok(!/[А-Яа-яЁё]/.test(await page.locator('body').innerText()),'Visible interface must be English');

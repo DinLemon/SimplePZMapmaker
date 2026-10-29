@@ -52,6 +52,8 @@ public static class MapGenerator
     }
     public static SpawnPoint FindSafeSpawn(MapProject p) {
         var decor=p.Decorations.SelectMany(d=>d.Parts.Select(part=>(d.Y+part.Dy)*p.Width+d.X+part.Dx)).ToHashSet();
+        // Native ground decks, supports and stair openings remain reserved even on otherwise dry terrain.
+        if(InfrastructureGeometry.HasFeatures(p)){var infrastructure=InfrastructureGeometry.Build(p);foreach(var tile in infrastructure.Tiles.Where(t=>t.Z==0))decor.Add(tile.Y*p.Width+tile.X);foreach(var hole in infrastructure.Holes.Where(h=>h.Z==0))decor.Add(hole.Y*p.Width+hole.X);}
         for(var y=p.Height/2;y<p.Height;y++) for(var x=p.Width/2;x<p.Width;x++)
             if(p.Terrain[y*p.Width+x] is Terrain.Grass or Terrain.Road or Terrain.Pavement && !decor.Contains(y*p.Width+x)&&!p.Buildings.Any(b=>x>=b.X-1&&x<=b.X+b.Width+1&&y>=b.Y-1&&y<=b.Y+b.Height+1)) return new(){X=x,Y=y};
         for(var y=0;y<p.Height;y++) for(var x=0;x<p.Width;x++) if(p.Terrain[y*p.Width+x]!=Terrain.Water &&!decor.Contains(y*p.Width+x)&&!p.Buildings.Any(b=>x>=b.X-1&&x<=b.X+b.Width+1&&y>=b.Y-1&&y<=b.Y+b.Height+1)) return new(){X=x,Y=y};

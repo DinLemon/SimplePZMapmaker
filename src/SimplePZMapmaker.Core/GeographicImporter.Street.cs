@@ -19,22 +19,27 @@ public static partial class GeographicImporter
  /// map can be validated without a game installation.</summary>
  public static bool IsBuiltInDressing(WorldDecoration d)=>d.Id.StartsWith(DressingPrefix,StringComparison.Ordinal)&&d.Parts.Count==1&&d.Parts[0] is {Dx:0,Dy:0} part&&part.Tile==d.Asset&&DressingTiles.TryGetValue(d.Asset,out var flags)&&part.Flags==flags;
  static int RoadRank(string? highway)=>highway switch{"motorway" or "trunk" or "motorway_link" or "trunk_link"=>5,"primary" or "primary_link"=>4,"secondary" or "secondary_link"=>3,"tertiary" or "tertiary_link"=>2,"unclassified" or "residential" or "living_street" or "service" or "road"=>1,_=>0};
- static double RoadWidthMetres(string? highway)=>highway is "motorway" or "trunk"?16:highway is "primary" or "secondary"?10:6;
 
- static void ApplyStreetDressing(MapProject p,List<Feature> features,List<string> notes){
+ static void ApplyStreetDressing(MapProject p,List<Feature> features,List<string> notes,IReadOnlyList<WorldDecoration>? fixedStreetProps=null){
   p.Decorations.RemoveAll(d=>d.Id.StartsWith(DressingPrefix,StringComparison.Ordinal));
-  var taken=new HashSet<int>();foreach(var b in p.Buildings)foreach(var i in BuildingDesigner.Occupied(b)){var x=b.X+i%(b.Width+1);var y=b.Y+i/(b.Width+1);if(x>=0&&y>=0&&x<p.Width&&y<p.Height)taken.Add(y*p.Width+x);}
-  foreach(var d in p.Decorations)foreach(var part in d.Parts)taken.Add((d.Y+part.Dy)*p.Width+d.X+part.Dx);foreach(var s in p.Spawns)taken.Add(s.Y*p.Width+s.X);
-  foreach(var m in p.StaticModels)taken.Add(m.Y*p.Width+m.X);
-  if(p.Fences.Count>0){var blocked=FenceLines.Blocker(p);foreach(var piece in FenceLines.Compose(p.Fences,p.FenceStyles,p.GateStyles,p.Width,p.Height,blocked:blocked).Pieces)taken.Add(piece.Y*p.Width+piece.X);}
-  int mailboxes=0,bins=0,signs=0,stops=0,yard=0,scarecrows=0,skipped=0;
+  var placement=new ParcelPlacement(p);placement.ReserveEntrances();
+  int mailboxes=0,bins=0,signs=0,stops=0,yard=0,scarecrows=0,skipped=0,capacitySkipped=0;
   bool Road(int x,int y)=>x>=0&&y>=0&&x<p.Width&&y<p.Height&&p.Terrain[y*p.Width+x] is Terrain.Road;
-  bool Free(int x,int y)=>x>=0&&y>=0&&x<p.Width&&y<p.Height&&!taken.Contains(y*p.Width+x)&&p.Terrain[y*p.Width+x] is not(Terrain.Water or Terrain.Road);
+  bool Free(int x,int y)=>placement.Free(x,y);
   bool Place(string kind,int x,int y,string tile,byte flags){if(!Free(x,y)){skipped++;return false;}
-   p.Decorations.Add(new(){Id=DressingPrefix+kind+"-"+x+"-"+y,X=x,Y=y,Asset=tile,Parts=[new(0,0,tile,flags)]});taken.Add(y*p.Width+x);return true;}
+   if(p.Decorations.Count>=ProjectValidator.MaximumDecorations){capacitySkipped++;return false;}
+   p.Decorations.Add(new(){Id=DressingPrefix+kind+"-"+x+"-"+y,X=x,Y=y,Asset=tile,Parts=[new(0,0,tile,flags)]});placement.Block(x,y);return true;}
   (int X,int Y)[] steps=[(1,0),(-1,0),(0,1),(0,-1)];
   string Facing(int dx,int dy)=>Math.Abs(dx)>=Math.Abs(dy)?(dx>0?"E":"W"):(dy>0?"S":"N");
 
+  // A parking proposal was packed around these exact props. Re-running a seeded placement with
+  // the new aisle reservations would choose different yard cells and could move props into stalls.
+  if(fixedStreetProps is not null){foreach(var d in fixedStreetProps){
+   if(!Free(d.X,d.Y)){skipped++;continue;}if(p.Decorations.Count>=ProjectValidator.MaximumDecorations){capacitySkipped++;continue;}
+   p.Decorations.Add(d);placement.Add(d);
+   if(d.Id.StartsWith("street-mailbox-",StringComparison.Ordinal))mailboxes++;else if(d.Id.StartsWith("street-bin-",StringComparison.Ordinal))bins++;
+   else if(d.Id.StartsWith("street-stop-",StringComparison.Ordinal))signs++;else if(d.Id.StartsWith("street-yard-",StringComparison.Ordinal))yard++;else if(d.Id.StartsWith("street-scarecrow-",StringComparison.Ordinal))scarecrows++;
+  }}else{
   // Houses: from the outside of the front door to the first square beside a road, at most 16 steps away.
   foreach(var b in p.Buildings.Where(b=>b.Design?.Floors.Any(f=>f.Rooms.ContainsValue("bedroom"))==true).OrderBy(b=>b.Y).ThenBy(b=>b.X)){
    var d=b.Design!;var f=d.Floors[-d.MinLevel];var starts=new List<(int X,int Y)>();
@@ -43,7 +48,7 @@ public static partial class GeographicImporter
    var seen=new HashSet<(int,int)>(starts);var queue=new Queue<((int X,int Y) At,int Depth)>(starts.Select(s=>(s,0)));(int X,int Y)? curb=null;(int X,int Y) roadSide=default;
    while(queue.TryDequeue(out var item)&&curb is null){var (at,depth)=item;
     foreach(var (dx,dy) in steps)if(Road(at.X+dx,at.Y+dy)&&Free(at.X,at.Y)&&depth>0){curb=at;roadSide=(dx,dy);break;}
-    if(depth<16)foreach(var (dx,dy) in steps){var next=(at.X+dx,at.Y+dy);if(seen.Add(next)&&next.Item1>=0&&next.Item2>=0&&next.Item1<p.Width&&next.Item2<p.Height&&!taken.Contains(next.Item2*p.Width+next.Item1)&&p.Terrain[next.Item2*p.Width+next.Item1] is not(Terrain.Water or Terrain.Road))queue.Enqueue((next,depth+1));}
+    if(depth<16)foreach(var (dx,dy) in steps){var next=(at.X+dx,at.Y+dy);if(seen.Add(next)&&next.Item1>=0&&next.Item2>=0&&next.Item1<p.Width&&next.Item2<p.Height&&placement.Free(next.Item1,next.Item2,forPassage:true)&&p.Terrain[next.Item2*p.Width+next.Item1] is not(Terrain.Water or Terrain.Road))queue.Enqueue((next,depth+1));}
    }
    if(curb is not {} c){skipped++;continue;}
    if(Place("mailbox",c.X,c.Y,Mailboxes[Facing(roadSide.X,roadSide.Y)],0))mailboxes++;
@@ -65,7 +70,15 @@ public static partial class GeographicImporter
 
   // Junctions: where two road lines cross or one ends on another. An approach of the lesser road, or of an equal road that ends
   // there while the other passes through, gets a stop sign on the drivers' right before the crossing road.
-  var mpt=p.MetresPerTile??1;var roads=features.Where(f=>!f.Polygon&&f.Rings.Count>0&&f.Rings[0].Count>=2&&RoadRank(f.Tags.GetValueOrDefault("highway"))>0).ToList();
+  var mpt=p.MetresPerTile??1;var roads=new List<Feature>();var streetWidths=new Dictionary<Feature,double>();var usedEdits=new HashSet<string>(StringComparer.Ordinal);
+  var editedRoads=p.LinearFeatures.Where(f=>f.Modified&&f.SourceId is not null).GroupBy(f=>f.SourceId!).ToDictionary(g=>g.Key,g=>g.ToList(),StringComparer.Ordinal);
+  foreach(var sourceRoad in features.Where(f=>!f.Polygon&&f.Rings.Count>0&&f.Rings[0].Count>=2&&RoadRank(f.Tags.GetValueOrDefault("highway"))>0)){
+   if(sourceRoad.Tags.GetValueOrDefault("__pz_source") is {} sourceId&&editedRoads.TryGetValue(sourceId,out var edits)){
+    foreach(var edit in edits.Where(e=>e.Level==0&&e.Kind is "road" or "bridge" or "sidewalk"))if(usedEdits.Add(edit.Id)){
+     var actual=sourceRoad with{Rings=[LinearFeatureEditor.Sample(edit).Select(v=>(v.X,v.Y)).ToList()]};roads.Add(actual);streetWidths[actual]=edit.Width;
+    }
+   }else{roads.Add(sourceRoad);streetWidths[sourceRoad]=RoadWidthPolicy.Resolve(sourceRoad.Tags).Tiles(mpt);}
+  }
   // Distance along a line to its closest point to (x, y), with that distance.
   (double Along,double Distance,double Length) Locate(List<(double X,double Y)> line,double x,double y){double best=double.MaxValue,along=0,walked=0;
    for(var i=1;i<line.Count;i++){var (ax,ay)=line[i-1];var (bx,by)=line[i];var dx=bx-ax;var dy=by-ay;var len=Math.Sqrt(dx*dx+dy*dy);var t=len<1e-9?0:Math.Clamp(((x-ax)*dx+(y-ay)*dy)/(len*len),0,1);var px=ax+dx*t-x;var py=ay+dy*t-y;var d=Math.Sqrt(px*px+py*py);if(d<best){best=d;along=walked+t*len;}walked+=len;}
@@ -79,24 +92,25 @@ public static partial class GeographicImporter
   foreach(var (jx,jy) in crossings.Where(c=>c.X>=0&&c.Y>=0&&c.X<p.Width&&c.Y<p.Height).OrderBy(c=>c.Y).ThenBy(c=>c.X)){
    var here=roads.Select(f=>(Feature:f,Spot:Locate(f.Rings[0],jx,jy))).Where(e=>e.Spot.Distance<=2).ToList();if(here.Count<2)continue;
    int Rank(Feature f)=>RoadRank(f.Tags.GetValueOrDefault("highway"));bool Ends((double Along,double Distance,double Length) s)=>s.Along<=2||s.Along>=s.Length-2;
-   var major=here.Max(e=>Rank(e.Feature));var through=here.Any(e=>!Ends(e.Spot));var majorHalf=here.Max(e=>RoadWidthMetres(e.Feature.Tags.GetValueOrDefault("highway")))/mpt/2;
+   var major=here.Max(e=>Rank(e.Feature));var through=here.Any(e=>!Ends(e.Spot));var majorHalf=here.Max(e=>streetWidths[e.Feature])/2;
    foreach(var (f,spot) in here){
-    var rank=Rank(f);if(!(rank<major||rank==major&&Ends(spot)&&through))continue;var highway=f.Tags.GetValueOrDefault("highway");
+    var rank=Rank(f);if(!(rank<major||rank==major&&Ends(spot)&&through))continue;
     foreach(var sign in new[]{-1,1}){
      var probe=spot.Along+sign*(majorHalf+2);if(probe<0||probe>spot.Length)continue;var (px,py)=PointAt(f.Rings[0],probe);var ux=px-jx;var uy=py-jy;var length=Math.Sqrt(ux*ux+uy*uy);if(length<1)continue;ux/=length;uy/=length;
      // Drivers travel along -u towards the junction; their right-hand side is (u.y, -u.x).
-     var side=RoadWidthMetres(highway)/mpt/2+1;var sx=(int)Math.Round(px+uy*side);var sy=(int)Math.Round(py-ux*side);
+     var side=streetWidths[f]/2+1;var sx=(int)Math.Round(px+uy*side);var sy=(int)Math.Round(py-ux*side);
      if(Place("stop",sx,sy,StopSigns[Facing((int)Math.Round(ux*10),(int)Math.Round(uy*10))],0))signs++;
     }
    }
   }
 
+  }
   // Parking zones: one wheel stop per stall, at the end the cars face.
   foreach(var z in p.GameZones.Where(z=>z.Vehicle&&z.Polygon is null)){
    var dir=z.Direction??"N";var northSouth=dir is "N" or "S";if(northSouth?z.Width%3!=0||z.Height%5!=0:z.Width%5!=0||z.Height%3!=0)continue;
    if(northSouth){for(var x=z.X;x<z.X+z.Width;x+=3)for(var y=z.Y;y<z.Y+z.Height;y+=5)if(Place("stop-block",x+1,dir=="N"?y:y+4,WheelStopNS,0))stops++;}
    else for(var y=z.Y;y<z.Y+z.Height;y+=3)for(var x=z.X;x<z.X+z.Width;x+=5)if(Place("stop-block",dir=="W"?x:x+4,y+1,WheelStopEW,0))stops++;
   }
-  if(mailboxes+bins+signs+stops+yard+scarecrows>0||skipped>0)notes.Add($"Street dressing: {mailboxes} mailboxes, {bins} garbage bins, {signs} stop signs, {stops} parking wheel stops, {yard} village yard props, {scarecrows} scarecrows"+(skipped>0?$"; {skipped} left out where the square was taken or no road was near":"")+".");
+  if(mailboxes+bins+signs+stops+yard+scarecrows>0||skipped>0||capacitySkipped>0)notes.Add($"Street dressing: {mailboxes} mailboxes, {bins} garbage bins, {signs} stop signs, {stops} parking wheel stops, {yard} village yard props, {scarecrows} scarecrows"+(skipped>0?$"; {skipped} left out where the square was taken or no road was near":"")+(capacitySkipped>0?$"; {capacitySkipped} omitted at the section decoration limit ({ProjectValidator.MaximumDecorations}); use smaller world sections to retain more dressing":"")+".");
  }
 }

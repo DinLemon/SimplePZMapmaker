@@ -12,13 +12,13 @@ public static class SiteEditor
   var warnings=new List<string>();
   SiteParcel site;
   if(request.Action=="create"){
-   site=NeighborhoodPlanner.Copy(request.Site??throw new ArgumentException("Draw a site boundary first."));site.Id=Guid.NewGuid().ToString("N");site.Origin="authored";site.SourceId=null;site.SourceFeatureId=null;p.Sites.Add(site);
+   site=NeighborhoodPlanner.Copy(request.Site??throw new ArgumentException("Draw a site boundary first."));site.Id=Guid.NewGuid().ToString("N");site.Origin="authored";site.SourceId=null;site.SourceFeatureId=null;site.ParcelGeneration=null;p.Sites.Add(site);
   }else site=p.Sites.FirstOrDefault(s=>s.Id==request.SiteId)??throw new ArgumentException("Site no longer exists.");
   if(site.Locked&&request.Action!="lock")throw new ArgumentException("Unlock this site before changing its members or geometry.");
   if(request.Action=="lock")site.Locked=request.Locked??!site.Locked;
   if(request.Action=="remove"){p.Sites.Remove(site);return new(p,null,["Site grouping removed; its objects remain."]);}
   if(request.Action=="update"){
-   var replacement=NeighborhoodPlanner.Copy(request.Site??site);replacement.Id=site.Id;replacement.SourceId=site.SourceId;replacement.SourceFeatureId=site.SourceFeatureId;replacement.Origin=site.Origin=="source"?"source-edited":site.Origin;replacement.Locked=site.Locked;p.Sites[p.Sites.IndexOf(site)]=replacement;site=replacement;
+   var replacement=NeighborhoodPlanner.Copy(request.Site??site);replacement.Id=site.Id;replacement.SourceId=site.SourceId;replacement.SourceFeatureId=site.SourceFeatureId;replacement.Origin=site.Origin=="source"?"source-edited":site.Origin;replacement.Locked=site.Locked;replacement.ParcelGeneration=NeighborhoodPlanner.Copy(site.ParcelGeneration);p.Sites[p.Sites.IndexOf(site)]=replacement;site=replacement;
   }
   if(request.Name is not null)site.Name=request.Name;
   SiteModel.Validate(p);CheckMembers(p,site);
@@ -26,12 +26,13 @@ public static class SiteEditor
    var duplicate=request.Action=="copy";
    if(p.Sites.Any(s=>s.Id!=site.Id&&s.Locked&&(s.BuildingIds.Intersect(site.BuildingIds).Any()||s.DecorationIds.Intersect(site.DecorationIds).Any()||s.StaticModelIds.Intersect(site.StaticModelIds).Any()||s.LinearFeatureIds.Intersect(site.LinearFeatureIds).Any())))throw new ArgumentException("A member belongs to another locked site. Unlock that site first.");
    if(p.Sites.Any(s=>s.Id!=site.Id&&(s.BuildingIds.Intersect(site.BuildingIds).Any()||s.DecorationIds.Intersect(site.DecorationIds).Any()||s.StaticModelIds.Intersect(site.StaticModelIds).Any()||s.LinearFeatureIds.Intersect(site.LinearFeatureIds).Any())))throw new ArgumentException("Shared membership cannot be translated as one site. Remove duplicate group membership first.");
-   if(duplicate){var original=site;site=NeighborhoodPlanner.Copy(site);site.Id=Guid.NewGuid().ToString("N");site.Name=(site.Name+" copy")[..Math.Min(100,site.Name.Length+5)];site.SourceId=null;site.SourceFeatureId=null;site.Origin="authored";p.Sites.Add(site);site.BuildingIds=[];site.DecorationIds=[];site.StaticModelIds=[];site.LinearFeatureIds=[];
+   if(duplicate){var original=site;site=NeighborhoodPlanner.Copy(site);site.Id=Guid.NewGuid().ToString("N");site.Name=(site.Name+" copy")[..Math.Min(100,site.Name.Length+5)];site.SourceId=null;site.SourceFeatureId=null;site.Origin="authored";site.ParcelGeneration=null;p.Sites.Add(site);site.BuildingIds=[];site.DecorationIds=[];site.StaticModelIds=[];site.LinearFeatureIds=[];
     foreach(var id in original.BuildingIds){var b=NeighborhoodPlanner.Copy(p.Buildings.Single(b=>b.Id==id));b.Id=Guid.NewGuid().ToString("N");b.SourceId=null;b.SourceKind=null;b.SourceLevels=null;b.SourceRoof=null;b.SourceBasements=null;b.SourceOutline=[];b.SourceOutlineSimplified=false;b.FootprintOrigin="authored";b.LevelsOrigin="manual";p.Buildings.Add(b);site.BuildingIds.Add(b.Id);}
     foreach(var id in original.DecorationIds){var d=NeighborhoodPlanner.Copy(p.Decorations.Single(d=>d.Id==id));d.Id=Guid.NewGuid().ToString("N");p.Decorations.Add(d);site.DecorationIds.Add(d.Id);}
     foreach(var id in original.StaticModelIds){var m=NeighborhoodPlanner.Copy(p.StaticModels.Single(m=>m.Id==id));m.Id=Guid.NewGuid().ToString("N");p.StaticModels.Add(m);site.StaticModelIds.Add(m.Id);}
     foreach(var id in original.LinearFeatureIds){var l=NeighborhoodPlanner.Copy(p.LinearFeatures.Single(l=>l.Id==id));l.Id=Guid.NewGuid().ToString("N");l.SourceId=null;l.SourcePath=[];l.SourceTags=[];l.Underlay=[];l.GeneratedDecorations=[];l.DecorationIds=[];p.LinearFeatures.Add(l);site.LinearFeatureIds.Add(l.Id);}
    }
+   if(site.ParcelGeneration is not null){site.ParcelGeneration=null;warnings.Add("Moved/copied site objects are authored. Generator ownership was detached; painted ground and independent fence lines remain at their original positions.");}
    var ids=site.BuildingIds.ToHashSet();foreach(var b in p.Buildings.Where(b=>ids.Contains(b.Id))){b.X+=request.Dx;b.Y+=request.Dy;b.Modified=true;if(b.SourceId is not null||b.SourceOutline.Count>0)b.FootprintOrigin="manual-source-edit";}
    foreach(var d in p.Decorations.Where(d=>site.DecorationIds.Contains(d.Id))){d.X+=request.Dx;d.Y+=request.Dy;}
    foreach(var m in p.StaticModels.Where(m=>site.StaticModelIds.Contains(m.Id))){m.X+=request.Dx;m.Y+=request.Dy;}
@@ -41,7 +42,7 @@ public static class SiteEditor
    if(site.LinearFeatureIds.Count>0)p=LinearFeatureEditor.Rebuild(p,lines);
    site=p.Sites.Single(s=>s.Id==site.Id);site.Boundary=site.Boundary.Select(r=>r.Select(v=>new SitePoint(v.X+request.Dx,v.Y+request.Dy)).ToList()).ToList();if(site.Origin=="source")site.Origin="source-edited";
    if(site.Boundary.SelectMany(r=>r).Any(v=>v.X<0||v.Y<0||v.X>=p.Width||v.Y>=p.Height))throw new ArgumentException("The complete site must stay within this section. Cross-section source boundaries are read-only; edit individual local groups.");
-   CheckMembers(p,site);warnings.Add("Source coordinates remain unchanged. Translation affects grouped objects and boundary, not painted terrain, service evidence or game zones.");
+   CheckMembers(p,site);warnings.Add("Source coordinates remain unchanged. Translation affects grouped objects and boundary, not painted terrain, independent fence lines, service evidence or game zones.");
   }
   ProjectValidator.Validate(p);return new(p,site.Id,warnings);
  }

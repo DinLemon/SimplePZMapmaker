@@ -8,13 +8,13 @@ public static partial class GeographicImporter
     static EvidenceBox Box(GeographicFeature f){var ring=f.Geometry[0];return new(f,ring.Min(v=>v.X),ring.Min(v=>v.Y),ring.Max(v=>v.X),ring.Max(v=>v.Y));}
     static string SourceGeometryHash(List<List<(double X,double Y)>> rings,Dictionary<string,string> tags)=>Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(new{geometry=rings.Select(r=>r.Select(p=>new{longitude=p.X,latitude=p.Y})),tags})))).ToLowerInvariant()[..32];
 
-    static void CaptureEvidence(MapProject p,List<Feature> features,MapProject previous,bool preserve,CancellationToken token)
+    static List<string> CaptureEvidence(MapProject p,List<Feature> features,MapProject previous,bool preserve,CancellationToken token)
     {
         var used=new HashSet<string>();
         foreach(var f in features){
             token.ThrowIfCancellationRequested();
             var tags=GeographicEvidence.CaptureTags(f.Tags);
-            var kind=tags.ContainsKey("building")?"building":tags.ContainsKey("entrance")?"entrance":tags.ContainsKey("barrier")?"barrier":f.Polygon&&(tags.ContainsKey("landuse")||tags.ContainsKey("site")||tags.ContainsKey("leisure")||tags.ContainsKey("amenity")||tags.ContainsKey("healthcare"))?"site":tags.ContainsKey("amenity")||tags.ContainsKey("shop")||tags.ContainsKey("healthcare")?"poi":tags.Keys.Any(k=>k.StartsWith("addr:"))?"address":null;
+            var kind=tags.ContainsKey("building")?"building":tags.ContainsKey("entrance")?"entrance":tags.ContainsKey("barrier")?"barrier":f.Polygon&&(tags.ContainsKey("pz:parcel")||tags.ContainsKey("landuse")||tags.ContainsKey("site")||tags.ContainsKey("leisure")||tags.ContainsKey("amenity")||tags.ContainsKey("healthcare"))?"site":tags.ContainsKey("amenity")||tags.ContainsKey("shop")||tags.ContainsKey("healthcare")||tags.ContainsKey("railway")||tags.ContainsKey("bridge")||tags.ContainsKey("pz:zone")||tags.Any(t=>GeographicEvidence.IsFuelTag(t.Key,t.Value))?"poi":tags.Keys.Any(k=>k.StartsWith("addr:"))?"address":null;
             if(kind is null)continue;
             var original=f.OriginalRings!;
             var source=f.Tags.GetValueOrDefault("__pz_source")??"geo-sha-"+SourceGeometryHash(original,tags);
@@ -28,11 +28,15 @@ public static partial class GeographicImporter
         var entranceBuildings=p.SourceFeatures.Where(e=>e.Kind=="building"&&e.GeometryKind=="polygon").Select(Box).ToArray();
         foreach(var e in p.SourceFeatures.Where(e=>e.Kind=="entrance")){if(Step())MapEntrance(p,e,entranceBuildings,Step);else e.EntranceOutcome="budget-exceeded";}
         var sourceBuildings=p.SourceFeatures.Where(e=>e.Kind=="building"&&e.GeometryKind=="polygon"&&e.BuildingId is not null).GroupBy(e=>e.BuildingId!).ToDictionary(g=>g.Key,g=>g.First());
+        var rejectedSites=new Dictionary<string,int>();
         foreach(var e in p.SourceFeatures.Where(e=>e.Kind=="site"&&e.GeometryKind=="polygon").Take(SiteModel.MaximumSites)){
             var site=new SiteParcel{Id="site-"+e.Id,Name=string.IsNullOrEmpty(e.Name)?e.Tags.GetValueOrDefault("landuse",e.Tags.GetValueOrDefault("site","Mapped area")):e.Name,Origin="source",SourceId=e.SourceId,SourceFeatureId=e.Id,Boundary=e.Geometry.Select(r=>r.ToList()).ToList()};
             site.Name=site.Name[..Math.Min(100,site.Name.Length)];
             // Broad land-use areas describe use, never surveyed ownership. Membership is explicit containment.
             if(site.Boundary.Sum(r=>r.Count)>SiteModel.MaximumVertices)continue;
+            // Keep imperfect OSM contours as evidence, without creating invalid editable parcels.
+            try{SiteModel.Validate(new(){Sites=[site]});}
+            catch(ArgumentException error){var reason=error.Message[..Math.Min(200,error.Message.Length)];rejectedSites[reason]=rejectedSites.GetValueOrDefault(reason)+1;continue;}
             var crossing=0;var outer=site.Boundary[0];var minX=outer.Min(v=>v.X);var maxX=outer.Max(v=>v.X);var minY=outer.Min(v=>v.Y);var maxY=outer.Max(v=>v.Y);
             foreach(var b in p.Buildings){
                 if(!Step()){site.AssociationNotes.Add("Association budget reached; unchecked members remain unknown.");break;}
@@ -46,7 +50,7 @@ public static partial class GeographicImporter
             p.Sites.Add(site);
         }
         if(preserve){
-            foreach(var old in previous.Sites.Where(s=>s.Origin!="source"||s.Locked)){
+            foreach(var old in previous.Sites.Where(s=>s.Origin!="source"||s.Locked||s.ParcelGeneration is not null)){
                 p.Sites.RemoveAll(s=>s.Id==old.Id);var kept=NeighborhoodPlanner.Copy(old);
                 kept.BuildingIds=kept.BuildingIds.Select(id=>p.Buildings.Any(b=>b.Id==id)?id:previous.Buildings.FirstOrDefault(b=>b.Id==id)?.SourceId is {} oldSource?p.Buildings.FirstOrDefault(b=>b.SourceId==oldSource)?.Id:null).Where(id=>id is not null).Cast<string>().Distinct().ToList();kept.DecorationIds.RemoveAll(id=>!p.Decorations.Any(b=>b.Id==id));kept.StaticModelIds.RemoveAll(id=>!p.StaticModels.Any(b=>b.Id==id));kept.LinearFeatureIds.RemoveAll(id=>!p.LinearFeatures.Any(b=>b.Id==id));
                 p.Sites.Add(kept);
@@ -54,6 +58,7 @@ public static partial class GeographicImporter
             foreach(var b in p.Buildings.Where(b=>b.Modified||b.FootprintOrigin=="manual-source-edit"))foreach(var e in p.SourceFeatures.Where(e=>e.BuildingId==b.Id)){e.Modified=true;e.Origin="source-edited";}
         }
         GeographicEvidence.Validate(p);SiteModel.Validate(p);
+        return rejectedSites.Count==0?[]:[$"Site grouping omitted for {rejectedSites.Values.Sum()} invalid source areas; complete outlines remain as geographic evidence. "+string.Join("; ",rejectedSites.Select(r=>$"{r.Key} ({r.Value})"))];
     }
 
     static void MapEntrance(MapProject p,GeographicFeature e,IReadOnlyList<EvidenceBox> buildings,Func<long,bool> step)

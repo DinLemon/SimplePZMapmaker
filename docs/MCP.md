@@ -2,7 +2,9 @@
 
 Start the application, open a map and choose **Connect agent**, then connect the current map. Give your agent the endpoint `http://127.0.0.1:48765/mcp` and session key from the dialog. Download the sample MCP configuration to add a Streamable HTTP server to your client. The key is passed in the `sessionToken` tool argument, not stored in the client configuration. The editor does not alter Codex settings on the system drive.
 
-The server uses the [official MCP C# SDK](https://github.com/modelcontextprotocol/csharp-sdk), version 2.2.0. The verification client is `tools/McpSmoke`; protocols 2026-07-28 and 2025-11-25 are supported. The endpoint is loopback-only and offers neither shell execution nor arbitrary filesystem operations.
+The server uses the [official MCP C# SDK](https://github.com/modelcontextprotocol/csharp-sdk), version 2.2.0. The verification client is `tools/McpSmoke`; it checks protocols 2025-11-25 and 2025-06-18. The installed SDK rejects 2026-07-28 during initialization; it must not be advertised as verified. The endpoint is loopback-only and offers neither shell execution nor arbitrary filesystem operations.
+
+For a quick connection check, run `python scripts/verify-mcp-connection.py --base http://127.0.0.1:48779`. This performs the real initialization and tool discovery for both supported versions. Optionally add `--workspace <world-id> --member <section-id>` to check `project_summary` against an isolated copy of one saved section. It closes its own temporary agent session, changes neither the workspace nor existing sessions, and omits session keys and request payloads from its report. This section-copy check does not prove access to the complete shared world geometry; it must not be used as a replacement world editing context.
 
 ## Map and building workflow
 
@@ -17,7 +19,7 @@ The server uses the [official MCP C# SDK](https://github.com/modelcontextprotoco
 
 The editor receives an agent revision in one undoable operation. Sending editor changes stops on a revision conflict and retains the manual map. Undo restores the preceding editor state after receiving agent changes. Uncommitted building drafts never appear in the editor. Closing a session revokes its key.
 
-Map sessions/drafts live in `work/agent-sessions/`; map recovery is `work/recovery/`. These files contain resource references, not game artwork. Limits are 48 MB per map session, 32 saved sessions and 16 drafts per session. Share a key only with the agent authorized to change that project.
+Map sessions/drafts live in `work/agent-sessions/`; map recovery is `work/recovery/`. These files contain resource references, not game artwork. Limits are 128 MB per map session, 32 saved sessions and 16 drafts per session. Share a key only with the agent authorized to change that project.
 
 ## Neighbourhoods and worlds (0.7)
 
@@ -82,3 +84,15 @@ Lighting covers **one explicit signed floor and crop**, not the entire world. It
 Tasks use `work/agent-design-tasks/`: eight proposals per session, 48 MB per proposal and 192 MB per session. There are at most eight repair iterations per invocation, 16 accepted changes per task and 32 recorded checks. Cancellation or a stale revision leaves the connected source untouched. Closing the session removes its checked-design proposals. These are static authoring checks under stated assumptions; no game session or character traversal is used.
 
 ![Detailed source/proposal room geometry and recorded genuine lighting evidence](screenshots/23-agent-design.png)
+
+## Visual references and custom exterior resources
+
+Use `visual_reference_capabilities`, `visual_reference_target`, `visual_reference_upload` or `visual_reference_search`/`visual_reference_import`, then `visual_reference_list`. Owned PNG/JPEG uploads use the same-origin JSON HTTP route `/api/visual-references/{session}/own` with `{revision,target,provenance,base64,mimeType}`. Google/Yandex remain external navigation only. Without server `PZMAP_MAPILLARY_TOKEN`, valid Mapillary search/import requests return explicit HTTP 503; configuration alone never proves working coverage.
+
+Call `visual_reference_view` to receive actual SDK image content bytes plus immutable source metadata and a `receiptId`. Pass the image block to a vision-capable model before using `visual_reference_observe`. Record exterior features with confidence/visibility/uncertainty; hidden/unknown features have null value/confidence, and interiors remain unobserved. A receipt proves image retrieval, not model understanding.
+
+`visual_reference_propose` stages a complete candidate in the checked-design workflow, citing the observations and preserving factual geodata, identity and footprint. Preserve the existing interior, or explicitly label a separately authored layout as inferred. Inspect/check the isolated draft before an explicit current-task/source-revision `design_task_commit` and editor receive. Shared seam buildings can carry references, but their replacement by section-local checked-design tasks is explicitly unsupported.
+
+The real HTTP/MCP verifier is `python scripts/verify-agent-visual-pipeline.py --base http://127.0.0.1:48778`. The 2026-10-22 run discovered 74 tools through `/mcp`, compared actual PNG image-block bytes and receipt, recorded all-unknown synthetic observations, checked unchanged/exterior-changed isolated candidates, and rejected stale task/source revisions: 25 assertions passed. Results are `work/agent-visual-pipeline/20261022T072637Z-7b788615/report.json` and sibling request/image/task evidence. This is transport/access-only verification; it makes no real-photo vision, authenticated Mapillary coverage, native-lighting or B42 in-game claim.
+
+See [Visual references](VISUAL-REFERENCES.md) for exact HTTP payloads, evidence files and limitations. For missing artwork, continue with [separate agent-created sprite/tile mods](AGENT-TILESETS.md): connected image generation, native pack preview, explicit revision-protected dependency attach, then placement. The existing generated sample is retained independently at `work/agent-tileset-generated-sample/`; the reference verifier does not rebuild it.

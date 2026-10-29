@@ -7,6 +7,25 @@ public static class TilesetBuilderTests
  /// <summary>A 128x256 frame with an opaque block at (40..79, 150..229) in one colour.</summary>
  static byte[] Frame(byte r,byte g,byte b){var rgba=new byte[128*256*4];for(var y=150;y<230;y++)for(var x=40;x<80;x++){var i=(y*128+x)*4;rgba[i]=r;rgba[i+1]=g;rgba[i+2]=b;rgba[i+3]=255;}return Png.Encode(new(128,256,rgba));}
  public static IEnumerable<(string,Action)> Cases(){
+  yield return("tileset builder enforces the game limit of 512 sprites per set",()=>{
+   var sprite=new TilesetSprite(Frame(1,2,3),new(){["solidfloor"]=""});
+   TilesetBuilder.Validate(new("Ok","Ok","capacity_01",1708,Enumerable.Repeat(sprite,512).ToList()));
+   Reject(()=>TilesetBuilder.Validate(new("Ok","Ok","capacity_01",1708,Enumerable.Repeat(sprite,513).ToList())));
+  });
+  yield return("tileset definitions enforce the game limit of 512 records independently of ZIP validation",()=>{
+   var data=TilesetBuilder.Tiles("capacity_01",Enumerable.Range(0,512).Select(_=>new Dictionary<string,string>{{"solidfloor",""}}).ToList());
+   Check(TileDefinitionReader.Read(new MemoryStream(data)).Count==512,"Valid boundary rejected");
+   Reject(()=>TilesetBuilder.Tiles("capacity_01",Enumerable.Range(0,513).Select(_=>new Dictionary<string,string>()).ToList()));
+  });
+  yield return("tileset builder uses a stable positive Build 42 tileset number",()=>{
+   var data=TilesetBuilder.Tiles("pilna_photo_01",[new(){["WallW"]=""}]);
+   using var reader=new BinaryReader(new MemoryStream(data),Encoding.Latin1);
+   Check(Encoding.ASCII.GetString(reader.ReadBytes(4))=="tdef"&&reader.ReadInt32()==1&&reader.ReadInt32()==1,"Expected one versioned tileset");
+   string Line(){var value=new StringBuilder();byte c;while((c=reader.ReadByte())!=10)value.Append((char)c);return value.ToString();}
+   Check(Line()=="pilna_photo_01"&&Line()=="pilna_photo_01.png","Unexpected tileset header");
+   Check(reader.ReadInt32()==8&&reader.ReadInt32()==1,"Unexpected tileset dimensions");
+   Check(reader.ReadInt32()==1,"Build 42 rejects number zero before loading custom tile properties");
+  });
   yield return("tileset builder writes a pack and tile definitions the editor readers accept",()=>{
    var mod=new TilesetMod("PilnaTiles","Pilna tiles","pilna_fence_01",300,[new(Frame(200,40,40),new(){["WallW"]="",["CustomName"]="Pilna fence"}),new(Frame(40,200,40),new(){["WallN"]=""})]);
    using var archive=new MemoryStream();TilesetBuilder.Write(mod,archive);using var zip=new ZipArchive(new MemoryStream(archive.ToArray()));

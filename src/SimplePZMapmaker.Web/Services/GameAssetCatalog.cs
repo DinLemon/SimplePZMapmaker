@@ -36,14 +36,13 @@ public sealed partial class GameAssetCatalog
  }
  private static string[] Roles(Asset a){var roles=new List<string>();if(a.Floor)roles.Add("floor");if(a.Properties.ContainsKey("WallN")||a.Properties.ContainsKey("WallW"))if(!a.Properties.Keys.Any(p=>p.StartsWith("Window",StringComparison.Ordinal)||p.StartsWith("DoorWall",StringComparison.Ordinal)))roles.Add("wall");if(a.Properties.ContainsKey("doorN")||a.Properties.ContainsKey("doorW"))roles.Add("door");if(a.Properties.ContainsKey("windowN")||a.Properties.ContainsKey("windowW"))roles.Add("window");if(a.Id.StartsWith("roofs_30_"))roles.Add("roof");return roles.ToArray();}
  public object Describe(IEnumerable<string> ids){lock(sync)return DescribeCore(ids);}
- private object DescribeCore(IEnumerable<string> ids){var values=ids.Distinct().ToArray();if(values.Length>2000)throw new ArgumentException("Too many tiles for preview.");return values.Where(items.ContainsKey).Select(id=>{var a=items[id];return new{a.Id,a.Page,a.Sprite,a.Source,a.ModId,a.Requirements,pageWidth=a.Page is not null?atlases[a.Page].Page.Width:0,pageHeight=a.Page is not null?atlases[a.Page].Page.Height:0};}).ToArray();}
+ private object DescribeCore(IEnumerable<string> ids){var values=ids.Distinct().ToArray();if(values.Length>2000)throw new ArgumentException("Too many tiles for preview.");return values.Where(items.ContainsKey).Select(id=>{var a=items[id];return new{a.Id,a.Page,a.Sprite,a.Floor,a.Source,a.ModId,a.Requirements,pageWidth=a.Page is not null?atlases[a.Page].Page.Width:0,pageHeight=a.Page is not null?atlases[a.Page].Page.Height:0};}).ToArray();}
  public Placement PlacementFor(string id){lock(sync)return PlacementCore(id);}
  private Placement PlacementCore(string id){
   var a=Get(id);if(a.Floor||a.Category is "walls" or "doors" or "windows" or "roofs" or "stairs")throw new ArgumentException("This resource is used for floors, walls, openings, or roofs.");
   if(a.Properties.ContainsKey("WallN")||a.Properties.ContainsKey("WallW")||a.Properties.ContainsKey("attachedN")||a.Properties.ContainsKey("attachedW"))throw new ArgumentException("Wall-mounted resources require a matching wall; select a floor object.");
   if(a.Grid is null)return new(a.Id,a.Name,a.Category,a.Blocking,[new(0,0,a.Id,Flags(a))],a.Source,a.ModId,a.Requirements??[]);
-  var group=items.Values.Where(b=>b.Group==a.Group&&b.Name==a.Name&&b.Facing==a.Facing&&b.Grid is not null&&Prefix(b.Id)==Prefix(a.Id)).OrderBy(b=>Number(b.Id));var segments=new List<List<Asset>>();var current=new List<Asset>();var positions=new HashSet<string>();foreach(var b in group){if(!positions.Add(b.Grid!)){segments.Add(current);current=[];positions=[];positions.Add(b.Grid!);}current.Add(b);}segments.Add(current);var selected=segments.Single(s=>s.Any(b=>b.Id==a.Id));
-  var parts=selected.Select(b=>{var xy=b.Grid!.Split(',');return new Part(int.Parse(xy[0]),int.Parse(xy[1]),b.Id,Flags(b));}).ToList();var width=parts.Max(p=>p.Dx)+1;var height=parts.Max(p=>p.Dy)+1;if(width is <1 or >8||height is <1 or >8||parts.Count!=width*height||parts.Count>32||parts.Any(p=>p.Dx<0||p.Dy<0))throw new ArgumentException("The resource has an incomplete sprite grid; select another option.");return new(a.Id,a.Name,a.Category,selected.Any(b=>b.Blocking),parts,a.Source,a.ModId,a.Requirements??[]);
+  EnsureObjectIndex();var placement=objectPlacements.GetValueOrDefault(id)??throw new ArgumentException("The resource has an incomplete sprite grid or mixed sources; select another option.");return placement with{Parts=[..placement.Parts],Requirements=[..placement.Requirements??[]]};
  }
  private bool CanPlace(string id){try{PlacementFor(id);return true;}catch(Exception e) when(e is ArgumentException or FormatException or InvalidOperationException){return false;}}
  public void Refresh(string path,bool save=true){lock(sync){
@@ -57,6 +56,7 @@ public sealed partial class GameAssetCatalog
     var key=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(full+fingerprint+page.Offset)))[..24].ToLowerInvariant();nextAtlases[key]=new(full,page,fingerprint);foreach(var sprite in page.Sprites)if(next.TryGetValue(sprite.Name,out var a))next[sprite.Name]=a with{Page=key,Sprite=sprite};
    }
   }
+  LoadNativeRamps(root,next,nextAtlases);
   var merged=MergeMods(next,nextAtlases,activeMods);
   if(save){Directory.CreateDirectory(cache);var target=Path.Combine(cache,"source.json");var temporary=target+"."+Guid.NewGuid().ToString("N")+".tmp";try{File.WriteAllText(temporary,JsonSerializer.Serialize(new{gamePath=root}));File.Move(temporary,target,true);}finally{if(File.Exists(temporary))File.Delete(temporary);}}
   gameItems=next;gameAtlases=nextAtlases;items=merged.Items;atlases=merged.Atlases;modDiagnostics=discoveryDiagnostics.Concat(merged.Diagnostics).ToList();GamePath=root;Error=null;DefaultModRoots(root);

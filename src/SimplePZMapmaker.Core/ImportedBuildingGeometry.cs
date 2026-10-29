@@ -1,7 +1,7 @@
 namespace SimplePZMapmaker.Core;
 public sealed record SourceOutlinePoint(double Longitude,double Latitude);
 /// <summary>Center-sample rasterization preserves source concavity and courtyard holes at game-tile resolution.</summary>
-public static class ImportedBuildingGeometry {
+public static partial class ImportedBuildingGeometry {
  public static bool Apply(Building b,List<List<(double X,double Y)>> rings,out string reason){
   reason="";if(rings.Count==0||rings.Any(r=>r.Count<4||r[0]!=r[^1])){reason="Open or incomplete source footprint";return false;}
   var mask=new bool[b.Width*b.Height];var intersections=new List<double>();

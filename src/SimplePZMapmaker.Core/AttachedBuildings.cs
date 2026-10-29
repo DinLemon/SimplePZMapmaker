@@ -39,7 +39,7 @@ public static class AttachedBuildings
   var candidates=ground.Edges.Where(e=>e.Kind=="wall").Where(e=>{var north=e.Edge=="n";var a=BuildingDesigner.Cell(owner,ground,e.X,e.Y);var b=north?BuildingDesigner.Cell(owner,ground,e.X,e.Y-1):BuildingDesigner.Cell(owner,ground,e.X-1,e.Y);if((a=='.')==(b=='.'))return false;
    var (ox,oy)=a=='.'?(owner.X+e.X,owner.Y+e.Y):north?(owner.X+e.X,owner.Y+e.Y-1):(owner.X+e.X-1,owner.Y+e.Y);return BuildingDesigner.Cell(other,otherGround,ox-other.X,oy-other.Y)!='.';}).ToList();
   if(candidates.Count==0)return false;
-  var before=NeighborhoodPlanner.Copy(owner.Design);var chosen=candidates[candidates.Count/2];chosen.Kind="door";chosen.OpeningTile=null;chosen.OverlayTile=null;
+  var before=NeighborhoodPlanner.Copy(owner.Design);var chosen=candidates[candidates.Count/2];chosen.Kind="door";chosen.OpeningTile=null;chosen.OverlayTile=null;chosen.OverlayLevelOffset=0;
   if(chosen.WallTile is {} wall&&wall.LastIndexOf('_') is var split and >0&&int.TryParse(wall[(split+1)..],out var index))chosen.WallTile=$"{wall[..split]}_{index+10}";
   try{BuildingDesigner.Furnish(owner,-owner.Design.MinLevel,new Random(owner.Design.Variant));BuildingDesigner.Validate(owner);return true;}catch(ArgumentException){owner.Design=before;return false;}
  }
@@ -47,7 +47,7 @@ public static class AttachedBuildings
  static void CloseSharedWindows(Building owner,Building other){
   for(var i=0;i<owner.Design!.Floors.Count;i++){var z=i+owner.Design.MinLevel;var level=z-other.Design!.MinLevel;if(level<0||level>=other.Design.Floors.Count)continue;var f=owner.Design.Floors[i];var g=other.Design.Floors[level];
    foreach(var e in f.Edges.Where(e=>e.Kind=="window")){var north=e.Edge=="n";var a=BuildingDesigner.Cell(owner,f,e.X,e.Y);var (x,y)=a=='.'?(owner.X+e.X,owner.Y+e.Y):north?(owner.X+e.X,owner.Y+e.Y-1):(owner.X+e.X-1,owner.Y+e.Y);
-    if(BuildingDesigner.Cell(other,g,x-other.X,y-other.Y)=='.')continue;e.Kind="wall";e.OpeningTile=null;e.OverlayTile=null;if(e.WallTile is {} wall&&wall.LastIndexOf('_') is var split and >0&&int.TryParse(wall[(split+1)..],out var index))e.WallTile=$"{wall[..split]}_{index-8}";}}
+    if(BuildingDesigner.Cell(other,g,x-other.X,y-other.Y)=='.')continue;e.Kind="wall";e.OpeningTile=null;e.OverlayTile=null;e.OverlayLevelOffset=0;if(e.WallTile is {} wall&&wall.LastIndexOf('_') is var split and >0&&int.TryParse(wall[(split+1)..],out var index))e.WallTile=$"{wall[..split]}_{index-8}";}}
  }
  /// <summary>When every exterior door of a building lies on a wall its partner owns, the first other exterior wall at ground level becomes a door.</summary>
  static void EnsureEntrance(Building b,HashSet<(string Building,int X,int Y,int Z,string Edge)> suppressed){
@@ -59,7 +59,7 @@ public static class AttachedBuildings
    b.Design=NeighborhoodPlanner.Copy(before);f=b.Design.Floors[-b.Design.MinLevel];var e=f.Edges.Single(e=>e.X==x&&e.Y==y&&e.Edge==edge);
    // A wall set keeps the door frame 10 tiles after the plain wall and 2 after the window frame.
    if(e.WallTile is {} wall&&wall.LastIndexOf('_') is var split and >0&&int.TryParse(wall[(split+1)..],out var index))e.WallTile=$"{wall[..split]}_{index+(e.Kind=="window"?2:10)}";
-   e.Kind="door";e.OpeningTile=null;e.OverlayTile=null;
+   e.Kind="door";e.OpeningTile=null;e.OverlayTile=null;e.OverlayLevelOffset=0;
    try{BuildingDesigner.Furnish(b,-b.Design.MinLevel,new Random(b.Design.Variant));BuildingDesigner.Validate(b);return;}catch(ArgumentException){}
   }
   b.Design=before;

@@ -8,18 +8,19 @@ namespace SimplePZMapmaker.Core;
 public static partial class GeographicImporter
 {
     /// <summary>The vanilla fences as TileZed's reference Fences.txt draws them (Unjammer/PZ_Mapping_Tools, GPL-2.0-or-later):
-    /// west1/north1 on even edges and west2/north2 on odd ones, the NW corner, the post and the gate frame under a wicket.</summary>
+    /// west1/north1 on even edges and west2/north2 on odd ones, the NW corner and the post. Empty gate-space slots
+    /// (14/15, 22/23, 30/31, 38/39, 46/47) have no B42 sprites and are omitted; custom styles may supply real frames.</summary>
     public static readonly FenceStyle[] DefaultFenceStyles=[
         Reference("vanilla-sheet",40,40,41,41,42,43),              // Tall Concrete
-        Reference("vanilla-planks",11,10,8,9,12,13,46,47),         // Tall Wooden
-        Reference("vanilla-picket",4,4,5,5,6,7,22,23),             // White Picket
-        Reference("vanilla-wire",27,26,24,25,28,29,30,31),         // Short Chainlink
-        Reference("vanilla-short-planks",35,34,32,33,36,37,38,39), // Short Wooden
+        Reference("vanilla-planks",11,10,8,9,12,13),         // Tall Wooden
+        Reference("vanilla-picket",4,4,5,5,6,7),             // White Picket
+        Reference("vanilla-wire",27,26,24,25,28,29),         // Short Chainlink
+        Reference("vanilla-short-planks",35,34,32,33,36,37), // Short Wooden
         Reference("vanilla-tall-planks-2",72,72,73,73,75,74),      // Tall Wooden 2
         Reference("vanilla-tall-wire",59,58,56,57,60,61),          // Tall Chainlink
         Reference("vanilla-short-picket",121,121,120,120,122,123), // Short Picket
         Reference("vanilla-cattle",20,20,21,21,18,19),             // Short Cattle Fence
-        Reference("vanilla-black-metal",2,2,1,1,3,0,14,15),        // Short Black Metal
+        Reference("vanilla-black-metal",2,2,1,1,3,0),        // Short Black Metal
         Reference("vanilla-black-bars",67,66,64,65,68,69),         // Tall Black Bars
         Reference("vanilla-military",51,50,48,49,52,53),           // Military Grade
         Reference("vanilla-construction",83,82,80,81,84,null),     // Tall Construction
@@ -86,7 +87,7 @@ public static partial class GeographicImporter
                 var line=new FenceLine{Id="geo-fence-"+Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes((sourceId??string.Join(";",ring.Select(v=>v.X.ToString("R",CultureInfo.InvariantCulture)+","+v.Y.ToString("R",CultureInfo.InvariantCulture))))+"/"+index))).ToLowerInvariant()[..24],
                     Style=style,Points=points,SourceId=sourceId,SourceTags=f.Tags.Where(v=>v.Key.Length<=100&&!v.Key.StartsWith("__",StringComparison.Ordinal)).Take(47).ToDictionary(v=>v.Key,v=>v.Value[..Math.Min(300,v.Value.Length)])};
                 if(f.Tags.TryGetValue("pz:posts",out var posts)&&int.TryParse(posts,out var spacing)&&spacing is >=0 and <=64)line.PostSpacing=spacing;
-                var source=f.OriginalRings![index];line.SourcePath=(source.Count<=512?source:Enumerable.Range(0,512).Select(i=>source[(int)((long)i*(source.Count-1)/511)]).ToList()).Select(v=>new SourceOutlinePoint(v.X,v.Y)).ToList();
+                var source=f.OriginalRings![f.OriginalRingIndices?[index]??index];line.SourcePath=(source.Count<=512?source:Enumerable.Range(0,512).Select(i=>source[(int)((long)i*(source.Count-1)/511)]).ToList()).Select(v=>new SourceOutlinePoint(v.X,v.Y)).ToList();
                 // pz:gates: [{"at": metres along the source line, "width": edges, "style": gate style, "opens": "left"|"right"}]
                 if(index==0&&f.Tags.TryGetValue("pz:gates",out var gatesJson)){
                     try{foreach(var g in JsonDocument.Parse(gatesJson).RootElement.EnumerateArray()){

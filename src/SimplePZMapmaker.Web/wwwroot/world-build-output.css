@@ -1,0 +1,13 @@
+.world-build-output{border-top:1px solid var(--line,#465249);margin-top:16px;padding:16px 0}
+.world-build-output[hidden]{display:none}
+.world-build-output h3{font-size:15px;margin:0 0 10px}
+.world-build-output p{font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.world-build-output .world-build-output-names{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.world-build-output .world-build-output-names label{display:grid;gap:4px}
+.world-build-output input:not([type=checkbox]){width:100%;min-width:0;box-sizing:border-box}
+.world-build-output .world-build-output-actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+.world-build-output .world-build-output-confirm{display:flex;align-items:flex-start;gap:8px;margin-bottom:12px;font-size:12px;line-height:1.6}
+.world-build-output .world-build-output-confirm input{width:auto;flex-shrink:0;margin-top:4px}
+.world-build-output .error{color:#efb6a5}
+.world-build-output [hidden]{display:none}
+@media(max-width:600px){.world-build-output .world-build-output-names{grid-template-columns:minmax(0,1fr)}}

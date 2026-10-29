@@ -12,12 +12,27 @@ public static partial class GeographicImporter
   t.GetValueOrDefault("amenity")=="parking"?"ParkingStall":
   t.GetValueOrDefault("landuse") switch{"residential"=>"TownZone","forest"=>"Forest","farmland" or "meadow" or "orchard"=>"Farm","allotments"=>"Vegitation",_=>t.GetValueOrDefault("natural")=="wood"?"Forest":null};
 
- static void ImportZones(MapProject p,List<Feature> features,List<string> notes){
+ static List<WorldDecoration>? ImportZones(MapProject p,List<Feature> features,List<string> notes,MapProject? previous=null){
   var candidates=new List<(GameZone Zone,long Area)>();var reasons=new Dictionary<string,int>(StringComparer.Ordinal);void Skip(string reason)=>reasons[reason]=reasons.GetValueOrDefault(reason)+1;
+  var parking=features.Where(f=>f.Polygon&&f.Rings.Count>0&&!f.Tags.ContainsKey("building")&&(ZoneType(f.Tags) is "ParkingStall" or "Vehicle")&&!LegacyParkingRectangle(f)).ToList();var parkingSet=parking.ToHashSet();
+  // Replace only this source's generated rows. Other source lots and authored zones remain obstacles.
+  var refreshedSources=features.Select(f=>f.Tags.GetValueOrDefault("__pz_source")).Where(s=>s is not null).ToHashSet(StringComparer.Ordinal);
+  var parkingSources=refreshedSources.Select(s=>ParkingHash(s!)).ToHashSet(StringComparer.Ordinal);
+  p.GameZones.RemoveAll(z=>z.SourceTags.TryGetValue("pzmap:parking-source",out var source)&&parkingSources.Contains(source));
+  // Pre-row formats did not store a source marker. Recover their generated rectangle from the OLD
+  // source geometry, and retire only the exact old layout. A user-moved/resized zone remains authored.
+  if(previous is not null)foreach(var evidence in previous.SourceFeatures.Where(e=>e.GeometryKind=="polygon"&&refreshedSources.Contains(e.SourceId)&&!e.Tags.ContainsKey("building")&&(ZoneType(e.Tags) is "ParkingStall" or "Vehicle"))){
+   var tags=new Dictionary<string,string>(evidence.Tags){["__pz_source"]=evidence.SourceId};
+   var old=PreviousParkingRectangle(previous,new(tags,evidence.Geometry.Select(r=>r.Select(v=>(v.X,v.Y)).ToList()).ToList(),true));
+   if(old is {} rectangle)p.GameZones.RemoveAll(z=>z.Vehicle&&z.Id==rectangle.Id&&z.X==rectangle.Bounds.X&&z.Y==rectangle.Bounds.Y&&z.Width==rectangle.Bounds.Width&&z.Height==rectangle.Bounds.Height);
+  }
+  if(previous is not null&&previous.GameZones.Any(z=>z.Vehicle&&!z.SourceTags.ContainsKey("pzmap:parking-source")&&(z.SourceTags.GetValueOrDefault("pz:zone") is "Vehicle" or "ParkingStall")&&!previous.SourceFeatures.Any(e=>e.GeometryKind=="polygon"&&(ZoneType(e.Tags) is "ParkingStall" or "Vehicle"))))
+   notes.Add("Legacy vehicle zones without original source evidence were preserved; their former generated bounds cannot be distinguished safely from authored edits. Review/remove the old rectangle before repacking a changed source polygon.");
   var mpt=p.MetresPerTile??1;var roadDistance=RoadDistance(p,(int)Math.Ceiling(60/mpt));
   foreach(var f in features.Where(f=>f.Rings.Count>0&&!f.Tags.ContainsKey("building"))){
    var type=ZoneType(f.Tags);if(type is null)continue;if(type=="Vehicle")type="ParkingStall";
    if(!GameZone.Types.Contains(type)){Skip($"unknown zone type {type}");continue;}
+   if(type=="ParkingStall"&&parkingSet.Contains(f))continue;
    var ring=f.Rings[0].Select(v=>(X:Math.Clamp((int)Math.Round(v.X),0,p.Width),Y:Math.Clamp((int)Math.Round(v.Y),0,p.Height))).ToList();
    if(!f.Polygon){ // a line: a three-tile band around each straight segment
     foreach(var (a,b) in ring.Zip(ring.Skip(1))){var x=Math.Min(a.X,b.X)-1;var y=Math.Min(a.Y,b.Y)-1;Add(type,f.Tags,x,y,Math.Abs(b.X-a.X)+3,Math.Abs(b.Y-a.Y)+3,null);}
@@ -48,9 +63,59 @@ public static partial class GeographicImporter
   var placed=0;foreach(var (zone,_) in candidates.OrderBy(c=>c.Area)){
    if(p.GameZones.Count>=4096){Skip("zone limit reached");continue;}
    try{GameZone.Validate(zone,p.Width,p.Height);}catch(ArgumentException){Skip("invalid zone outline");continue;}
+   if(zone.Vehicle&&p.GameZones.Any(z=>z.Id==zone.Id&&(z.X!=zone.X||z.Y!=zone.Y||z.Width!=zone.Width||z.Height!=zone.Height||z.Polygon is not null))){Skip("authored vehicle zone geometry retained");continue;}
    p.GameZones.RemoveAll(z=>z.Id==zone.Id);p.GameZones.Add(zone);try{GameZones.ValidateProject(p);placed++;}catch(ArgumentException e){p.GameZones.RemoveAt(p.GameZones.Count-1);Skip(e.Message.Contains("overlap")?"overlaps another zone or a building":e.Message.Contains("water")?"crosses water":"rejected by zone checks");}
   }
+  // Resolve ordinary zones first, then pack against their final occupancy. New rows were already checked
+  // tile-by-tile using the shared placement rules; avoid revalidating the entire project for every row.
+  ParcelPlacement? placement=null;List<WorldDecoration>? streetProps=null;long parkingWork=0;int stalls=0,rejected=0,limited=0,parkingRows=0;var parkingNotes=new HashSet<string>(StringComparer.Ordinal);
+  foreach(var f in parking){
+   var capacity=Math.Max(0,ParkingLayout.MaximumZones-p.GameZones.Count);
+   if(capacity>0&&parkingWork<ParkingLayout.MaximumWork&&placement is null){var preview=ParkingPlacement(p,features);placement=preview.Placement;streetProps=preview.StreetProps;}
+   var layout=ParkingLayout.Build(p,f.Rings.Select(r=>(IReadOnlyList<(double X,double Y)>)r).ToArray(),f.Tags.GetValueOrDefault("pz:direction"),capacity,ParkingLayout.MaximumWork-parkingWork,
+    placement);
+   parkingWork+=layout.Work;rejected+=layout.RejectedStalls;if(layout.Limited)limited++;foreach(var note in layout.Notes)parkingNotes.Add(note);
+   var distribution=f.Tags.GetValueOrDefault("pz:vehicles")??"parkingstall";
+   if(!VanillaVehicleZones.Contains(distribution)){Skip($"vehicle zone '{distribution}' is not a vanilla distribution");distribution="parkingstall";}
+   foreach(var row in layout.Rows){var r=row.Stalls;
+    var source=ParkingSource(f.Tags);var zone=new GameZone{Id=ParkingHash(source+"|parking-row-v1|"+layout.Direction+"|"+r.X+","+r.Y),Type="ParkingStall",X=r.X,Y=r.Y,Width=r.Width,Height=r.Height,
+     Name=f.Tags.GetValueOrDefault("name")?[..Math.Min(100,f.Tags["name"].Length)]??"",Direction=layout.Direction,VehicleDistribution=distribution,
+     SourceTags=f.Tags.Where(t=>!t.Key.StartsWith("__",StringComparison.Ordinal)&&t.Key.Length<=100&&t.Key!="pzmap:parking-source").Take(31).ToDictionary(t=>t.Key,t=>t.Value[..Math.Min(300,t.Value.Length)])};
+    zone.SourceTags["pzmap:parking-source"]=source;
+    try{GameZone.Validate(zone,p.Width,p.Height);}catch(ArgumentException){Skip("invalid parking metadata");continue;}
+    p.GameZones.Add(zone);placed++;parkingRows++;stalls+=r.Width*r.Height/15;
+    foreach(var rectangle in new[]{row.Stalls,row.Aisle})for(var y=rectangle.Y;y<rectangle.Y+rectangle.Height;y++)for(var x=rectangle.X;x<rectangle.X+rectangle.Width;x++)placement!.Block(x,y);
+   }
+  }
+  if(parking.Count>0){notes.Add($"Polygon parking: {stalls} stalls in {parkingRows} native rows; rejected stalls: {rejected}; limited source layouts: {limited}; charged work: {parkingWork}/{ParkingLayout.MaximumWork}.");notes.AddRange(parkingNotes);}
   if(placed>0||reasons.Count>0)notes.Add($"Game zones from land use, parking and pz:zone tags: {placed}"+(reasons.Count>0?"; left out: "+string.Join(", ",reasons.Select(r=>$"{r.Key} {r.Value}")):"")+".");
+  return streetProps;
+ }
+ static string ParkingHash(string value)=>Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(value)))[..32];
+ static string ParkingSource(Dictionary<string,string> tags)=>ParkingHash(tags.GetValueOrDefault("__pz_source")??"");
+ // Explicit rectangular pz:zone authoring retains the original centred whole-stall rectangle, including
+ // its historical one-tile inset. Concave/holed explicit vehicle polygons need the safe layout as well.
+ static bool LegacyParkingRectangle(Feature f){
+  if(!f.Tags.ContainsKey("pz:zone")||f.Rings.Count!=1)return false;var points=f.Rings[0].Distinct().ToList();if(points.Count!=4)return false;
+  return points.Zip(points.Skip(1).Append(points[0])).All(e=>Math.Abs(e.First.X-e.Second.X)<1e-7||Math.Abs(e.First.Y-e.Second.Y)<1e-7);
+ }
+ static (string Id,ZoneRectangle Bounds)? PreviousParkingRectangle(MapProject p,Feature f){
+  var points=f.Rings[0].Select(v=>(X:Math.Clamp((int)Math.Round(v.X),0,p.Width),Y:Math.Clamp((int)Math.Round(v.Y),0,p.Height))).Distinct().ToList();if(points.Count<3)return null;
+  var x=points.Min(v=>v.X)+1;var y=points.Min(v=>v.Y)+1;var w=points.Max(v=>v.X)-x-1;var h=points.Max(v=>v.Y)-y-1;
+  var ns=f.Tags.GetValueOrDefault("pz:direction") switch{"N" or "S"=>true,"E" or "W"=>false,_=>(long)(w/3)*(h/5)>=(long)(w/5)*(h/3)};
+  var sw=ns?w/3*3:w/5*5;var sh=ns?h/5*5:h/3*3;if(sw<3||sh<3)return null;x+=(w-sw)/2;y+=(h-sh)/2;
+  return (ParkingHash((f.Tags.GetValueOrDefault("__pz_source")??"")+"|zone|"+x+","+y),new(x,y,sw,sh));
+ }
+ static (ParcelPlacement Placement,List<WorldDecoration> StreetProps) ParkingPlacement(MapProject p,List<Feature> features){
+  // ImportFences must precede ImportZones. Street props materialize later: preview their SAME generator
+  // on a lightweight layer snapshot, so first import and preserve-edits refresh see the same obstacles.
+  // The caller's project and shared collections are never changed by this preview.
+  var snapshot=new MapProject{Width=p.Width,Height=p.Height,Terrain=p.Terrain,TerrainEdits=p.TerrainEdits,MetresPerTile=p.MetresPerTile,
+   Buildings=p.Buildings,Decorations=[..p.Decorations],StaticModels=p.StaticModels,Spawns=p.Spawns,Sites=p.Sites,LinearFeatures=p.LinearFeatures,SharedInfrastructure=p.SharedInfrastructure,
+   Fences=[..p.Fences],FenceStyles=[..p.FenceStyles],GateStyles=[..p.GateStyles],SurfaceTiles=p.SurfaceTiles,Generation=p.Generation,GameZones=[..p.GameZones]};
+  ApplyStreetDressing(snapshot,features,[]);
+  snapshot.Decorations.RemoveAll(d=>d.Id.StartsWith("street-stop-block-",StringComparison.Ordinal)&&IsBuiltInDressing(d));
+  return (new ParcelPlacement(snapshot),snapshot.Decorations.Where(d=>d.Id.StartsWith(DressingPrefix,StringComparison.Ordinal)).ToList());
  }
  /// <summary>Tile distance to the nearest road, capped at <paramref name="limit"/>+1; null when the map has no road.</summary>
  static int[]? RoadDistance(MapProject p,int limit){

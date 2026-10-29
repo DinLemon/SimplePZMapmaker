@@ -39,7 +39,7 @@ public static class WorldEndpoints
   app.MapPost("/api/world/elevation/import",(WorldElevationRequest request,GameAssetCatalog assets,StaticModelCatalog models)=>{
    var world=WorldAssembler.Clone(request.World);if(world.GeoReference is null)throw new ArgumentException("DEM requires a geographic world reference. Import an OSM area with a shared scale.");
    world.Elevation=ElevationSurvey.ParseAscii(request.Text,request.CoordinateSystem,request.Source,request.License);Validate(world,assets,models);var values=world.Elevation.Values.Where(v=>v.HasValue).Select(v=>v!.Value).ToArray();
-   var measured=0;var sampled=0;foreach(var m in world.Maps){var projection=new GeographicProjection(world.GeoReference,m.Project.WorldX,m.Project.WorldY);for(var y=0;y<m.Project.Height;y+=16)for(var x=0;x<m.Project.Width;x+=16){var g=projection.Geographic(x+.5,y+.5);sampled++;if(world.Elevation.Sample(g.Longitude,g.Latitude).HasValue)measured++;}}
+   var measured=0;var sampled=0;foreach(var m in world.Maps){var projection=new GeographicProjection(world.GeoReference,m.Project.WorldX,m.Project.WorldY);for(var y=0;y<m.Project.Height;y+=16)for(var x=0;x<m.Project.Width;x+=16){if(!projection.TryGeographic(x+.5,y+.5,out var g))continue;sampled++;if(world.Elevation.Sample(g.Longitude,g.Latitude).HasValue)measured++;}}
    if(measured==0)throw new ArgumentException("The DEM does not cover any world reference sample. Check the coordinate system and data bounds.");
    return Results.Ok(new{world,minimum=values.Min(),maximum=values.Max(),measured,sampled,nativeSlopes=false,note="Measured heights are saved as a geographic layer and elevation.asc. The native PZ map remains flat; heights are not substituted with building floors."});
   });

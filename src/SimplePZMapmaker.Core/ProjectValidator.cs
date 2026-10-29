@@ -1,10 +1,13 @@
 namespace SimplePZMapmaker.Core;
 public static class ProjectValidator
 {
+    public const int MaximumBuildings=4000,MaximumDecorations=10000;
+    // Leave space for request envelopes below the web host's 128 MiB body limit.
+    public const int MaximumProjectBytes=128_000_000;
     public static void Validate(MapProject p)
     {
         ArgumentNullException.ThrowIfNull(p);
-        if(p.Version is not(1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14)) Fail("Unsupported project version.");
+        if(p.Version is not(1 or 2 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18)) Fail("Unsupported project version.");
         ResourcePalette.Validate(p.ResourcePalettes);
 
         if(p.ImportSummary is {} qualityReport) ImportQuality.Validate(qualityReport);
@@ -20,11 +23,16 @@ public static class ProjectValidator
         TerrainEditMask.Decode(p);if(p.Version<6&&p.TerrainEdits.Length>0)Fail("The manual terrain mask requires project format version 6.");
         if(p.Zombies is null || p.Zombies.Length!=p.Width*p.Height/64 || p.Zombies.Any(z=>z is <0 or >255)) Fail("Invalid zombie layer.");
         if(p.WorldSection&&p.Version<6)Fail("World sections require project format version 6.");
-        if(p.Buildings is null || p.Buildings.Count>4000 || p.Spawns is null || p.Spawns.Count<(p.WorldSection?0:1)||p.Spawns.Count>100 || p.Attribution is null || p.Attribution.Count>30 || p.Attribution.Any(a=>a is null || a.Length>1000)) Fail("Invalid project objects.");
+        if(p.Buildings is null)Fail("The project building list is missing.");
+        if(p.Buildings.Count>MaximumBuildings)Fail($"Too many buildings: {p.Buildings.Count}; the section limit is {MaximumBuildings}. Split the area into smaller world sections.");
+        if(p.Spawns is null || p.Spawns.Count<(p.WorldSection?0:1)||p.Spawns.Count>100)Fail("Invalid project spawn points (limit: 100).");
+        if(p.Attribution is null || p.Attribution.Count>30 || p.Attribution.Any(a=>a is null || a.Length>1000))Fail("Invalid project attribution (limit: 30 entries, 1,000 characters each).");
         var occupied=new HashSet<int>(); var ids=new HashSet<string>();var owners=new Dictionary<int,Building>();
         if(p.SurfaceRegions is null||p.SurfaceRegions.Count>128||p.SurfaceRegions.Any(r=>r is null||r.Theme is null||!EnvironmentStyles.Names.ContainsKey(r.Theme)||r.X<0||r.Y<0||r.Width<1||r.Height<1||(long)r.X+r.Width>p.Width||(long)r.Y+r.Height>p.Height))Fail("The appearance region is invalid or outside the map (limit: 128 regions).");
         if(p.Version<5&&p.SurfaceRegions.Count>0)Fail("Individual appearance regions require project format version 5.");
-        if(p.SurfaceTheme is null||!EnvironmentStyles.Names.ContainsKey(p.SurfaceTheme)||p.SurfaceTiles is null||p.SurfaceTiles.Count>100000||p.SurfaceTiles.Any(v=>v.Key<0||v.Key>=p.Terrain.Length||!VisualStyles.TileId(v.Value))||p.Decorations is null||p.Decorations.Count>10000)Fail("Invalid game surfaces or decoration.");
+        if(p.SurfaceTheme is null||!EnvironmentStyles.Names.ContainsKey(p.SurfaceTheme)||p.SurfaceTiles is null||p.SurfaceTiles.Count>100000||p.SurfaceTiles.Any(v=>v.Key<0||v.Key>=p.Terrain.Length||!VisualStyles.TileId(v.Value)))Fail("Invalid game surfaces (limit: 100,000 tiles).");
+        if(p.Decorations is null)Fail("The project decoration list is missing.");
+        if(p.Decorations.Count>MaximumDecorations)Fail($"Too many decorations: {p.Decorations.Count}; the section limit is {MaximumDecorations}. Split the area into smaller world sections.");
         if(p.BuildingLibrary is null||p.BuildingLibrary.Count>64)Fail("The building library is invalid or contains more than 64 templates.");
         if(p.Version==1&&(p.BuildingLibrary.Count>0||p.Buildings.Any(b=>b?.Design is not null)))Fail("Building floors and templates require project format version 2.");
         if(p.Version<3&&p.Buildings.Concat(p.BuildingLibrary).Any(b=>b?.Design?.MinLevel!=0&&b?.Design is not null))Fail("Basements require project format version 3.");
@@ -34,7 +42,7 @@ public static class ProjectValidator
         foreach(var b in p.Buildings)
         {
             if(b is null || !BuildingDesigner.Kinds.Contains(b.Kind) || string.IsNullOrEmpty(b.Id) || !ids.Add(b.Id) || b.Name is null || b.Name.Length>100||b.SourceId?.Length>100||b.SourceKind?.Length>100||b.SourceLevels?.Length>100||b.SourceBasements?.Length>100||b.SourceRoof?.Length>100||b.LevelsOrigin is not("inferred" or "osm-levels" or "osm-height" or "manual")) Fail("Unknown or invalid building.");
-            if(b.Width is <BuildingDesigner.MinimumFootprint or >64 || b.Height is <BuildingDesigner.MinimumFootprint or >64 || b.X<1 || b.Y<1 || b.X>p.Width-b.Width-1 || b.Y>p.Height-b.Height-1) Fail("The building extends beyond the map area. Move it or expand the area.");
+            if(b.Width is <BuildingDesigner.MinimumFootprint or >BuildingDesigner.MaximumFootprint || b.Height is <BuildingDesigner.MinimumFootprint or >BuildingDesigner.MaximumFootprint || b.X<1 || b.Y<1 || b.X>p.Width-b.Width-1 || b.Y>p.Height-b.Height-1) Fail("The building extends beyond the map area. Move it or expand the area.");
             BuildingDesigner.Validate(b);ImportedBuildingGeometry.Validate(b);
             foreach(var index in BuildingDesigner.Occupied(b)){var x=b.X+index%(b.Width+1);var y=b.Y+index/(b.Width+1);if(!occupied.Add(y*p.Width+x)&&!(owners.TryGetValue(y*p.Width+x,out var other)&&AttachedBuildings.MayShare(b,other,x,y)))Fail("Building walls or rooms overlap.");owners.TryAdd(y*p.Width+x,b);}
             for(var y=0;y<b.Height;y++)for(var x=0;x<b.Width;x++)if(BuildingDesigner.Occupies(b,x,y)&&p.Terrain[(b.Y+y)*p.Width+b.X+x]==Terrain.Water)Fail("The building stands on water.");
@@ -64,9 +72,9 @@ public static class ProjectValidator
         }
         LinearFeatureEditor.Validate(p);GameZones.ValidateProject(p);FenceLines.Validate(p);
         SiteModel.Validate(p);ZombieDensityRegions.ValidateProject(p);RoomRegionRules.ValidateProject(p);
-        if(p.Bounds is not null) ValidateBounds(p.Bounds);
+        if(p.Bounds is not null){if(p.WorldSection)WorldLayoutLimits.ValidateSourceBounds(p.Bounds);else ValidateBounds(p.Bounds);}
         if(p.MetresPerTile is double metres && (!double.IsFinite(metres)||metres<=0||metres>100000))Fail("Invalid geographic data scale.");
-        if(p.ImportSummary is { } summary && (summary.SourceFeatures is <0 or >30000||summary.SourceBuildings is <0 or >30000||summary.PlacedBuildings is <0 or >4000||summary.SkipReasons is null||summary.SkipReasons.Count>20||summary.SkipReasons.Any(s=>s.Key.Length>100||s.Value is <0 or >30000)))Fail("Invalid import report.");
+        if(p.ImportSummary is { } summary && (summary.SourceFeatures is <0 or >30000||summary.SourceBuildings is <0 or >30000||summary.PlacedBuildings is <0 or >MaximumBuildings||summary.SkipReasons is null||summary.SkipReasons.Count>20||summary.SkipReasons.Any(s=>s.Key.Length>100||s.Value is <0 or >30000)))Fail("Invalid import report.");
         if(p.ImportSummary is { } report&&(report.Notes is null||report.Notes.Count>20||report.Notes.Any(s=>s is null||s.Length>1000)))Fail("Invalid import notes.");
     }
     public static bool UsesAssets(Building? b)=>b?.Design is {} d&&(d.Style!=""||d.RoofTileset is not null||d.FlatRoofTile is not null||d.Floors?.Any(f=>f is not null&&(f.FloorTile is not null||f.FloorTiles?.Count>0||f.Edges?.Any(e=>e?.WallTile is not null||e?.OpeningTile is not null||e?.OverlayTile is not null)==true||f.Objects?.Any(o=>o is not null&&(o.Kind=="asset"||o.Style!=""||o.Asset is not null||o.Parts?.Count>0))==true))==true);

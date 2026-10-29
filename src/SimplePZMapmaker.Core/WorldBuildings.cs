@@ -5,12 +5,13 @@ public static partial class WorldAssembler
 {
  public static WorldMapMember? MemberAt(WorldProject world,int x,int y)=>world.Maps.FirstOrDefault(m=>x>=m.Project.WorldX*256&&y>=m.Project.WorldY*256&&x<m.Project.WorldX*256+m.Project.Width&&y<m.Project.WorldY*256+m.Project.Height);
  public static IEnumerable<(int X,int Y)> BuildingCells(Building b)=>BuildingDesigner.Occupied(b).Select(i=>(b.X+i%(b.Width+1),b.Y+i/(b.Width+1)));
- private static void ValidateBuildings(WorldProject world){
+ private static void ValidateBuildings(WorldProject world,Building? addedBuilding=null){
   if(world.Buildings is null||world.Buildings.Count>4000)throw new ArgumentException("A world can contain up to 4,000 shared buildings.");
   if(world.Buildings.Sum(b=>(long)(b?.Design?.Floors?.Sum(f=>f?.Cells?.Length??0)??0))>20_000_000)throw new ArgumentException("Shared buildings exceed 20 million floor tiles.");
   var occupied=new HashSet<(int,int)>();var ids=new HashSet<string>(StringComparer.Ordinal);
   foreach(var member in world.Maps)foreach(var b in member.Project.Buildings){ids.Add(b.Id);foreach(var point in BuildingCells(b))occupied.Add((point.X+member.Project.WorldX*256,point.Y+member.Project.WorldY*256));}
-  foreach(var b in world.Buildings){
+  if(addedBuilding is not null){if(!world.Buildings.Contains(addedBuilding))throw new ArgumentException("The added building is not in this world.");foreach(var prior in world.Buildings.Where(b=>!ReferenceEquals(b,addedBuilding))){ids.Add(prior.Id);foreach(var point in BuildingCells(prior))occupied.Add(point);}}
+  foreach(var b in addedBuilding is null?world.Buildings:[addedBuilding]){
    if(b is null||string.IsNullOrWhiteSpace(b.Id)||b.Id.Length>100||!ids.Add(b.Id)||b.X<0||b.Y<0||b.X>258000||b.Y>258000||b.Name is null||b.Name.Length>100||b.SourceId?.Length>100||b.SourceKind?.Length>100||b.SourceLevels?.Length>100||b.SourceBasements?.Length>100||b.SourceRoof?.Length>100||b.LevelsOrigin is not("inferred" or "osm-levels" or "osm-height" or "manual"))throw new ArgumentException("Invalid shared world building or duplicate ID.");
    if(b.AttachedTo is not null)throw new ArgumentException($"'{b.Name}': shared world buildings cannot be attached; attach buildings inside one section.");
    BuildingDesigner.Validate(b);

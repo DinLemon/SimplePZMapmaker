@@ -1,0 +1,761 @@
+{
+  "schemaVersion": 1,
+  "id": "pz-streets-unjammer",
+  "revision": 1,
+  "source": {
+    "repository": "https://github.com/Unjammer/PZ_Mapping_Tools",
+    "commit": "70e8b77676183e579cf9f1f7100dff6c383e28cb",
+    "license": "GPL-2.0 (repository COPYING; no per-file license notice)",
+    "files": [
+      "TileZed/lua/tool-curb-data.lua",
+      "TileZed/lua/parking-stall.lua",
+      "TileZed/lua/tool-street-decoration-data.lua",
+      "TileZed/lua/tool-curb.lua"
+    ]
+  },
+  "entries": [
+    {
+      "id": "street-curb",
+      "label": "Street curb",
+      "kind": "curb",
+      "variants": {
+        "far.e": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_11",
+            "layer": "0_Furniture"
+          }
+        ],
+        "far.s": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_10",
+            "layer": "0_Furniture"
+          }
+        ],
+        "far.se": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_2",
+            "layer": "0_Furniture"
+          }
+        ],
+        "far.join_se": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_3",
+            "layer": "0_Furniture"
+          }
+        ],
+        "far.e_join_s": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_4",
+            "layer": "0_Furniture"
+          }
+        ],
+        "far.s_join_e": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_5",
+            "layer": "0_Furniture"
+          }
+        ],
+        "far.sunken.w": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_40",
+            "layer": "0_Furniture"
+          }
+        ],
+        "far.sunken.n": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_41",
+            "layer": "0_Furniture"
+          }
+        ],
+        "far.sunken.join_w": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_38",
+            "layer": "0_Furniture"
+          }
+        ],
+        "far.sunken.join_e": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_39",
+            "layer": "0_Furniture"
+          }
+        ],
+        "far.sunken.join_n": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_36",
+            "layer": "0_Furniture"
+          }
+        ],
+        "far.sunken.join_s": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_37",
+            "layer": "0_Furniture"
+          }
+        ],
+        "near.e": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_9",
+            "layer": "0_Furniture"
+          }
+        ],
+        "near.s": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_8",
+            "layer": "0_Furniture"
+          }
+        ],
+        "near.se": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_0",
+            "layer": "0_Furniture"
+          }
+        ],
+        "near.join_se": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_1",
+            "layer": "0_Furniture"
+          }
+        ],
+        "near.e_join_s": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_6",
+            "layer": "0_Furniture"
+          }
+        ],
+        "near.s_join_e": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_7",
+            "layer": "0_Furniture"
+          }
+        ],
+        "near.sunken.e": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_43",
+            "layer": "0_Furniture"
+          }
+        ],
+        "near.sunken.s": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_42",
+            "layer": "0_Furniture"
+          }
+        ],
+        "near.sunken.join_w": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_32",
+            "layer": "0_Furniture"
+          }
+        ],
+        "near.sunken.join_e": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_33",
+            "layer": "0_Furniture"
+          }
+        ],
+        "near.sunken.join_n": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_35",
+            "layer": "0_Furniture"
+          }
+        ],
+        "near.sunken.join_s": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_curbs_01_34",
+            "layer": "0_Furniture"
+          }
+        ]
+      }
+    },
+    {
+      "id": "drainage-grate",
+      "label": "Drainage grate",
+      "kind": "drain",
+      "variants": {
+        "w": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_decoration_01_13",
+            "layer": "0_Furniture"
+          }
+        ],
+        "n": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_decoration_01_14",
+            "layer": "0_Furniture"
+          }
+        ],
+        "e": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_decoration_01_30",
+            "layer": "0_Furniture"
+          }
+        ],
+        "s": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_decoration_01_31",
+            "layer": "0_Furniture"
+          }
+        ]
+      }
+    },
+    {
+      "id": "parking-stall",
+      "label": "Parking stall (original TileZed anchors)",
+      "kind": "parking",
+      "variants": {
+        "w": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_decoration_01_37",
+            "layer": "0_Furniture"
+          },
+          {
+            "dx": 0,
+            "dy": 1,
+            "tile": "street_decoration_01_36",
+            "layer": "0_Furniture"
+          },
+          {
+            "dx": 0,
+            "dy": 2,
+            "tile": "street_decoration_01_35",
+            "layer": "0_Furniture"
+          },
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_trafficlines_01_2",
+            "layer": "0_FloorOverlay5"
+          },
+          {
+            "dx": 1,
+            "dy": 0,
+            "tile": "street_trafficlines_01_2",
+            "layer": "0_FloorOverlay5"
+          },
+          {
+            "dx": 2,
+            "dy": 0,
+            "tile": "street_trafficlines_01_2",
+            "layer": "0_FloorOverlay5"
+          },
+          {
+            "dx": 3,
+            "dy": 0,
+            "tile": "street_trafficlines_01_2",
+            "layer": "0_FloorOverlay5"
+          },
+          {
+            "dx": 4,
+            "dy": 0,
+            "tile": "street_trafficlines_01_2",
+            "layer": "0_FloorOverlay5"
+          }
+        ],
+        "e": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_decoration_01_45",
+            "layer": "0_Furniture"
+          },
+          {
+            "dx": 0,
+            "dy": 1,
+            "tile": "street_decoration_01_44",
+            "layer": "0_Furniture"
+          },
+          {
+            "dx": 0,
+            "dy": 2,
+            "tile": "street_decoration_01_43",
+            "layer": "0_Furniture"
+          },
+          {
+            "dx": -4,
+            "dy": 0,
+            "tile": "street_trafficlines_01_2",
+            "layer": "0_FloorOverlay5"
+          },
+          {
+            "dx": -3,
+            "dy": 0,
+            "tile": "street_trafficlines_01_2",
+            "layer": "0_FloorOverlay5"
+          },
+          {
+            "dx": -2,
+            "dy": 0,
+            "tile": "street_trafficlines_01_2",
+            "layer": "0_FloorOverlay5"
+          },
+          {
+            "dx": -1,
+            "dy": 0,
+            "tile": "street_trafficlines_01_2",
+            "layer": "0_FloorOverlay5"
+          },
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_trafficlines_01_2",
+            "layer": "0_FloorOverlay5"
+          }
+        ],
+        "n": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_decoration_01_32",
+            "layer": "0_Furniture"
+          },
+          {
+            "dx": 1,
+            "dy": 0,
+            "tile": "street_decoration_01_33",
+            "layer": "0_Furniture"
+          },
+          {
+            "dx": 2,
+            "dy": 0,
+            "tile": "street_decoration_01_34",
+            "layer": "0_Furniture"
+          },
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_trafficlines_01_0",
+            "layer": "0_FloorOverlay5"
+          },
+          {
+            "dx": 0,
+            "dy": 1,
+            "tile": "street_trafficlines_01_0",
+            "layer": "0_FloorOverlay5"
+          },
+          {
+            "dx": 0,
+            "dy": 2,
+            "tile": "street_trafficlines_01_0",
+            "layer": "0_FloorOverlay5"
+          },
+          {
+            "dx": 0,
+            "dy": 3,
+            "tile": "street_trafficlines_01_0",
+            "layer": "0_FloorOverlay5"
+          },
+          {
+            "dx": 0,
+            "dy": 4,
+            "tile": "street_trafficlines_01_0",
+            "layer": "0_FloorOverlay5"
+          }
+        ],
+        "s": [
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_decoration_01_40",
+            "layer": "0_Furniture"
+          },
+          {
+            "dx": 1,
+            "dy": 0,
+            "tile": "street_decoration_01_41",
+            "layer": "0_Furniture"
+          },
+          {
+            "dx": 2,
+            "dy": 0,
+            "tile": "street_decoration_01_42",
+            "layer": "0_Furniture"
+          },
+          {
+            "dx": 0,
+            "dy": -4,
+            "tile": "street_trafficlines_01_0",
+            "layer": "0_FloorOverlay5"
+          },
+          {
+            "dx": 0,
+            "dy": -3,
+            "tile": "street_trafficlines_01_0",
+            "layer": "0_FloorOverlay5"
+          },
+          {
+            "dx": 0,
+            "dy": -2,
+            "tile": "street_trafficlines_01_0",
+            "layer": "0_FloorOverlay5"
+          },
+          {
+            "dx": 0,
+            "dy": -1,
+            "tile": "street_trafficlines_01_0",
+            "layer": "0_FloorOverlay5"
+          },
+          {
+            "dx": 0,
+            "dy": 0,
+            "tile": "street_trafficlines_01_0",
+            "layer": "0_FloorOverlay5"
+          }
+        ]
+      }
+    }
+  ],
+  "rules": [
+    {
+      "id": "curb-near-e",
+      "entry": "street-curb",
+      "variant": "near.e",
+      "center": "Pavement",
+      "neighbors": [
+        {
+          "dx": 1,
+          "dy": 0,
+          "terrain": "Road"
+        },
+        {
+          "dx": 0,
+          "dy": -1,
+          "terrain": "Pavement"
+        },
+        {
+          "dx": 1,
+          "dy": -1,
+          "terrain": "Road"
+        },
+        {
+          "dx": 0,
+          "dy": 1,
+          "terrain": "Pavement"
+        },
+        {
+          "dx": 1,
+          "dy": 1,
+          "terrain": "Road"
+        }
+      ],
+      "priority": 100,
+      "every": 1,
+      "phase": 0,
+      "axis": "y"
+    },
+    {
+      "id": "curb-near-s",
+      "entry": "street-curb",
+      "variant": "near.s",
+      "center": "Pavement",
+      "neighbors": [
+        {
+          "dx": 0,
+          "dy": 1,
+          "terrain": "Road"
+        },
+        {
+          "dx": -1,
+          "dy": 0,
+          "terrain": "Pavement"
+        },
+        {
+          "dx": -1,
+          "dy": 1,
+          "terrain": "Road"
+        },
+        {
+          "dx": 1,
+          "dy": 0,
+          "terrain": "Pavement"
+        },
+        {
+          "dx": 1,
+          "dy": 1,
+          "terrain": "Road"
+        }
+      ],
+      "priority": 100,
+      "every": 1,
+      "phase": 0,
+      "axis": "x"
+    },
+    {
+      "id": "curb-far-e",
+      "entry": "street-curb",
+      "variant": "far.e",
+      "center": "Road",
+      "neighbors": [
+        {
+          "dx": 1,
+          "dy": 0,
+          "terrain": "Pavement"
+        },
+        {
+          "dx": 0,
+          "dy": -1,
+          "terrain": "Road"
+        },
+        {
+          "dx": 1,
+          "dy": -1,
+          "terrain": "Pavement"
+        },
+        {
+          "dx": 0,
+          "dy": 1,
+          "terrain": "Road"
+        },
+        {
+          "dx": 1,
+          "dy": 1,
+          "terrain": "Pavement"
+        }
+      ],
+      "priority": 100,
+      "every": 1,
+      "phase": 0,
+      "axis": "y"
+    },
+    {
+      "id": "curb-far-s",
+      "entry": "street-curb",
+      "variant": "far.s",
+      "center": "Road",
+      "neighbors": [
+        {
+          "dx": 0,
+          "dy": 1,
+          "terrain": "Pavement"
+        },
+        {
+          "dx": -1,
+          "dy": 0,
+          "terrain": "Road"
+        },
+        {
+          "dx": -1,
+          "dy": 1,
+          "terrain": "Pavement"
+        },
+        {
+          "dx": 1,
+          "dy": 0,
+          "terrain": "Road"
+        },
+        {
+          "dx": 1,
+          "dy": 1,
+          "terrain": "Pavement"
+        }
+      ],
+      "priority": 100,
+      "every": 1,
+      "phase": 0,
+      "axis": "x"
+    },
+    {
+      "id": "drain-w",
+      "entry": "drainage-grate",
+      "variant": "w",
+      "center": "Pavement",
+      "neighbors": [
+        {
+          "dx": -1,
+          "dy": 0,
+          "terrain": "Road"
+        },
+        {
+          "dx": 0,
+          "dy": -1,
+          "terrain": "Pavement"
+        },
+        {
+          "dx": -1,
+          "dy": -1,
+          "terrain": "Road"
+        },
+        {
+          "dx": 0,
+          "dy": 1,
+          "terrain": "Pavement"
+        },
+        {
+          "dx": -1,
+          "dy": 1,
+          "terrain": "Road"
+        }
+      ],
+      "priority": 200,
+      "every": 16,
+      "phase": 0,
+      "axis": "y"
+    },
+    {
+      "id": "drain-n",
+      "entry": "drainage-grate",
+      "variant": "n",
+      "center": "Pavement",
+      "neighbors": [
+        {
+          "dx": 0,
+          "dy": -1,
+          "terrain": "Road"
+        },
+        {
+          "dx": -1,
+          "dy": 0,
+          "terrain": "Pavement"
+        },
+        {
+          "dx": -1,
+          "dy": -1,
+          "terrain": "Road"
+        },
+        {
+          "dx": 1,
+          "dy": 0,
+          "terrain": "Pavement"
+        },
+        {
+          "dx": 1,
+          "dy": -1,
+          "terrain": "Road"
+        }
+      ],
+      "priority": 200,
+      "every": 16,
+      "phase": 0,
+      "axis": "x"
+    },
+    {
+      "id": "drain-e",
+      "entry": "drainage-grate",
+      "variant": "e",
+      "center": "Pavement",
+      "neighbors": [
+        {
+          "dx": 1,
+          "dy": 0,
+          "terrain": "Road"
+        },
+        {
+          "dx": 0,
+          "dy": -1,
+          "terrain": "Pavement"
+        },
+        {
+          "dx": 1,
+          "dy": -1,
+          "terrain": "Road"
+        },
+        {
+          "dx": 0,
+          "dy": 1,
+          "terrain": "Pavement"
+        },
+        {
+          "dx": 1,
+          "dy": 1,
+          "terrain": "Road"
+        }
+      ],
+      "priority": 200,
+      "every": 16,
+      "phase": 0,
+      "axis": "y"
+    },
+    {
+      "id": "drain-s",
+      "entry": "drainage-grate",
+      "variant": "s",
+      "center": "Pavement",
+      "neighbors": [
+        {
+          "dx": 0,
+          "dy": 1,
+          "terrain": "Road"
+        },
+        {
+          "dx": -1,
+          "dy": 0,
+          "terrain": "Pavement"
+        },
+        {
+          "dx": -1,
+          "dy": 1,
+          "terrain": "Road"
+        },
+        {
+          "dx": 1,
+          "dy": 0,
+          "terrain": "Pavement"
+        },
+        {
+          "dx": 1,
+          "dy": 1,
+          "terrain": "Road"
+        }
+      ],
+      "priority": 200,
+      "every": 16,
+      "phase": 0,
+      "axis": "x"
+    }
+  ]
+}

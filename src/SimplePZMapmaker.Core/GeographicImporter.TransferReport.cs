@@ -13,7 +13,7 @@ public static partial class GeographicImporter
  /// placed in exactly one section, placed once at world level, or kept as evidence with a reason.</summary>
  public static TransferReport TransferCheck(string json,WorldProject world){
   if(world.GeoReference is not {} reference)throw new ArgumentException("The seam check needs a geographic world reference.");
-  using var document=Parse(json);var features=ReadFeatures(document.RootElement,out _);var projection=new GeographicProjection(reference,reference.OriginCellX,reference.OriginCellY);
+  var features=ReadWorldFeatures(json);var projection=new GeographicProjection(reference,reference.OriginCellX,reference.OriginCellY);
   (double X,double Y) Global((double X,double Y) point){var p=projection.Project(point);return(p.X+reference.OriginCellX*256,p.Y+reference.OriginCellY*256);}
   var problems=new List<string>();var reasons=new Dictionary<string,int>(StringComparer.Ordinal);var byKind=new Dictionary<string,TransferOutcome>(StringComparer.Ordinal);
   void Count(string kind,string id,int section,int shared,Func<string?> evidence){
@@ -30,12 +30,12 @@ public static partial class GeographicImporter
   var skipped=world.Maps.Where(m=>m.Project.ImportSummary is not null).SelectMany(m=>m.Project.ImportSummary!.SkippedOutlines.Where(o=>o.SourceId is not null&&o.Reason!="Outside the map").Select(o=>(o.SourceId!,o.Reason))).GroupBy(o=>o.Item1).ToDictionary(g=>g.Key,g=>g.First().Item2);
   var truncated=world.Maps.Any(m=>m.Project.ImportSummary?.SkippedOutlines.Count>=256);
   foreach(var f in features.Where(f=>f.Polygon&&f.Tags.ContainsKey("building")&&f.Rings.Count>0)){
-   var id=f.Tags.GetValueOrDefault("__pz_source")??"";var ring=f.Rings[0].Select(Global).ToList();
+   var id=f.Tags.GetValueOrDefault("__pz_source")??"";var projected=reference.Warp is null?f.Rings[0].Select(Global).ToList():projection.ProjectGeometry(f.Rings,true).SelectMany(r=>r.Select(p=>(X:p.X+reference.OriginCellX*256,Y:p.Y+reference.OriginCellY*256))).ToList();var ring=projected;
    var owners=ring.Select(p=>WorldAssembler.MemberAt(world,(int)Math.Floor(p.X),(int)Math.Floor(p.Y))?.Id).ToHashSet();
    Count("building",id,sectionBuildings.GetValueOrDefault(id),sharedBuildings.GetValueOrDefault(id),()=>skipped.TryGetValue(id,out var reason)?"skipped: "+reason:owners.All(o=>o is null)?"skipped: outside the world":owners.Count(o=>o is not null)>1||owners.Contains(null)?"skipped: crossing outline rejected at world level (water, overlap or access)":truncated?"skipped: listed only in a truncated section report":null);
   }
   foreach(var f in features.Where(f=>!f.Polygon&&FenceBarriers.Contains(f.Tags.GetValueOrDefault("barrier",""))&&f.Rings.Count>0)){
-   var id=f.Tags.GetValueOrDefault("__pz_source")??"";var touches=f.Rings.SelectMany(r=>r).Select(Global).Any(p=>WorldAssembler.MemberAt(world,(int)Math.Floor(p.X),(int)Math.Floor(p.Y)) is not null);
+   var id=f.Tags.GetValueOrDefault("__pz_source")??"";var touches=(reference.Warp is null?f.Rings.SelectMany(r=>r).Select(Global):projection.ProjectGeometry(f.Rings,false).SelectMany(r=>r.Select(p=>(X:p.X+reference.OriginCellX*256,Y:p.Y+reference.OriginCellY*256)))).Any(p=>WorldAssembler.MemberAt(world,(int)Math.Floor(p.X),(int)Math.Floor(p.Y)) is not null);
    var sections=world.Maps.Count(m=>m.Project.Fences.Any(l=>l.SourceId==id));var shared=world.Fences.Any(l=>l.SourceId==id)?1:0;
    Count("fence",id,sections,shared,()=>touches?null:"skipped: outside the world");
   }

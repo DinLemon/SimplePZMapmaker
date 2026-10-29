@@ -1,7 +1,7 @@
 export const mapLayerDefinitions=Object.freeze([
  {id:'terrain',label:'Terrain'},{id:'roads',label:'Roads'},{id:'paths',label:'Paths and fences'},
  {id:'buildings',label:'Buildings'},{id:'decorations',label:'Objects'},{id:'models',label:'Static models'},
- {id:'spawns',label:'Spawn points'},{id:'zones',label:'Game zones'},{id:'zombies',label:'Zombie density'},
+ {id:'spawns',label:'Spawn points'},{id:'zones',label:'Game zones'},{id:'zombies',label:'Zombie density',visible:false},
  {id:'source',label:'Source boundaries',visible:false},{id:'sections',label:'Sections and seams'}
 ]);
 const annotationLayers=['source','sections'];

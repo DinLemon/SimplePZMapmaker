@@ -18,3 +18,32 @@ test('diagnostics identify the isolated room tiles, basement stair issue and one
 
 test('resource-painted complete bed uses the authored native counterpart grid rather than an ambiguous color-family guess',async()=>{const b=make();b.design.floors[0].objects=[{kind:'asset',direction:'n',style:'',asset:'furniture_bedding_01_69',parts:objectParts({kind:'bed',direction:'n'}),x:2,y:2}];const before=structuredClone(b),next=await transformBuilding(b,'ccw',catalog().resolver),object=next.design.floors[0].objects[0];assert.equal(object.kind,'asset');assert.equal(object.asset,'furniture_bedding_01_70');assert.deepEqual(object.parts,objectParts({kind:'bed',direction:'w'}));assert.deepEqual(b,before);});
 test('floor and object clipboards carry attribution and reject conflicting resource owners without mutating either building',()=>{const source=make(),target=make();source.attribution=['Original architectural reference'];target.attribution=['Custom author'];source.design.floors[0].objects=[{kind:'seat',direction:'n',x:2,y:2}];const floor=pasteFloor(target,0,copyFloor(source,0));assert.deepEqual(floor.attribution,['Custom author','Original architectural reference']);const group=pasteObjectGroup(target,0,copyObjectGroup(source,0,['object:0']),6,5);assert.deepEqual(group.attribution,['Custom author','Original architectural reference']);const tile='floors_interior_tilesandwood_01_0';source.assetSources[tile]='OriginalMod';target.assetSources[tile]='OtherMod';const before=structuredClone(target);assert.throws(()=>pasteFloor(target,0,copyFloor(source,0)),/another owner/);assert.deepEqual(target,before);});
+
+test('quarter turns refuse an unregistered wall overlay instead of deleting its artwork',async()=>{
+ const b=make();b.design.floors[0].edges=[{x:3,y:0,edge:'n',kind:'window',overlayTile:'fixtures_windows_detailing_01_18'}];const before=structuredClone(b);
+ for(const kind of ['ccw','cw'])await assert.rejects(transformBuilding(b,kind,catalog().resolver),/overlay/i);
+ assert.deepEqual(b,before);
+ const next=await transformBuilding(b,'half',catalog().resolver);
+ assert.equal(next.design.floors[0].edges[0].overlayTile,'fixtures_windows_detailing_01_18');
+ assert.deepEqual([next.design.floors[0].edges[0].x,next.design.floors[0].edges[0].y,next.design.floors[0].edges[0].edge],[6,8,'n']);
+});
+
+test('selected native rotation rejects a damaged source grid before replacing it with a complete variant',async()=>{
+ const b=make();b.design.floors[0].objects=[{kind:'asset',direction:'n',asset:'furniture_bedding_01_69',parts:[{dx:0,dy:0,tile:'furniture_bedding_01_69',flags:2},{dx:0,dy:1,tile:'furniture_bedding_01_68',flags:2}],x:2,y:2}];
+ const before=structuredClone(b);
+ await assert.rejects(transformObjectGroup(b,0,['object:0'],'ccw',catalog().resolver),/resource changed/i);
+ assert.deepEqual(b,before);
+});
+
+test('selected rotation verifies source ownership even when the target variant has a different tile ID',async()=>{
+ const b=make();b.assetSources.furniture_bedding_01_69='OriginalMod';b.design.floors[0].objects=[{kind:'bed',direction:'n',x:2,y:2}];const before=structuredClone(b);
+ await assert.rejects(transformObjectGroup(b,0,['object:0'],'ccw',catalog().resolver),/owner changed/i);
+ assert.deepEqual(b,before);
+});
+
+test('manual whole-building rotation marks the source footprint edited and retains geographic evidence',async()=>{
+ const source=make();source.footprintOrigin='source-grid';const before=structuredClone(source),rotated=await transformBuilding(source,'ccw',catalog().resolver);
+ assert.equal(rotated.footprintOrigin,'manual-source-edit');assert.deepEqual(source,before);
+ const b=make();b.sourceOutline=[[{longitude:32,latitude:54},{longitude:32.1,latitude:54},{longitude:32.1,latitude:54.1},{longitude:32,latitude:54}]];const next=await transformBuilding(b,'ccw',catalog().resolver);
+ assert.equal(next.footprintOrigin,'manual-source-edit');assert.deepEqual(next.sourceOutline,b.sourceOutline);
+});

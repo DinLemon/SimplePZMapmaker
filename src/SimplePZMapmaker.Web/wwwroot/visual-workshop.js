@@ -1,3 +1,4 @@
+import {nativeSpriteOrder} from './native-sprite-order.js';
 import {minZ,aboveGroundCount} from './z-levels.js';
 import {cell,objectCells,objectParts,stairSpace,floorLevel} from './building.js';
 import {SpriteImages} from './resources.js';
@@ -68,7 +69,7 @@ export class VisualWorkshop{
    if(!response.ok){let error;try{error=(await response.json()).error;}catch{}throw Error(error||'Game view of draft is not available.');}
    const scene=await response.json();if(revision!==this.revision)return;
    if(!await this.images.load(scene.sprites.map(s=>s.tile),owner)||revision!==this.revision)return;
-   this.scene={...scene,sprites:scene.sprites.map(s=>({...s,x:s.x-2,y:s.y-2})).sort((a,b)=>a.z-b.z||(a.x+a.y)-(b.x+b.y)||a.x-b.x)};
+   this.scene={...scene,sprites:scene.sprites.map(s=>({...s,x:s.x-2,y:s.y-2})).sort((a,b)=>nativeSpriteOrder(a,b,this.images.meta))};
    const missing=new Set(scene.sprites.filter(s=>!this.images.meta.get(s.tile)?.sprite).map(s=>s.tile));
    this.canvas.dataset.state='ready';this.state(`${this.allLevels?'Entire building · editing disabled':`Floor z=${level} · roof hidden`} · ${scene.sprites.length.toLocaleString('en-GB')} sprites ${missing.size?` · without picture: ${missing.size}`:''}`,!!missing.size);
    if(this.fitPending)this.fit();this.draw();for(const f of b.design.floors)for(const model of f.staticModels||[])this.workshop.modelSprites.load(model).then(()=>{if(revision===this.revision)this.draw();});

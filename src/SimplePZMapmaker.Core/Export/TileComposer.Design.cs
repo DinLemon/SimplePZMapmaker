@@ -47,7 +47,7 @@ internal sealed partial class TileComposer
     var north=e.Edge=="n";if(!walls.TryGetValue((e.X,e.Y,north),out var wall))continue;
     if(wall.Kind!="covered")AddAt(x0+e.X,y0+e.Y,z,wall.Tile,wall.Kind=="corner"?(byte)6:north?(byte)2:(byte)4);
     if(e.Kind is "door" or "window")AddAt(x0+e.X,y0+e.Y,z,e.OpeningTile??$"fixtures_{(e.Kind=="door"?"doors":"windows")}_01_{(north?1:0)+(e.Kind=="door"?style?.DoorBase??0:style?.WindowBase??0)}");
-    if(e.OverlayTile is not null)AddAt(x0+e.X,y0+e.Y,z,e.OverlayTile);
+    if(e.OverlayTile is not null)AddAt(x0+e.X,y0+e.Y,z+e.OverlayLevelOffset,e.OverlayTile);
    }
    foreach(var o in floor.Objects){
     if(o.Kind=="stairs"){
@@ -65,10 +65,12 @@ internal sealed partial class TileComposer
   for(var index=0;design.Roof!="none"&&index<design.Floors.Count;index++){
    var z=index+design.MinLevel;var f=design.Floors[index];for(var y=0;y<b.Height;y++)for(var x=0;x<b.Width;x++){
     var code=BuildingDesigner.Cell(b,f,x,y);if(code=='.'||f.Rooms[code.ToString()]=="balcony"||index+1<design.Floors.Count&&BuildingDesigner.Cell(b,design.Floors[index+1],x,y)!='.'||z==-1)continue;
-    AddAt(x0+x,y0+y,z+1,design.Roof=="flat"?design.FlatRoofTile??"floors_interior_tilesandwood_01_40":"floors_interior_tilesandwood_01_40");
+    var flatCover=design.Roof=="flat"||index<design.Floors.Count-1;
+    AddAt(x0+x,y0+y,z+1,flatCover?design.FlatRoofTile??"floors_interior_tilesandwood_01_40":"floors_interior_tilesandwood_01_40");
     if(index==design.Floors.Count-1&&design.Roof!="flat"){
      // TileZed's 30-degree roof palette has six slope pieces per vertical level.
      var piece=RoofGeometry.Piece(b,f,x,y);var roofLevel=z+1+piece.Depth/6;var tileIndex=piece.TileIndex;
+     if(piece.Flat)continue;
      MaxLevel=Math.Max(MaxLevel,roofLevel);AddAt(x0+x,y0+y,roofLevel,$"{design.RoofTileset??style?.Roof??"roofs_30_01"}_{tileIndex}");
     }
    }

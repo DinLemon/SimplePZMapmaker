@@ -6,15 +6,21 @@ using SimplePZMapmaker.Core.Export;
 using SimplePZMapmaker.Web.Services;
 
 const string Usage="""
+simplepzmap fetch-cadastre --bounds <south,west,north,east> --out survey.geojson [--step-metres 9 | --grid 4] [--layers parcels,buildings] [--expected-region 52]
+simplepzmap geographic-warp <warp-spec.json> --out reference.json
 simplepzmap fetch --bounds <south,west,north,east> --out osm.json
 simplepzmap build <scene.json> [--out world.pzworld.json] [--export mod.zip] [--report report.json] [--strict] [--game <path>] [mod options]
 simplepzmap validate <map.pzmap.json|world.pzworld.json> [--game <path>] [--source data.geojson] [--strict]
 simplepzmap export <map.pzmap.json|world.pzworld.json> --out mod.zip [--game <path>] [mod options]
-simplepzmap probe <mod.zip> --game <path> [--expect-stairs]
+simplepzmap probe <mod.zip> --game <path> [--expect-stairs] [--resource-mod <tiles.zip>]
 simplepzmap server-check <mod.zip> --game <path> [--timeout-minutes 10]
 simplepzmap conflicts <mod.zip|map.pzmap.json|world.pzworld.json> --game <path> [--mods-dir <dir>]
 simplepzmap housing-templates <examples/HousingTemplates>
 simplepzmap serve <mod.zip> --game <path> [--server-dir <dir>] [--port 16261] [--fresh]
+simplepzmap doctor <map.pzmap.json|world.pzworld.json> [--game <path>] [--report report.json] [--strict]
+simplepzmap tile-compare <before.tiles> --against <after.tiles> [--report report.json]
+simplepzmap building-import <building.tbx|building.tmx> --out building.pzbuilding.json [--allow-lossy] [--report report.json]
+simplepzmap building-export <building.pzbuilding.json> --format <tbx|tmx> --out building.tbx [--allow-lossy] [--report report.json]
 simplepzmap tiles <tileset.json> --out tiles.zip [--game <path>] [--install] [--mods-dir <dir>]
 
 mod options: --mod-id <id> --map-folder <name> --mod-name "<title>" --common-maps --install [--mods-dir <dir>]
@@ -27,6 +33,16 @@ catch(ArgumentException e){Console.Error.WriteLine("error: "+e.Message);return 1
 catch(Exception e) when(e is IOException or UnauthorizedAccessException or JsonException or HttpRequestException or TimeoutException){Console.Error.WriteLine("error: "+e.Message);return 1;}
 
 static int Run(string[] args){
+ if(args.Length>1&&args[0]=="geographic-warp"){
+  var warpOptions=Options(args[2..]);if(warpOptions.Keys.Any(k=>k!="--out"))throw new ArgumentException("geographic-warp accepts --out reference.json.");
+  var output=Path.GetFullPath(warpOptions.GetValueOrDefault("--out")??throw new ArgumentException("geographic-warp needs --out reference.json."));
+  var warpInput=Path.GetFullPath(args[1]);if(new FileInfo(warpInput).Length>128*1024)throw new ArgumentException("Warp specification exceeds 128 KiB.");
+  var request=JsonSerializer.Deserialize<GeographicWarpRequest>(File.ReadAllText(warpInput),NativeMapExporter.JsonOptions)??throw new ArgumentException("Expected reference and options.");var result=GeographicWarpProposal.Create(request);
+  Directory.CreateDirectory(Path.GetDirectoryName(output)!);var temporary=output+"."+Guid.NewGuid().ToString("N")+".tmp";
+  try{File.WriteAllText(temporary,JsonSerializer.Serialize(result.Reference,NativeMapExporter.JsonOptions));File.Move(temporary,output,true);}finally{if(File.Exists(temporary))File.Delete(temporary);}
+  Console.WriteLine($"Common warp: {result.Width} x {result.Height}; min determinant {result.MinimumDeterminant:G6}. {result.Notice}");return 0;
+ }
+ if(args.Length>0&&args[0]=="fetch-cadastre")return CadastreCommands.RunAsync(Options(args[1..])).GetAwaiter().GetResult();
  if(args.Length>0&&args[0]=="fetch")return Fetch(Options(args[1..]));
  if(args.Length<2||args[0] is "-h" or "--help"){Console.WriteLine(Usage);return args.Length==0||args[0] is "-h" or "--help"?0:2;}
  var command=args[0];var input=Path.GetFullPath(args[1]);var options=Options(args[2..]);
@@ -36,6 +52,10 @@ static int Run(string[] args){
  var catalog=assets??new GameAssetCatalog(workspace,"");var models=new StaticModelCatalog(catalog);
  NativeModOptions? Mod(NativeModOptions? scene){var o=new NativeModOptions(Option("--mod-id")??scene?.ModId,Option("--map-folder")??scene?.MapFolder,Option("--mod-name")??scene?.Name,Flag("--common-maps")||scene?.CommonMaps==true,Flag("--install")||scene?.Install==true);NativeModPackage.Validate(o);return o.Renames||o.Install?o:null;}
  switch(command){
+  case "doctor":{var (map,world)=Load(input,validate:false);return AuthoringCommands.Doctor(map,world,catalog,models,Option("--report"),Flag("--strict"));}
+  case "tile-compare":return AuthoringCommands.CompareTiles(input,Path.GetFullPath(Option("--against")??throw new ArgumentException("tile-compare needs --against <after.tiles>.")),Option("--report"));
+  case "building-import":return AuthoringCommands.Exchange(input,Option("--out")??throw new ArgumentException("building-import needs --out."),Path.GetExtension(input).TrimStart('.'),true,Flag("--allow-lossy"),Option("--report"));
+  case "building-export":return AuthoringCommands.Exchange(input,Option("--out")??throw new ArgumentException("building-export needs --out."),Option("--format")??throw new ArgumentException("building-export needs --format tbx or tmx."),false,Flag("--allow-lossy"),Option("--report"));
   case "build":{
    var scene=SceneBuilder.Read(input);var build=SceneBuilder.Build(scene,Path.GetDirectoryName(input)!,w=>WorldEndpoints.Validate(w,catalog,models),Console.WriteLine);
    foreach(var w in build.Warnings)Console.WriteLine("note: "+w);
@@ -74,7 +94,7 @@ static int Run(string[] args){
    return Conflicts(cells,Path.GetFullPath(installation),Option("--mods-dir"),own)?1:0;}
   case "housing-templates":return HousingExamples.Refresh(input,Console.WriteLine);
   case "serve":return PlaytestServer.Run(input,Option("--game")??throw new ArgumentException("serve needs --game <Build 42 installation>."),Option("--server-dir")??Path.Combine(workspace,"work","playtest-server",Path.GetFileNameWithoutExtension(input)),Flag("--fresh"),int.TryParse(Option("--port"),out var port)?port:16261,Console.WriteLine);
-  case "probe":return Probe(input,Option("--game")??throw new ArgumentException("probe needs --game <Build 42 installation>."),Flag("--expect-stairs"));
+  case "probe":return Probe(input,Option("--game")??throw new ArgumentException("probe needs --game <Build 42 installation>."),Flag("--expect-stairs"),Option("--resource-mod"));
   default:Console.Error.WriteLine(Usage);return 2;
  }
 }
@@ -96,15 +116,15 @@ static int Fetch(Dictionary<string,string> options){
  return 0;
 }
 static Dictionary<string,string> Options(string[] args){
- var flags=new HashSet<string>{"--common-maps","--install","--strict","--expect-stairs","--save-workspace","--fresh"};var result=new Dictionary<string,string>(StringComparer.Ordinal);
+ var flags=new HashSet<string>{"--common-maps","--install","--strict","--expect-stairs","--save-workspace","--fresh","--allow-lossy"};var result=new Dictionary<string,string>(StringComparer.Ordinal);
  for(var i=0;i<args.Length;i++){if(!args[i].StartsWith("--",StringComparison.Ordinal))throw new ArgumentException("Unexpected argument: "+args[i]);if(flags.Contains(args[i])){result[args[i]]="true";continue;}if(i+1>=args.Length)throw new ArgumentException(args[i]+" needs a value.");result[args[i]]=args[++i];}
  return result;
 }
-static (MapProject? Map,WorldProject? World) Load(string path){
+static (MapProject? Map,WorldProject? World) Load(string path,bool validate=true){
  using var document=JsonDocument.Parse(File.ReadAllText(path),new JsonDocumentOptions{MaxDepth=64});
  var format=document.RootElement.TryGetProperty("format",out var f)?f.GetString():null;
  if(format=="SimplePZWorld")return(null,document.RootElement.Deserialize<WorldProject>(NativeMapExporter.JsonOptions));
- var map=document.RootElement.Deserialize<MapProject>(NativeMapExporter.JsonOptions)??throw new ArgumentException("The project file is empty.");ProjectValidator.Validate(map);return(map,null);
+ var map=document.RootElement.Deserialize<MapProject>(NativeMapExporter.JsonOptions)??throw new ArgumentException("The project file is empty.");if(validate)ProjectValidator.Validate(map);return(map,null);
 }
 static bool Report(TransferReport report,string? file){
  foreach(var (kind,o) in report.ByKind.OrderBy(k=>k.Key))Console.WriteLine($"seam check {kind}: placed-section {o.PlacedSection}, placed-world {o.PlacedWorld}, evidence {o.Evidence}, lost {o.Lost}, duplicated {o.Duplicated}");
@@ -130,9 +150,12 @@ static void Export(Action<Stream> write,string target,NativeModOptions? package,
  if(package?.Install==true){using var archive=File.OpenRead(target);Console.WriteLine("installed "+NativeModPackage.Install(archive,modsDirectory??NativeModPackage.DefaultModsDirectory()));}
 }
 /// <summary>Runs scripts/verify-game-runtime.ps1: the installed game's own classes load the lot headers, chunks, rooms and stairs.</summary>
-static int Probe(string archive,string game,bool expectStairs){
+static int Probe(string archive,string game,bool expectStairs,string? resourceMod=null){
  var script=new[]{AppContext.BaseDirectory,Directory.GetCurrentDirectory()}.Select(d=>Path.Combine(d,"scripts","verify-game-runtime.ps1")).Concat(Ancestors(AppContext.BaseDirectory).Select(d=>Path.Combine(d,"scripts","verify-game-runtime.ps1"))).FirstOrDefault(File.Exists)??throw new ArgumentException("scripts/verify-game-runtime.ps1 was not found; run probe from the repository.");
- var start=new ProcessStartInfo("powershell",["-NoProfile","-ExecutionPolicy","Bypass","-File",script,"-MapArchive",archive,"-GamePath",Path.GetFullPath(game),..(expectStairs?Array.Empty<string>():["-NoStairs"])]){UseShellExecute=false};
- using var process=Process.Start(start)??throw new ArgumentException("Could not start PowerShell.");process.WaitForExit();return process.ExitCode==0?0:1;
+ var start=new ProcessStartInfo("powershell",["-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-File",script,"-MapArchive",archive,"-GamePath",Path.GetFullPath(game),..(expectStairs?Array.Empty<string>():["-NoStairs"]),..(resourceMod is null?Array.Empty<string>():["-TileModArchive",Path.GetFullPath(resourceMod)])]){UseShellExecute=false,CreateNoWindow=true};
+ start.Environment.Remove("PSModulePath");start.RedirectStandardOutput=true;start.RedirectStandardError=true;
+ using var process=Process.Start(start)??throw new ArgumentException("Could not start PowerShell.");
+ var stdout=process.StandardOutput.BaseStream.CopyToAsync(Console.OpenStandardOutput());var stderr=process.StandardError.BaseStream.CopyToAsync(Console.OpenStandardError());
+ process.WaitForExit();Task.WhenAll(stdout,stderr).GetAwaiter().GetResult();return process.ExitCode==0?0:1;
 }
 static IEnumerable<string> Ancestors(string directory){for(var d=new DirectoryInfo(directory);d is not null;d=d.Parent)yield return d.FullName;}

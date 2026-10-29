@@ -13,11 +13,18 @@ Without `--game`, generated street dressing and vanilla vehicle distributions ar
 | `validate <file>` | Validates a `.pzmap.json` or `.pzworld.json`. With `--source` it runs the seam check against the original data. |
 | `export <file> --out mod.zip` | Writes the Build 42 mod of a map or world. |
 | `tiles <tileset.json> --out tiles.zip` | Builds a tile mod (`.pack` + `.tiles`) from PNG frames. |
-| `probe <mod.zip> --game <path>` | Loads the exported lots with the installed game's own classes (headers, chunks, rooms, every tile sprite; stairs with `--expect-stairs`). Needs the repository's `scripts/` folder and Java from the game. |
+| `probe <mod.zip> --game <path>` | Loads the exported lots with the installed game's own classes (headers, chunks, rooms, every tile sprite; stairs with `--expect-stairs`). For a custom tile dependency, add `--resource-mod <tiles.zip>`: its registered definitions are loaded before checking map sprites. Needs the repository's `scripts/` folder and Java from the game. |
 | `conflicts <mod.zip\|map\|world> --game <path>` | Lists installed maps that already use one of the map's native cells: the game's own maps (challenge maps excluded), Steam Workshop items next to the installation and the local mods folder (`--mods-dir`), all read only. It fails when the base game is hit. `build --game` runs the same check, and `--strict` then fails on it. |
 | `housing-templates <dir>` | Regenerates the distributed housing examples (`examples/HousingTemplates`) from the built-in catalog: each `.pzbuilding.json`, the combined `.pzmap.json` and its mod archive, keeping ids and positions. |
 | `serve <mod.zip> --game <path>` | Starts a dedicated server for playtesting in `work/playtest-server/<name>` (`--server-dir`), never in your `Zomboid` folder: the map loads next to Muldraugh with its spawn regions, the window prints the address and admin login, and `quit` stops it. `--fresh` starts a new world, `--port` sets the port (16261). See the [playtest checklist](PLAYTEST.md). |
 | `server-check <mod.zip> --game <path>` | Starts the installed Build 42 dedicated server (`zombie.network.GameServer`, `-nosteam`) in a temporary cache folder with the mod and a test-only Lua probe. The probe asks the server's own metagrid for buildings at room tiles taken from the archive's authoring source, plus one empty control tile, and loads the map's spawn regions as the game does (profession keys, spawn points and how many lie in a building); the server is then stopped with `quit`. Your `Zomboid` folder is not touched. |
+
+Additional authoring commands:
+
+- `doctor <map|world> --game <path> --report report.json`: aggregate project checks and state coverage explicitly; `--strict` rejects incomplete coverage too.
+- `tile-compare before.tiles --against after.tiles --report report.json`: compare original slots, properties and replacement references, without editing either file.
+- `building-import file.tbx --out draft.pzbuilding.json` (also `.tmx`): import the supported XML subset into a separate draft.
+- `building-export draft.pzbuilding.json --format tmx --out draft.tmx`: export the subset. Both exchange commands accept `--report` and explicit `--allow-lossy`; without it unsupported details block output. See [exchange contract](BUILDING-EXCHANGE.md).
 
 Common options:
 
@@ -46,7 +53,7 @@ The same mod options are available on every HTTP export as query parameters: `mo
 ```
 
 - `source` is one GeoJSON FeatureCollection or Overpass JSON file; `sources` lists several GeoJSON files whose features are merged (a feature `id` seen twice is kept once). Paths are relative to the scene file.
-- `reference` is the rotated geographic reference of the [transfer contract](TRANSFER-CONTRACT.md#1-coordinates). The area is cut into `sectionSize` sections; a world holds up to 128 sections and 8,192 native cells.
+- `reference` is the rotated geographic reference of the [transfer contract](TRANSFER-CONTRACT.md#1-coordinates). The CLI scene builder cuts the area into `sectionSize` sections and retains its compatibility allowance of 128 sections / 8,192 native cells. The web importer separately supports expanded disk assembly up to 65,536 sections / cells; this does not make CLI scene assembly incremental.
 - Section identities follow contract section 2: the first 32 hex digits of SHA-256(`name|X,Y`), so a rebuild keeps them.
 - `skipEmptySections` leaves out sections without buildings, fences or paths.
 
@@ -89,4 +96,35 @@ The build took about five minutes; `probe --expect-stairs` on the resulting mod 
 
 Each PNG is one 8-bit RGBA or RGB frame, normally 128×256 like the game's 2x tiles. Frames are trimmed to their opaque pixels and packed into one atlas page. Tiles are named `<tileset>_<index>` in file order, eight per row. `copyFrom` copies the properties of an installed tile (wall, fence, door flags and materials); `properties` adds or overrides keys. `fileNumber` is the `tiledef` number (100–8190) and must not clash with other active mods. The archive contains `42/mod.info` (`pack=` and `tiledef=`), `42/media/texturepacks/<tileset>.pack` and `42/media/<tileset>.tiles`.
 
+Build 42 permits at most **512 sprites per tileset**. The builder rejects larger inputs before writing either a ZIP or a tile-definition payload; split a larger collection into separate sets. An atlas page and a tile-definition set have separate limits.
+
 Enable the tile mod in **Game resources** to use its tiles in the editor; maps that use them then list it in `require=` automatically.
+
+## Supplemental surveys and common deformation
+
+`fetch-cadastre --bounds south,west,north,east --out survey.geojson [--step-metres 9 | --grid 4] [--layers parcels,buildings] [--expected-region 67]` preflights a bounded public NSPD sample, caches completed points and resumes an identical selection. Offline supplied GeoJSON does not need NSPD. See [CADASTRAL-SOURCES.md](CADASTRAL-SOURCES.md).
+
+`geographic-warp warp-spec.json --out reference.json` accepts `{ "reference": <WorldGeoReference>, "options": { "fieldScaleX": 0.8, "fieldScaleY": 0.8, "anchors": [] } }`. Copy the resulting reference into a scene and rebuild from original geographic sources. Anchors use minX/minY/maxX/maxY/rotationDegrees in the original rotated common tile frame. `reference.regionalProfile="ru-rural"` chooses inferred rural road surfaces; explicit tags take priority.
+
+### Server checks of streamed exports
+
+`server-check` accepts both legacy project/world source JSON and streamed archives containing `source/world.pzworld.index.json`, `source/world.metadata.json`, and `source/sections/<id>.pzmap.json`. It validates pinned byte lengths/hashes and reads section terrain one section at a time. Selected-section archives keep the complete index as context; probes are restricted to sections actually included in the archive and clip shared seam buildings to that exported area. The game runs in a temporary cachedir, without installing into the real user profile.
+
+## Optional KnoxMap scene bridge
+
+`SimplePZScene` stays at version 1. Add either or both optional fields to the scene object:
+
+```json
+{
+  "alignStreetGrid": true,
+  "overtureBuildings": "sources/overture-buildings.geojson"
+}
+```
+
+- `alignStreetGrid` defaults to `false`. When explicitly `true`, the builder measures the complete combined source before calculating section bounds, then applies the suggested angle to a cloned geographic reference. Every section, shared building and seam check uses that one frame. The input scene/reference and original geographic coordinates remain unchanged. If the street network is too weak to suggest an angle, the manual `reference.rotationDegrees` is retained and the build emits a warning.
+- `alignStreetGrid: true` together with `reference.warp` is rejected: a saved deformation already belongs to its original rotated frame. Align first, then construct a new warp using that reference; build the saved warp with alignment disabled.
+- `overtureBuildings` defaults to `null`. Supply a saved official Overture **buildings** WGS84 GeoJSON FeatureCollection. The path is relative to the scene file, must contain 1-4096 characters without control characters, and cannot be absolute. A selected missing or invalid file fails the build. This bridge reads local files; it requires neither network access nor DuckDB at runtime.
+- Overture supplements missing building outlines after the usual `source`/`sources` merge and before alignment or section splitting. Original roads, tags and source identities are preserved; existing/repeated footprints are skipped by the Core adapter. Build warnings include candidate, added, existing, too-small and outside counts, together with the adapter's ODbL/roofprint notice. Added footprints retain Overture identities and attribution in the combined source; imported sections include their source credit. `SceneBuild.SourceJson` and the seam report use the supplemented source.
+- Every input source file, including a single `source` and the optional Overture file, is checked against **64,000,000 bytes** before reading. Decoded UTF8 content and combined geographic data must also fit the 64 MB limit. Large non-ASCII input is bounded by bytes, not character count.
+
+Omitting these fields keeps the existing source selection, listed merge precedence and manual rotation behavior.

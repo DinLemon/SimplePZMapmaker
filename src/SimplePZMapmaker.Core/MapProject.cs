@@ -4,7 +4,7 @@ public enum Terrain : byte { Grass, Forest, Road, Water, Sand, Dirt, Pavement }
 public sealed class MapProject
 {
     private int version=4;
-    public int Version { get=>AuthoringFormats.MapHasFurniture(this)&&version<14?14:AuthoringFormats.MapHasAttachedBuildings(this)&&version<13?13:AuthoringFormats.MapHasFences(this)&&version<12?12:AuthoringFormats.MapHasInfrastructure(this)&&version<11?11:AuthoringFormats.MapHasExtendedLevels(this)&&version<10?10:AuthoringFormats.MapHasNewAuthoring(this)&&version<9?9:ResourcePalettes?.Count>0&&version<8?8:version==6&&(StaticModels?.Any(m=>m?.Profile!="pickup")==true||(Buildings??[]).Concat(BuildingLibrary??[]).Any(b=>b?.Design?.Floors?.Any(f=>f?.StaticModels?.Any(m=>m?.Profile!="pickup")==true)==true))?7:version;set=>version=value; }
+    public int Version { get=>DeckArtwork.MapHasArtwork(this)&&version<18?18:AuthoringFormats.MapHasRaisedOverlays(this)&&version<17?17:AuthoringFormats.MapHasLargeFootprint(this)&&version<16?16:(Sites?.Any(s=>s?.ParcelGeneration is not null)==true||SourceFeatures?.Any(f=>f?.SourceGeometry is not null&&f.Geometry is not null&&(f.SourceGeometry.Count!=f.Geometry.Count||f.SourceGeometry.Where((r,i)=>r?.Count!=f.Geometry[i]?.Count).Any()))==true)&&version<15?15:AuthoringFormats.MapHasFurniture(this)&&version<14?14:AuthoringFormats.MapHasAttachedBuildings(this)&&version<13?13:AuthoringFormats.MapHasFences(this)&&version<12?12:AuthoringFormats.MapHasInfrastructure(this)&&version<11?11:AuthoringFormats.MapHasExtendedLevels(this)&&version<10?10:AuthoringFormats.MapHasNewAuthoring(this)&&version<9?9:ResourcePalettes?.Count>0&&version<8?8:version==6&&(StaticModels?.Any(m=>m?.Profile!="pickup")==true||(Buildings??[]).Concat(BuildingLibrary??[]).Any(b=>b?.Design?.Floors?.Any(f=>f?.StaticModels?.Any(m=>m?.Profile!="pickup")==true)==true))?7:version;set=>version=value; }
     public bool WorldSection {get;set;}
     [System.Text.Json.Serialization.JsonIgnore]
     public InfrastructureGeometry.Geometry? SharedInfrastructure {get;set;}
@@ -88,6 +88,7 @@ public sealed class BuildingDesign {
     public int Variant {get;set;}
     public string Style {get;set;}="";
     public string? RoofTileset {get;set;}
+    /// <summary>Surface of flat roofs and exposed lower-floor wing covers; pitched roof underlay retains its default.</summary>
     public string? FlatRoofTile {get;set;}
     public List<BuildingFloor> Floors {get;set;}=[];
 }
@@ -110,6 +111,9 @@ public sealed class BuildingEdge {
     // Optional decoration drawn on the same wall edge after the wall and opening: window surrounds (наличники),
     // shutters, facade lettering. Uses tiles with the WallOverlay property for the matching N/W orientation.
     public string? OverlayTile {get;set;}
+    /// <summary>0: the wall floor; 1: the floor above, for gables and roof-mounted facade artwork.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public int OverlayLevelOffset {get;set;}
 }
 public sealed class BuildingObject {
     public int X {get;set;} public int Y {get;set;}

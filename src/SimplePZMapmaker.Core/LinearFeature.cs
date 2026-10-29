@@ -12,6 +12,8 @@ public sealed class LinearFeature {
  public string Interpolation {get;set;}="polyline";
  public List<LinearPoint> Points {get;set;}=[];
  public List<SourceOutlinePoint> SourcePath {get;set;}=[];
+ /// <summary>Optional floor artwork owned by this deck, in the same coordinates as Points and at Level.</summary>
+ public List<DeckArtworkCell> DeckArtwork {get;set;}=[];
  public string? SourceId {get;set;}
  public Dictionary<string,string> SourceTags {get;set;}=[];
  public bool Modified {get;set;}
@@ -20,4 +22,5 @@ public sealed class LinearFeature {
  public List<WorldDecoration> GeneratedDecorations {get;set;}=[];
  public Dictionary<string,string> AssetSources {get;set;}=[];
 }
+public sealed record DeckArtworkCell(int X,int Y,string Tile);
 public sealed record LinearUnderlayCell(int Index,Terrain Terrain,string? Surface,bool Edited,Terrain RenderedTerrain,string? RenderedSurface,bool RenderedEdited);

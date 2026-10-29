@@ -51,7 +51,7 @@ The historical section must have the same origin and dimensions. It is validated
 
 Crossing buildings and infrastructure use the shared world geometry. Their projected footprints remain visible in an isolated section and participate in placement checks. Required nearby support samples are read for shared infrastructure; unrelated terrain sections remain unloaded. Missing required samples produce an error rather than invented ground.
 
-Shared geometry is **read-only** in an isolated section. To change a shared building, decoration or path, save the active section and choose **Load complete world**. That compatibility operation loads the whole world and retains the complete-world size budget; it is not a streaming shared-object editor.
+Shared geometry is **read-only** in an isolated section. When the complete world fits the 128 MiB compatibility budget, save the active section and choose **Load complete world** to edit shared buildings, decorations or paths. The picker shows the stored size of all sections plus shared authored plans and disables complete loading when their total exceeds 128 MiB or the size is unknown. **Open only this section** and **Export saved world** remain available for large workspaces. Shared-object editing for an oversized world still requires a streaming shared-object editor; opening an isolated section does not enable it.
 
 For native output, choose **Export saved section** or **Export saved world** inside **Section workspaces**. Dirty edits in the active selected workspace save first. The queued job pins a saved revision, checks resources and processes section rasters in sequence. Editing after queueing does not alter that job's input. Progress, cancellation and download use the existing [export queue](EXPORT-JOBS.md).
 
@@ -59,9 +59,9 @@ The native ZIP retains source sections and shared authoring metadata alongside n
 
 ### Current budgets
 
-- Up to 128 sections and 8,192 native cells per world.
+- Up to 65,536 sections and 65,536 native cells per saved world.
 - Each section is 256–2,048 tiles per side, in multiples of 256. A world can extend beyond a single section's dimensions.
-- A saved section blob is limited to 48 MiB, shared metadata to 16 MiB and the manifest to 1 MiB. The workspace index does not impose a 128 MiB aggregate raster budget.
+- A saved section blob and shared authored metadata are each limited to 128 MiB; the manifest is limited to 32 MiB. Shared metadata includes full floor plans for buildings crossing section boundaries; the active section receives only the context that intersects it. The workspace index does not impose a 128 MiB aggregate raster budget.
 - Compatibility complete-world JSON loading/saving retains its explicit 128 MiB budget. Native ZIP/job output is currently bounded to 256 MiB; streaming does not mean unlimited output size. Export selected sections separately when a combined archive exceeds that limit.
 
 These are application storage/authoring budgets. They do not establish a 2,048-tile limit for an entire Project Zomboid world.
@@ -157,3 +157,5 @@ Current boundaries: native lighting requires **Load complete world** so that its
 The companion developer's private 13 populated Pilna scenes have not been used as an acceptance fixture for this change. Synthetic fixtures establish the tested behavior without claiming that the complete real settlement has already passed validation.
 
 See [zone authoring semantics](ZONE-AUTHORING.md) for field names, source tags, limits and API requests, and the [shared integration contract](SPZM-SCENE-CONTRACT.md) for capabilities still awaiting core implementation.
+
+New geographic section imports are assembled directly into private disk staging, with bounded neighbor reads for seam buildings and sequential validation before atomic publication. Ordinary 128-section / 768-cell consent thresholds and source-data limits remain separate. See [incremental import](WORKSPACE-UI.md).

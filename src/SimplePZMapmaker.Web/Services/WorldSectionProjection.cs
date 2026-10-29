@@ -21,7 +21,8 @@ internal static class WorldSectionProjection
   Terrain Ground(int x,int y){token.ThrowIfCancellationRequested();if(samples.TryGetValue((x,y),out var known))return known;var s=lease.PinnedManifest.Sections.SingleOrDefault(s=>WorldSectionArchive.Inside(s,x,y))??throw new ArgumentException("A shared path reaches an unmapped world tile.");var p=s.Id==section.Id?project:sampled is {} cached&&cached.WorldX==s.WorldX&&cached.WorldY==s.WorldY?cached:sampled=lease.ReadSectionAsync(s.Id,token).GetAwaiter().GetResult();var ground=p.Terrain[(y-s.WorldY*256)*p.Width+x-s.WorldX*256];samples[(x,y)]=ground;return ground;}
   InfrastructureGeometry.Geometry? geometry=null;if(layout.LinearFeatures.Count>0)geometry=WorldInfrastructure.Build(layout,Ground);sampled=null;
   var projected=WorldAssembler.ProjectSection(layout,layout.Maps.Single(m=>m.Id==section.Id),geometry);InfrastructureGeometry.Validate(projected);
-  if(projected.SharedInfrastructure?.Tiles.Any(t=>t.Z==0&&t.Id==InfrastructureGeometry.DeckTile&&projected.Terrain[t.Y*projected.Width+t.X]==Terrain.Water)==true)throw new ArgumentException("Shared stairs need a dry landing after world ground paths are applied.");
+  var landings=layout.LinearFeatures.Where(f=>f.Access=="stairs").Select(f=>((int)Math.Floor(f.Points[0].X),(int)Math.Floor(f.Points[0].Y)+4*f.Level)).ToHashSet();
+  if(projected.SharedInfrastructure?.Tiles.Any(t=>t.Z==0&&t.Id==InfrastructureGeometry.DeckTile&&landings.Contains((t.X+projected.WorldX*256,t.Y+projected.WorldY*256))&&projected.Terrain[t.Y*projected.Width+t.X]==Terrain.Water)==true)throw new ArgumentException("Shared stairs need a dry landing after world ground paths are applied.");
   await Task.CompletedTask;return projected;
  }
 }

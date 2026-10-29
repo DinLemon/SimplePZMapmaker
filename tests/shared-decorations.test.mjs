@@ -35,5 +35,5 @@ test('shared decoration validation mirrors the core rules',()=>{
 test('a building under 6x6 is a valid one-room design',()=>{
  const b={id:'shed',name:'Shed',kind:'warehouse',x:10,y:10,width:3,height:2,design:{material:'wood',roof:'flat',shape:'rect',variant:1,floors:[{cells:'111111',rooms:{'1':'storage'},edges:[],objects:[]}]}};
  refreshEdges(b,0);validateDesign(b);
- assert.throws(()=>validateDesign({...b,width:1,height:6,design:{...b.design,floors:[{...b.design.floors[0],cells:'111111'}]}}),/2–64/);
+ assert.throws(()=>validateDesign({...b,width:1,height:6,design:{...b.design,floors:[{...b.design.floors[0],cells:'111111'}]}}),/2–512/);
 });

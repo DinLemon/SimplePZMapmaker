@@ -16,12 +16,13 @@ public static class BuildingDesigner
   if(b.Design is null&&perimeter)for(var y=0;y<=b.Height;y++)for(var x=0;x<=b.Width;x++)result.Add(y*(b.Width+1)+x);return result;
  }
  /// <summary>Smallest footprint side. Below <see cref="RoomyFootprint"/> a building is one room (a shed, kiosk or booth).</summary>
- public const int MinimumFootprint=2,RoomyFootprint=6;
+ public const int MinimumFootprint=2,RoomyFootprint=6,MaximumFootprint=512,MaximumFloorCells=262144;
  public static bool Small(int width,int height)=>width<RoomyFootprint||height<RoomyFootprint;
  /// <summary>Stairs need five tiles in a straight line plus a landing, so a small footprint holds them only along a side of at least six tiles.</summary>
  public static bool HoldsStairs(int width,int height)=>Math.Max(width,height)>=RoomyFootprint;
  public static BuildingDesign Generate(Building b,int levels,int seed,string shape="rect",int basements=0){
-  if(b.Width is <MinimumFootprint or >64||b.Height is <MinimumFootprint or >64||levels is <1 or >ZLevels.AboveGroundCount||basements is <0 or >ZLevels.BasementCount||!Kinds.Contains(b.Kind)||shape is not("rect" or "l" or "t" or "courtyard" or "annex"))throw new ArgumentException("Check the building type, dimensions, shape, and floor count: 2-64 tiles per side, 1-32 above-ground floors (z=0 to 31) and 0-32 basement levels (z=-1 to -32).");
+  if(b.Width is <MinimumFootprint or >MaximumFootprint||b.Height is <MinimumFootprint or >MaximumFootprint||levels is <1 or >ZLevels.AboveGroundCount||basements is <0 or >ZLevels.BasementCount||!Kinds.Contains(b.Kind)||shape is not("rect" or "l" or "t" or "courtyard" or "annex"))throw new ArgumentException("Check the building type, dimensions, shape, and floor count: 2-512 tiles per side, 1-32 above-ground floors (z=0 to 31) and 0-32 basement levels (z=-1 to -32).");
+  if((long)b.Width*b.Height*(levels+basements)>MaximumFloorCells)throw new ArgumentException("Building floor-cell budget exceeds 262144 tiles.");
   if(Small(b.Width,b.Height))return GenerateSmall(b,levels,seed,shape,basements);
   levels+=basements;
   var rng=new Random(seed);var design=new BuildingDesign{MinLevel=-basements,Variant=seed,Shape=shape,Material=new[]{"wood","brick","plaster"}[rng.Next(3)],Roof=shape=="rect"?new[]{"flat","gabled","shed","hipped"}[rng.Next(4)]:"flat"};
@@ -105,7 +106,7 @@ public static class BuildingDesigner
   }return edges;
  }
  public static void Validate(Building b,bool requireAccess=true){
-  if(b is null||b.Width is <MinimumFootprint or >64||b.Height is <MinimumFootprint or >64||!Kinds.Contains(b.Kind))throw new ArgumentException("Check the building dimensions (2-64 tiles per side) and type.");
+  if(b is null||b.Width is <MinimumFootprint or >MaximumFootprint||b.Height is <MinimumFootprint or >MaximumFootprint||!Kinds.Contains(b.Kind))throw new ArgumentException("Check the building dimensions (2-512 tiles per side) and type.");
   if(b.Attribution is null||b.Attribution.Count>30||b.Attribution.Any(s=>s is null||s.Length>1000))throw new ArgumentException("Invalid building template source.");
   ResourceDependencies.Validate(b.RequiredMods,b.AssetSources);
   if(b.Design is null)return;var d=b.Design;
@@ -113,11 +114,13 @@ public static class BuildingDesigner
   if(d.Material is not("wood" or "brick" or "plaster")||d.Roof is not("none" or "flat" or "gabled" or "shed" or "hipped")||d.Shape is not("rect" or "l" or "t" or "courtyard" or "annex" or "custom")||d.Floors is null||d.MinLevel is <ZLevels.Min or >0||d.Floors.Count is <1 or >ZLevels.Total||d.Floors.Count+d.MinLevel is <1 or >ZLevels.AboveGroundCount)Fail("invalid material, roof, or floor count: 1-32 above-ground floors and 0-32 basement levels, within z=-32 to 31.");
   if(d.Style is null||d.Style.Length>0&&!VisualStyles.All.ContainsKey(d.Style)||d.RoofTileset is not null&&!System.Text.RegularExpressions.Regex.IsMatch(d.RoofTileset,@"^roofs_30_[0-9]{2}$"))Fail("invalid appearance style or roof tileset.");
   if(d.FlatRoofTile is not null&&!VisualStyles.TileId(d.FlatRoofTile))Fail("invalid flat roof surface resource.");
+  if((long)b.Width*b.Height*d.Floors.Count>MaximumFloorCells)Fail("building floor-cell budget exceeds 262144 tiles.");
   if(d.Floors.Any(f=>f is null||f.Cells is null||f.Cells.Length!=b.Width*b.Height||f.Objects is null||f.Objects.Count>512||f.Edges is null||f.Edges.Count>2*(b.Width+1)*(b.Height+1)||f.Edges.Any(e=>e is null)||f.Rooms is null))Fail("invalid floor layer.");
   for(var z=0;z<d.Floors.Count;z++){
    var f=d.Floors[z];if(f is null||f.Cells is null||f.Cells.Length!=b.Width*b.Height||f.Rooms is null||f.Rooms.Count is <1 or >35||f.Rooms.Any(r=>r.Key.Length!=1||!"0123456789abcdefghijklmnopqrstuvwxyz".Contains(r.Key[0])||!AllRoomNames.Contains(r.Value))||f.Cells.Any(c=>c!='.'&&!f.Rooms.ContainsKey(c.ToString()))||!f.Cells.Any(c=>c!='.')||f.Edges is null||f.Edges.Count>2*(b.Width+1)*(b.Height+1)||f.Objects is null||f.Objects.Count>512)Fail($"invalid level {z+d.MinLevel}.");
    if(f.FloorTile is not null&&!VisualStyles.TileId(f.FloorTile)||f.FloorTiles is null||f.FloorTiles.Count>f.Cells.Length||f.FloorTiles.Any(v=>v.Key<0||v.Key>=f.Cells.Length||f.Cells[v.Key]=='.'||!VisualStyles.TileId(v.Value)))Fail("floor resources are invalid or outside a room.");
    if(f.StaticModels is null||f.StaticModels.Count>512)Fail("invalid model layer.");var modelIds=new HashSet<string>();foreach(var model in f.StaticModels){StaticModelPlacement.Validate(model,b.Width,b.Height,z+d.MinLevel,z+d.MinLevel);if(!modelIds.Add(model.Id)||StaticModelPlacement.FootprintCells(model).Any(c=>Cell(b,f,model.X+c.Dx,model.Y+c.Dy)=='.'))Fail("the complete model footprint is outside a room.");}
+   foreach(var e in f.Edges)if(e.OverlayLevelOffset is <0 or >1||e.OverlayLevelOffset!=0&&(e.OverlayTile is null||z+d.MinLevel+e.OverlayLevelOffset>ZLevels.Max))Fail("facade overlay offset must be 0 or 1 within z=-32..31 and requires a decoration.");
    foreach(var e in f.Edges)if(e.WallTile is not null&&!VisualStyles.TileId(e.WallTile)||e.OpeningTile is not null&&!VisualStyles.TileId(e.OpeningTile)||e.OverlayTile is not null&&(!VisualStyles.TileId(e.OverlayTile)||e.Kind=="open"))Fail("invalid wall or opening resource.");
    var keys=new HashSet<string>();foreach(var e in f.Edges){if(e is null||e.X<0||e.Y<0||e.X>b.Width||e.Y>b.Height||e.Edge is not("n" or "w")||e.Kind is not("wall" or "door" or "window" or "open")||!keys.Add($"{e.X},{e.Y},{e.Edge}")||Cell(b,f,e.X,e.Y)=='.'&&(e.Edge=="n"?Cell(b,f,e.X,e.Y-1):Cell(b,f,e.X-1,e.Y))=='.')Fail($"check the walls on level {z+d.MinLevel}.");}
    var objectPositions=new HashSet<int>();foreach(var o in f.Objects){if(o is null||o.Kind is not("stairs" or "bed" or "storage" or "counter" or "seat" or "sink" or "asset" or "furniture")||(o.Kind=="furniture"?!FurnitureCatalog.Known(o.Asset,o.Direction):o.Direction is not("n" or "w"))||o.Style is null||o.Style.Length>0&&!VisualStyles.All.ContainsKey(o.Style)||Cell(b,f,o.X,o.Y)=='.'||!objectPositions.Add(o.Y*b.Width+o.X))Fail($"furniture on level {z+d.MinLevel} is outside a room or overlaps.");
@@ -138,7 +141,9 @@ public static class BuildingDesigner
    foreach(var o in f.Objects.Where(o=>o.Kind!="stairs"))if(StairSpace(b,z,o.X,o.Y))Fail("furniture blocks the stairs.");
    var stairCells=new HashSet<int>();foreach(var stair in f.Objects.Where(o=>o.Kind=="stairs"))for(var i=0;i<5;i++){
     var x=stair.X+(stair.Direction=="w"?i:0);var y=stair.Y+(stair.Direction=="n"?i:0);if(!stairCells.Add(y*b.Width+x))Fail("stairs overlap.");
-    if(i>0)foreach(var level in new[]{z,z+1})if(d.Floors[level].Edges.Any(e=>e.X==x&&e.Y==y&&e.Edge==stair.Direction&&e.Kind!="open"))Fail("stairs cross a wall or opening. Keep the passage along the steps clear.");
+    // The upper floor's far end borders the shaft, not the lower landing. It may have a guard;
+    // every lower-floor edge and every edge across the three upper shaft cells must stay open.
+    if(i>0)foreach(var level in new[]{z,z+1})if(!(level==z+1&&i==4)&&d.Floors[level].Edges.Any(e=>e.X==x&&e.Y==y&&e.Edge==stair.Direction&&e.Kind!="open"))Fail("stairs cross a wall or opening. Keep the passage along the steps clear.");
    }
   }
   RoofGeometry.Validate(b);

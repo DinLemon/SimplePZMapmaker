@@ -22,7 +22,10 @@ public static partial class AssetRules
  {
   if(!assets.HasActiveMods&&p.AssetSources.Count==0&&p.RequiredMods.Count==0&&p.StaticModels.All(m=>m.Profile=="pickup")&&p.Buildings.Concat(p.BuildingLibrary).All(b=>b.AssetSources.Count==0&&b.RequiredMods.Count==0&&b.Design?.Floors.Any(f=>f.StaticModels.Any(m=>m.Profile!="pickup"))!=true))return;
   foreach(var b in p.Buildings.Concat(p.BuildingLibrary))StampDependencies(b,assets);
-  var ids=NativeScene.ResourceIds(p).Concat(p.SurfaceTiles.Values).Concat(p.Decorations.SelectMany(d=>d.Parts.Select(part=>part.Tile).Append(d.Asset))).Distinct().ToArray();p.AssetSources=StampSources(ids,p.AssetSources,assets);
+  // Explicit workspace attachments reserve their declared frames before the first placement.
+  // Ordinary stale bindings still disappear; each reservation must resolve to its actual owner below.
+  var attached=p.AssetSources.Where(pair=>p.RequiredMods.Contains(pair.Value,StringComparer.Ordinal)&&assets.IsAgentTileset(pair.Value)).Select(pair=>pair.Key);
+  var ids=NativeScene.ResourceIds(p).Concat(p.SurfaceTiles.Values).Concat(p.Decorations.SelectMany(d=>d.Parts.Select(part=>part.Tile).Append(d.Asset))).Concat(attached).Distinct().ToArray();p.AssetSources=StampSources(ids,p.AssetSources,assets);
   p.RequiredMods=assets.ResolveRequirements(ids).Select(m=>m.ModId).Concat(p.Buildings.SelectMany(b=>b.RequiredMods)).Concat(p.StaticModels.SelectMany(m=>m.RequiredMods)).Distinct(StringComparer.Ordinal).ToList();if(p.RequiredMods.Count>0||p.AssetSources.Count>0)p.Version=Math.Max(p.Version,6);
  }
  public static void ValidateDependencies(MapProject p,GameAssetCatalog assets)=>StampDependencies(p,assets);

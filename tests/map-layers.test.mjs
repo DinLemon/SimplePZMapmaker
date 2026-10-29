@@ -2,6 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {MapLayerState, sectionOverlays, sourceOverlays, projectPoint,installMapLayers} from '../src/SimplePZMapmaker.Web/wwwroot/map-layers.js';
 
+test('zombie density starts hidden in the single layer state and toggles without a second visibility gate',()=>{
+ const layers=new MapLayerState();assert.equal(layers.isVisible('zombies'),false);
+ layers.setVisible('zombies',true);assert.equal(layers.isVisible('zombies'),true);assert.equal(layers.canEdit('zombies'),true);
+ layers.setVisible('zombies',false);assert.equal(layers.canEdit('zombies'),false);
+});
+
 test('hiding and ordering layers changes view state without deleting project objects',()=>{
  const project={buildings:[{id:'house'}],terrain:[1,2]},before=structuredClone(project),layers=new MapLayerState();
  layers.setVisible('buildings',false);layers.setOrder(['buildings','terrain']);

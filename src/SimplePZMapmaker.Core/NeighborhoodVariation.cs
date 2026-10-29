@@ -6,7 +6,7 @@ public static class NeighborhoodVariation {
   var choices=building.Kind is "warehouse" or "industrial" or "garage"?new[]{"industrial","commercial"}:building.Kind is "school" or "clinic" or "shop"?new[]{"commercial","modern","brick"}:new[]{"cottage","brick","stone","modern"};
   VisualStyles.Apply(building,choices[random.Next(choices.Length)]);
   if(d.Floors.Count+d.MinLevel<=3)d.Roof=new[]{"flat","gabled","shed","hipped"}[random.Next(4)];
-  foreach(var floor in d.Floors){floor.FloorTile=null;floor.FloorTiles.Clear();foreach(var edge in floor.Edges){edge.WallTile=null;edge.OpeningTile=null;edge.OverlayTile=null;}}
+  foreach(var floor in d.Floors){floor.FloorTile=null;floor.FloorTiles.Clear();foreach(var edge in floor.Edges){edge.WallTile=null;edge.OpeningTile=null;edge.OverlayTile=null;edge.OverlayLevelOffset=0;}}
   for(var z=0;z<d.Floors.Count;z++){var floor=d.Floors[z];floor.Objects.RemoveAll(o=>o.Kind!="stairs");BuildingDesigner.Furnish(building,z,new Random(unchecked(seed+z*1009)));floor.Objects.RemoveAll(o=>o.Kind!="stairs"&&floor.Rooms[BuildingDesigner.Cell(building,floor,o.X,o.Y).ToString()]=="hall");}
   building.SourceKind="generated-template-variant";building.Name=building.Name[..Math.Min(80,building.Name.Length)]+" (generated variant)";
   BuildingDesigner.Validate(building);

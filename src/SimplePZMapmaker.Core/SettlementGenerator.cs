@@ -6,12 +6,13 @@ public static class SettlementGenerator
  readonly record struct Site(int X,int Y,int Dx,int Dy);
  static readonly (int X,int Y)[] Steps=[(0,-1),(1,0),(0,1),(-1,0)];
 
- /// <summary>Combines density (0–100) with rules.Density. Never removes buildings, props, infrastructure, edits, or resource assignments.</summary>
+ /// <summary>Combines density (0â€“100) with rules.Density. Never removes buildings, props, infrastructure, edits, or resource assignments.</summary>
  public static SettlementPopulationResult Populate(MapProject project,SettlementRules rules,int seed,int density)
  {
   SettlementRules.Validate(rules);
   if(density is <0 or >100)throw new ArgumentException("Settlement density must be between 0 and 100.");
   if(project is null||project.Width is <256 or >2048||project.Height is <256 or >2048||project.Terrain.Length!=project.Width*project.Height)throw new ArgumentException("Invalid settlement terrain dimensions.");
+  var parcelPolicy=new ParcelPlacement(project);parcelPolicy.ReserveEntrances();
   var result=new SettlementPopulationResult();var effectiveDensity=density*rules.Density/100;
   if(effectiveDensity==0)return result;
   var edited=TerrainEditMask.Decode(project);var occupied=new bool[project.Terrain.Length];var reserved=new bool[occupied.Length];
@@ -29,7 +30,7 @@ public static class SettlementGenerator
   {
    if(x<1||y<1||x>=project.Width-1||y>=project.Height-1)return false;var i=y*project.Width+x;
    var street=project.Terrain[i] is Terrain.Road or Terrain.Pavement;
-   return !occupied[i]&&project.Terrain[i]!=Terrain.Water&&(!TerrainEditMask.IsEdited(edited,i)&&!project.SurfaceTiles.ContainsKey(i)||!footprint&&street)&&(!footprint||!street&&!reserved[i]);
+   return !occupied[i]&&!parcelPolicy.Occupied(x,y)&&(!footprint||!parcelPolicy.Passage(x,y))&&project.Terrain[i]!=Terrain.Water&&(!TerrainEditMask.IsEdited(edited,i)&&!project.SurfaceTiles.ContainsKey(i)||!footprint&&street)&&(!footprint||!street&&!reserved[i]);
   }
   var sites=Sites(project).ToArray();
   if(sites.Length==0){result.Warnings.Add("No usable road frontage in the selected area; add roads before generating a settlement.");return result;}
@@ -139,7 +140,7 @@ public static class SettlementGenerator
   b.Design!.Variant=seed;
   var style=zone=="industrial"?"industrial":era=="modern"?"modern":era=="soviet"?"modern":b.Kind=="house"?"cottage":"brick";
   VisualStyles.Apply(b,style);
-  foreach(var f in b.Design.Floors)foreach(var e in f.Edges){e.WallTile=null;e.OpeningTile=null;e.OverlayTile=null;}
+  foreach(var f in b.Design.Floors)foreach(var e in f.Edges){e.WallTile=null;e.OpeningTile=null;e.OverlayTile=null;e.OverlayLevelOffset=0;}
   return b;
  }
  static int Hash(int seed,int x,int y,int salt){unchecked{uint h=(uint)seed^0x9e3779b9u;h=(h^(uint)x)*0x85ebca6bu;h=(h^(uint)y)*0xc2b2ae35u;h=(h^(uint)salt)*0x27d4eb2du;h^=h>>16;return(int)h;}}

@@ -1,4 +1,4 @@
-param([string]$ArchiveName='SimplePZMapmaker-0.12.0-win-x64.zip')
+param([string]$ArchiveName='SimplePZMapmaker-0.13.0-win-x64.zip')
 $ErrorActionPreference='Stop'
 if([IO.Path]::GetFileName($ArchiveName) -ne $ArchiveName -or -not $ArchiveName.EndsWith('.zip')){throw 'Choose a ZIP filename only.'}
 . (Join-Path $PSScriptRoot 'WorkspaceEnv.ps1')
@@ -11,9 +11,10 @@ foreach($name in @('Start.cmd','README.md','LICENSE')){Copy-Item -LiteralPath (J
 foreach($name in @('Start.ps1','WorkspaceEnv.ps1')){Copy-Item -LiteralPath (Join-Path $PSScriptRoot $name) -Destination (Join-Path $stage 'scripts')}
 Copy-Item -LiteralPath (Join-Path $taskRoot 'examples') -Destination $stage -Recurse
 New-Item -ItemType Directory -Path (Join-Path $stage 'docs') -Force | Out-Null
-foreach($name in @('STREAMED-WORKSPACE-STORAGE.md','STREAMED-WORLD-EDITOR.md','ZONE-AUTHORING.md','SPZM-SCENE-CONTRACT.md','TRANSFER-CONTRACT.md','REAL-PLACE-TRANSFER.md','GENERATION-STUDIO.md','WORLD-INFRASTRUCTURE.md','PARAMETRIC-ENSEMBLES.md','ACCESS-DIAGNOSTICS.md','EXPORT-JOBS.md','EDITOR-EXPANSION.md','DIRECT-EDITING.md','NATIVE-LIGHTING.md','GAMEPLAY-AUTHORING.md','STATUS.md','EDITOR-TOOLS.md','PUBLICATION-PRIVACY.md','PILNA-STATUS.md','PROVENANCE.md','PROGRESS.md','BUILDINGS-REVIEW.md','HOUSING-REFERENCES.md','MOD-RESOURCES.md','STATIC-MODELS.md','MCP.md','WORLD-AND-ENVIRONMENT.md','RUNTIME.md','CLI.md','PLAYTEST.md')){Copy-Item -LiteralPath (Join-Path $taskRoot ('docs\'+$name)) -Destination (Join-Path $stage 'docs')}
-Copy-Item -LiteralPath (Join-Path $taskRoot 'docs\screenshots') -Destination (Join-Path $stage 'docs') -Recurse
-if(Test-Path -LiteralPath (Join-Path $taskRoot 'docs\images')){Copy-Item -LiteralPath (Join-Path $taskRoot 'docs\images') -Destination (Join-Path $stage 'docs') -Recurse}
+# Keep README-linked guides, branding and notices in the portable download.
+Get-ChildItem -LiteralPath (Join-Path $taskRoot 'docs') -Force | Where-Object Name -ne 'superpowers' | ForEach-Object {
+ Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $stage 'docs') -Recurse -Force
+}
 $archive=Join-Path $taskRoot ('artifacts\'+$ArchiveName)
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $archive -CompressionLevel Optimal -Force
 Write-Host "Package: $archive"

@@ -1,6 +1,12 @@
 namespace SimplePZMapmaker.Core;
 public static class AuthoringFormats
 {
+ public static bool BuildingHasRaisedOverlays(Building? b)=>b?.Design?.Floors?.Any(f=>f?.Edges?.Any(e=>e?.OverlayTile is not null&&e.OverlayLevelOffset!=0)==true)==true;
+ public static bool MapHasRaisedOverlays(MapProject p)=>(p.Buildings??[]).Concat(p.BuildingLibrary??[]).Any(BuildingHasRaisedOverlays);
+ public static bool WorldHasRaisedOverlays(WorldProject w)=>w.Buildings?.Any(BuildingHasRaisedOverlays)==true||w.Maps?.Any(m=>m?.Project is {} p&&MapHasRaisedOverlays(p))==true;
+ public static bool BuildingHasLargeFootprint(Building? b)=>b is not null&&(b.Width>64||b.Height>64);
+ public static bool MapHasLargeFootprint(MapProject p)=>(p.Buildings??[]).Concat(p.BuildingLibrary??[]).Any(BuildingHasLargeFootprint);
+ public static bool WorldHasLargeFootprint(WorldProject w)=>w.Buildings?.Any(BuildingHasLargeFootprint)==true||w.Maps?.Any(m=>m?.Project is {} p&&MapHasLargeFootprint(p))==true;
  public static bool MapHasInfrastructure(MapProject p)=>p.LinearFeatures?.Any(f=>f is not null&&(f.Level!=0||f.Access!="none"||f.GuardRails||f.SupportSpacing!=0||f.GroupId is not null))==true;
  public static bool MapHasAttachedBuildings(MapProject p)=>p.Buildings?.Any(b=>b?.AttachedTo is not null)==true;
  /// <summary>TileZed furniture objects (kind "furniture", four orientations) need map format 14 and world format 9.</summary>

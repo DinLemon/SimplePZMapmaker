@@ -5,6 +5,31 @@ import {MainNativeEditor} from '../src/SimplePZMapmaker.Web/wwwroot/main-native-
 import {blank} from '../src/SimplePZMapmaker.Web/wwwroot/editor.js';
 import {refreshEdges,normalizeBuilding} from '../src/SimplePZMapmaker.Web/wwwroot/building.js';
 const building=()=>{const b={id:'native-house',name:'House',kind:'house',x:40,y:40,width:8,height:8,design:{minLevel:-1,material:'brick',roof:'flat',shape:'rect',variant:42,floors:Array.from({length:2},()=>({cells:'1'.repeat(64),rooms:{1:'livingroom'},objects:[],edges:[]}))}};b.design.floors.forEach((_,i)=>refreshEdges(b,i));return normalizeBuilding(b);};
+
+test('native tool changes notify the shell only after the selector and contextual controls agree',()=>{
+ const nodes=new Map([['edit-tool',{value:'select'}]]);let observed;
+ const editor=Object.create(MainNativeEditor.prototype);
+ Object.assign(editor,{tool:'select',cancel(){},getContext:()=>({level:0}),node:name=>nodes.get(name),sync(){this.synced=this.tool;},requestDraw(){},toolChanged:tool=>{observed={tool,selector:nodes.get('edit-tool').value,synced:editor.synced};}});
+ editor.setTool('room');assert.deepEqual(observed,{tool:'room',selector:'room',synced:'room'});
+});
+test('finishing a region rectangle keeps its authoring context available for preview or redraw',async()=>{
+ const rectangles=[],editor=Object.create(MainNativeEditor.prototype);Object.assign(editor,{tool:'zone-area',drag:{rectangle:true,start:{x:2,y:3},last:{x:5,y:6},context:{project:{width:256,height:256}}},rectangleCallback:r=>rectangles.push(r),requestDraw(){},setTool(tool){this.tool=tool;},state(message){throw Error(message);},message(message){throw Error(message);}});
+ await editor.end();assert.equal(editor.tool,'zone-area');assert.equal(typeof editor.rectangleCallback,'function');assert.deepEqual(rectangles,[{x:2,y:3,width:4,height:4}]);
+});
+test('choosing a native resource reports the selected tool and synchronized selector to the shell',async()=>{
+ const oldFetch=globalThis.fetch;globalThis.fetch=async()=>({ok:true,json:async()=>({id:'floor',properties:{}})});
+ try{const nodes=new Map([['edit-tool',{value:'select'}],['brush-state',{textContent:''}]]),observations=[];
+  const editor=Object.create(MainNativeEditor.prototype);Object.assign(editor,{node:name=>nodes.get(name),images:{load:async()=>{}},sync(){this.synced=this.tool;},requestDraw(){},state(message){throw Error(message);},toolChanged:tool=>observations.push([tool,nodes.get('edit-tool').value,editor.synced])});
+  await editor.choose('floor',{id:'floor'});assert.deepEqual(observations,[['floor','floor','floor']]);
+ }finally{globalThis.fetch=oldFetch;}
+});
+test('a late resource choice cannot switch the editor back after the user selects another tool',async()=>{
+ const oldFetch=globalThis.fetch;let release;globalThis.fetch=()=>new Promise(r=>release=r);
+ try{const nodes=new Map([['edit-tool',{value:'floor'}],['brush-state',{textContent:''}]]),editor=Object.create(MainNativeEditor.prototype);
+  Object.assign(editor,{node:name=>nodes.get(name),images:{load:async()=>{}},getContext:()=>({level:0}),cancel(){},sync(){},requestDraw(){},toolChanged(){},state(message){throw Error(message);}});
+  const pending=editor.choose('floor',{id:'floor'});editor.setTool('room');release({ok:true,json:async()=>({})});await pending;assert.equal(editor.tool,'room');assert.equal(nodes.get('edit-tool').value,'room');
+ }finally{globalThis.fetch=oldFetch;}
+});
 test('native plane inverse picks signed floors through independent pan and zoom',()=>{for(const level of [-32,-17,-16,-1,0,15,16,31])for(const zoom of [.08,1,32,96]){const pan={x:-132,y:277},x=41.22,y=42.64,point=nativePlanePoint(pan.x+(x-y)*zoom,pan.y+(x+y)*zoom/2-level*3*zoom,level,{zoom,pan});assert.equal(point.x,41);assert.equal(point.y,42);assert.ok(Math.abs(point.fx-x)<1e-9);}});
 test('building picking retains origin separately from local coordinates and signed model footprint',()=>{const p=blank(),b=building();p.buildings=[b];const m={id:'a'.repeat(32),modelId:'Base.BeerBottle',sourceId:'game',x:2,y:2,z:-1,profile:'obstacle',footprint:[{dx:0,dy:0},{dx:1,dy:0}]};b.design.floors[0].staticModels=[m];const hit=pickNative({project:p,level:-1},{x:43,y:42,fx:43.5,fy:42.5});assert.equal(hit.type,'model');assert.equal(hit.x,3);assert.equal(hit.originX,40);assert.equal(hit.modelId,m.id);assert.equal(pickNative({project:p,level:15},{x:43,y:42,fx:43.5,fy:42.5}),null);});
 test('shared-world picking projects absolute global building origin into the edited section',()=>{const p=blank();p.worldX=100;p.worldY=90;const b=building();b.x=100*256+250;b.y=90*256+40;const hit=pickNative({project:p,world:{buildings:[b]},level:0},{x:254,y:42,fx:254.5,fy:42.5});assert.equal(hit.scope,'world');assert.equal(hit.originX,250);assert.equal(hit.x,4);assert.equal(hit.building.x,25850);});

@@ -1,0 +1,23 @@
+.visual-references{--vr-border:var(--border,#46534b);--vr-muted:var(--muted,#aeb8b0);color:var(--text,#e4e9e4);background:var(--panel,#202821);padding:1rem;display:grid;gap:.75rem;min-width:0;font:inherit}
+.visual-references h3,.visual-references h4,.visual-references p{margin:0}
+.visual-references h3{font-size:1.1rem}.visual-references h4{font-size:1rem}
+.visual-references .vr-target,.visual-references .vr-capability,.visual-references .vr-card p{color:var(--vr-muted);font-size:.9rem;overflow-wrap:anywhere}
+.visual-references .vr-status{border-left:3px solid #b8c58b;padding:.55rem .7rem;background:#0002;font-size:.9rem}
+.visual-references .vr-links{display:flex;flex-wrap:wrap;gap:.6rem}
+.visual-references a{color:var(--link,#b9d5ac);text-decoration:underline;text-underline-offset:.15em}
+.visual-references button,.visual-references input,.visual-references textarea{font:inherit;color:inherit;border:1px solid var(--vr-border);border-radius:4px;background:#1118;padding:.5rem;min-height:2.4rem;max-width:100%;box-sizing:border-box}
+.visual-references button{cursor:pointer;background:#394735;text-align:left}
+.visual-references button:disabled{opacity:.55;cursor:default}
+.visual-references :is(button,a,input,textarea,summary):focus-visible{outline:2px solid #d8ddad;outline-offset:3px}
+.visual-references form{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr));gap:.65rem}
+.visual-references label{display:flex;flex-direction:column;gap:.25rem;font-size:.85rem;min-width:0}
+.visual-references input[type=file]{width:100%}
+.visual-references form>button{align-self:end}
+.visual-references .vr-provider{display:grid;gap:.65rem;border-top:1px solid var(--vr-border);padding-top:.8rem;min-width:0}
+.visual-references .vr-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr));gap:.7rem;min-width:0}
+.visual-references .vr-card{display:flex;flex-direction:column;align-items:stretch;gap:.5rem;padding:.7rem;border:1px solid var(--vr-border);border-radius:5px;min-width:0;overflow-wrap:anywhere}
+.visual-references .vr-card img{display:block;width:100%;max-height:15rem;object-fit:contain;background:#101410;border-radius:3px}
+.visual-references .vr-card strong{font-size:.9rem}
+.visual-references details{margin-top:.5rem}.visual-references summary{cursor:pointer;font-size:.85rem}
+.visual-references pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.8rem;max-height:18rem;overflow:auto}
+.visual-references textarea{display:block;width:100%;min-height:8rem;resize:vertical;margin:.5rem 0}
