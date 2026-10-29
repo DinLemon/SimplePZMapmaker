@@ -42,7 +42,13 @@ test('legacy partial generation settings normalize without losing accepted value
 test('edited source footprint is not labelled as surveyed source geometry',()=>{
  assert.equal(footprintOrigin({id:'source',sourceId:'way/1',footprintOrigin:'manual-source-edit',sourceOutline:[[{longitude:1,latitude:1}]]}),'source-edited');
 });
-test('only new map creation offers legacy random town generation',()=>{
+test('legacy compatibility fields remain available outside selective studio',()=>{
  assert(settlementFields('new-rules').includes('value="legacy"'));
  assert(!settlementFields('studio-rules',false,true).includes('value="legacy"'));
+});
+
+test('template placement uses the same area seed and reviewed proposal workflow',()=>{
+ const p=blank(),values={x:16,y:16,width:224,height:224,seed:3,variant:1,mode:'fill',strategy:'templates',maximumBuildings:7,spacing:8,layout:'rural',rules:defaultRules()};
+ const r=studioRequest(p,values);assert.equal(r.strategy,'templates');assert.equal(r.neighborhood.maximumBuildings,7);assert.equal(r.neighborhood.spacing,8);assert.equal(r.neighborhood.layout,'rural');assert.equal(r.neighborhood.minimumLevels,1);
+ assert.throws(()=>studioRequest(p,{...values,maximumBuildings:1000}));assert.throws(()=>studioRequest(p,{...values,strategy:'legacy'}));
 });

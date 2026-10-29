@@ -1,0 +1,12 @@
+.agent-asset-panel{margin:16px 0;padding:14px;border:1px solid var(--line,#42483f)}
+.agent-asset-panel>summary{cursor:pointer;font-weight:600;line-height:1.6}
+.agent-asset-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px}
+.agent-asset-panel textarea{display:block;width:100%;min-height:150px;box-sizing:border-box;resize:vertical;font:12px/1.6 monospace}
+.agent-asset-panel [data-vision-text]{min-height:240px}
+.agent-asset-panel .agent-asset-check{display:flex;align-items:center;gap:10px}
+.agent-asset-check input{width:auto}
+.agent-asset-panel pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto;font-size:12px}
+.agent-asset-panel figure{margin:14px 0}
+.agent-asset-panel figure img{display:block;max-width:100%;max-height:512px;object-fit:contain;image-rendering:pixelated;background:repeating-conic-gradient(#30362e 0% 25%,#444b40 0% 50%) 50% / 16px 16px}
+.agent-asset-panel p{overflow-wrap:anywhere}
+@media(max-width:520px){.agent-asset-grid{grid-template-columns:1fr}.agent-asset-panel .agent-actions{grid-template-columns:1fr}}

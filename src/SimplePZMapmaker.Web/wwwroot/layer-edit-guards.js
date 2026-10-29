@@ -2,7 +2,13 @@ const equal=(a,b)=>JSON.stringify(a??null)===JSON.stringify(b??null);
 export const terrainLayer=value=>value===2?'roads':value===6?'paths':'terrain';
 export function assertLayerChanges(before,after,changes,layers){
  const guard=id=>layers.guardEdit(id,()=>{});
- for(const [layer,keys] of Object.entries({buildings:['buildings','buildingLibrary'],decorations:['decorations'],models:['staticModels'],spawns:['spawns'],zones:['gameZones','roomRegionRules'],zombies:['zombieDensityRegions','zombieDensityState'],terrain:['surfaceTheme','surfaceRegions','surfaceTiles'],source:['sourceFeatures','sites']}))if(keys.some(k=>!equal(before[k],after[k])))guard(layer);
+ for(const [layer,keys] of Object.entries({buildings:['buildings','buildingLibrary'],decorations:['decorations'],models:['staticModels'],spawns:['spawns'],zones:['gameZones','roomRegionRules'],zombies:['zombieDensityRegions','zombieDensityState'],terrain:['surfaceTheme','surfaceRegions','surfaceTiles'],source:['sourceFeatures']}))if(keys.some(k=>!equal(before[k],after[k])))guard(layer);
+ // Generated child membership and regeneration hashes are object bookkeeping. They
+ // do not edit source boundaries; hiding the evidence overlay must not disable yards.
+ // Geographic metadata and manually assigned members still require the source layer.
+ const owned=new Map();for(const p of [before,after])for(const s of p.sites??[]){const ids=owned.get(s.id)??new Set();for(const key of Object.keys(s.parcelGeneration?.objects??{}))ids.add(key);owned.set(s.id,ids);}
+ const sourceSites=p=>(p.sites??[]).map(s=>{const {parcelGeneration,...rest}=s,ids=owned.get(s.id);return {...rest,buildingIds:(s.buildingIds??[]).filter(id=>!ids.has('building:'+id)),decorationIds:(s.decorationIds??[]).filter(id=>!ids.has('decoration:'+id))};});
+ if(!equal(sourceSites(before),sourceSites(after)))guard('source');
  const contents=(project,key)=>(project.buildings??[]).flatMap(b=>(b.design?.floors??[]).flatMap((f,z)=>(f[key]??[]).map(item=>({building:b.id,z,item}))));
  if(!equal(contents(before,'staticModels'),contents(after,'staticModels')))guard('models');
  if(!equal(contents(before,'objects'),contents(after,'objects')))guard('decorations');

@@ -1,0 +1,6 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {normalizeBuilding,refreshEdges,validateDesign} from '../src/SimplePZMapmaker.Web/wwwroot/building.js';
+function fixture(direction,levels=2){const b=normalizeBuilding({id:'guard-test',kind:'house',name:'Guarded stair',x:40,y:40,width:12,height:12,design:{material:'brick',roof:'flat',shape:'rect',variant:42,minLevel:0,floors:Array.from({length:levels},(_,z)=>({cells:'1'.repeat(144),rooms:{1:'hall'},edges:[],objects:z<levels-1?[{x:4,y:4,kind:'stairs',direction}]:[]}))}});for(let z=0;z<levels;z++)refreshEdges(b,z);return b;}
+for(const direction of ['n','w'])test(`upper stair shaft accepts side and end guards for ${direction}`,()=>{const b=fixture(direction),f=b.design.floors[1];for(let j=1;j<=3;j++)for(const side of [0,1])f.edges.push({x:direction==='n'?4+side:4+j,y:direction==='n'?4+j:4+side,edge:direction==='n'?'w':'n',kind:'wall'});f.edges.push({x:direction==='n'?4:8,y:direction==='n'?8:4,edge:direction,kind:'wall'});assert.doesNotThrow(()=>validateDesign(b));});
+test('upper stair end exception does not admit blocked lower runs shaft steps or onward stairs',()=>{for(const [floor,step,levels] of [[0,4,2],[1,1,2],[1,4,3]]){const b=fixture('n',levels);b.design.floors[floor].edges.push({x:4,y:4+step,edge:'n',kind:'wall'});assert.throws(()=>validateDesign(b),/staircase crosses/);}});

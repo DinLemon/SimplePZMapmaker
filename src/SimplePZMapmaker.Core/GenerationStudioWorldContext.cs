@@ -46,6 +46,7 @@ public sealed class GenerationStudioWorldContext
         }
         // Shared railway artwork may extend one cell beyond its sampled centerline.
         foreach (var decoration in projected.Decorations) foreach (var part in decoration.Parts) reserved[(decoration.Y + part.Dy) * project.Width + decoration.X + part.Dx] = true;
+        foreach(var piece in FenceLines.Compose(projected.Fences,projected.FenceStyles,projected.GateStyles,project.Width,project.Height).Pieces)reserved[piece.Y*project.Width+piece.X]=true;
         return new(world, member.Id, fingerprint, projected, reserved);
     }
 

@@ -19,7 +19,7 @@ public static class TilesetBuilder
   NativeModPackage.Validate(new(mod.ModId,Name:mod.Name));
   if(!Name.IsMatch(mod.Tileset)||mod.Tileset.EndsWith('_'))throw new ArgumentException("Tileset name: 1-64 letters, digits or '_'; tiles are named <tileset>_<index>.");
   if(mod.FileNumber is <100 or >8190)throw new ArgumentException("Tile definition number: 100-8190, unique among the active mods.");
-  if(mod.Sprites is null||mod.Sprites.Count is <1 or >1024)throw new ArgumentException("A tileset holds 1-1,024 sprites.");
+  if(mod.Sprites is null||mod.Sprites.Count is <1 or >512)throw new ArgumentException("Build 42 accepts 1-512 sprites per tileset. Split larger collections into separate sets.");
   foreach(var s in mod.Sprites)if(s.Properties is null||s.Properties.Count>256||s.Properties.Any(p=>p.Key.Length is <1 or >100||p.Key.Contains('\n')||p.Value is null||p.Value.Length>1000||p.Value.Contains('\n')))throw new ArgumentException("Tile properties: up to 256 single-line keys and values.");
  }
  /// <summary>Writes the tile mod archive: 42/mod.info, 42/media/texturepacks/&lt;tileset&gt;.pack, 42/media/&lt;tileset&gt;.tiles and an empty common/.</summary>
@@ -46,10 +46,11 @@ public static class TilesetBuilder
   foreach(var t in trimmed){var (px,py)=placed[t.Index];Text($"{tileset}_{t.Index}");foreach(var v in new[]{px,py,t.Box.Width,t.Box.Height,t.Box.X,t.Box.Y,t.Frame.Width,t.Frame.Height})w2.Write(v);}
   w2.Write(png.Length);w2.Write(png);w2.Flush();return s.ToArray();
  }
- /// <summary>tdef version 1 with one tileset of eight columns; the tileset index inside the file is 0.</summary>
+ /// <summary>tdef version 1 with one tileset of eight columns; Build 42 requires its stable tileset number to be 1-512.</summary>
  public static byte[] Tiles(string tileset,IReadOnlyList<Dictionary<string,string>> properties){
+  if(properties.Count>512)throw new ArgumentException("Build 42 accepts at most 512 tile records per tileset. Split larger collections into separate sets.");
   using var s=new MemoryStream();using var w=new BinaryWriter(s,Encoding.Latin1);void Line(string text){w.Write(Encoding.Latin1.GetBytes(text));w.Write((byte)'\n');}
-  var rows=(properties.Count+Columns-1)/Columns;w.Write("tdef"u8.ToArray());w.Write(1);w.Write(1);Line(tileset);Line(tileset+".png");w.Write(Columns);w.Write(rows);w.Write(0);w.Write(properties.Count);
+  var rows=(properties.Count+Columns-1)/Columns;w.Write("tdef"u8.ToArray());w.Write(1);w.Write(1);Line(tileset);Line(tileset+".png");w.Write(Columns);w.Write(rows);w.Write(1);w.Write(properties.Count);
   foreach(var p in properties){w.Write(p.Count);foreach(var (key,value) in p.OrderBy(p=>p.Key,StringComparer.Ordinal)){Line(key);Line(value);}}
   w.Flush();return s.ToArray();
  }

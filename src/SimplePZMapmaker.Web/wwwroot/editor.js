@@ -6,11 +6,11 @@ import {validateLinearFeatures} from './linear-editing.js';
 import {usesExtendedZ} from './z-levels.js';
 import {validateGameZones} from './gameplay-data.js';
 import {validatePalettes} from './palette-data.js';
-import {roomNames,kinds,occupied,occupiedIndices,containsPoint,validateDesign,combineAttribution,minLevel,usesAssets,usesNativeModelBehavior,usesInteractiveAuthoring,validateParts,tileId} from './building.js';
+import {roomNames,kinds,occupied,occupiedIndices,containsPoint,validateDesign,combineAttribution,minLevel,usesRaisedOverlays,usesAssets,usesNativeModelBehavior,usesInteractiveAuthoring,validateParts,tileId} from './building.js';
 import {validateDependencies,validateModel,validateModelProject,modelCells,blockingModel,interactiveModel,decodeTerrainEdits,encodeTerrainEdits,markTerrainEdit} from './resource-data.js';
 export function blank(size=256){return {version:4,worldSection:false,terrainEdits:'',name:'New map',width:size,height:size,seed:42,worldX:100,worldY:100,terrain:Array(size*size).fill(0),zombies:Array(size*size/64).fill(0),buildings:[],buildingLibrary:[],resourcePalettes:[],linearFeatures:[],gameZones:[],decorations:[],staticModels:[],requiredMods:[],assetSources:{},surfaceTiles:{},surfaceTheme:'legacy',surfaceRegions:[],spawns:[{x:size/2,y:size/2}],attribution:[],bounds:null,metresPerTile:null,importSummary:null};}
 export const usesInfrastructure=p=>(p.linearFeatures??[]).some(f=>(f.level??0)!==0||(f.access??'none')!=='none'||f.guardRails||(f.supportSpacing??0)!==0||f.groupId!=null);
-export function mapAuthoringVersion(p){const buildings=[...(p.buildings??[]),...(p.buildingLibrary??[])];return Math.max(p.version??1,(p.fences?.length||p.fenceStyles?.length||p.gateStyles?.length)?12:usesInfrastructure(p)?11:buildings.some(usesExtendedZ)?10:(p.linearFeatures?.length||p.gameZones?.length||usesZoneAuthoring(p)||(p.staticModels??[]).some(interactiveModel)||buildings.some(usesInteractiveAuthoring))?9:p.resourcePalettes?.length?8:1);}
+export function mapAuthoringVersion(p){const buildings=[...(p.buildings??[]),...(p.buildingLibrary??[])];return Math.max(p.version??1,(p.linearFeatures??[]).some(f=>f.deckArtwork?.length)?18:1,buildings.some(usesRaisedOverlays)?17:1,buildings.some(b=>b.width>64||b.height>64)?16:1,(p.sites??[]).some(s=>s.parcelGeneration)||(p.sourceFeatures??[]).some(f=>f.sourceGeometry?.length!==f.geometry?.length||f.sourceGeometry?.some((r,i)=>r.length!==f.geometry?.[i]?.length))?15:1,(p.fences?.length||p.fenceStyles?.length||p.gateStyles?.length)?12:usesInfrastructure(p)?11:buildings.some(usesExtendedZ)?10:(p.linearFeatures?.length||p.gameZones?.length||usesZoneAuthoring(p)||(p.staticModels??[]).some(interactiveModel)||buildings.some(usesInteractiveAuthoring))?9:p.resourcePalettes?.length?8:1);}
 export function geographicBase(project,size,keep){if(keep)return project;const result=blank(size);result.surfaceTheme=project.surfaceTheme??'legacy';result.buildingLibrary=structuredClone(project.buildingLibrary||[]);result.resourcePalettes=structuredClone(project.resourcePalettes||[]);result.version=mapAuthoringVersion(result);result.attribution=combineAttribution(project.attribution,...result.buildingLibrary.map(b=>b.attribution||[]));return result;}
 export function boundsFromSearchResult(item){
  if(!Array.isArray(item?.boundingbox)||item.boundingbox.length!==4)return null;
@@ -32,7 +32,7 @@ export function line(p,x0,y0,x1,y1,terrain,radius=1,history){
 // Attached buildings (map format 13) may share wall tiles with their partner, never room tiles.
 export const attachedPair=(a,b)=>!!a.attachedTo&&a.attachedTo===b.id||!!b.attachedTo&&b.attachedTo===a.id;
 export function canPlace(p,b){
- if(!b||!Object.hasOwn(kinds,b.kind)||![b.x,b.y,b.width,b.height].every(Number.isInteger)||b.width<2||b.height<2||b.width>64||b.height>64||b.x<1||b.y<1||b.x+b.width>=p.width||b.y+b.height>=p.height)return false;
+ if(!b||!Object.hasOwn(kinds,b.kind)||![b.x,b.y,b.width,b.height].every(Number.isInteger)||b.width<2||b.height<2||b.width>512||b.height>512||b.x<1||b.y<1||b.x+b.width>=p.width||b.y+b.height>=p.height)return false;
  const points=occupiedIndices(b),global=new Set([...points].map(i=>(b.y+Math.floor(i/(b.width+1)))*p.width+b.x+i%(b.width+1)));
  if(p.buildings.some(a=>a!==b&&b.x<a.x+a.width+1&&b.x+b.width+1>a.x&&b.y<a.y+a.height+1&&b.y+b.height+1>a.y&&[...occupiedIndices(a)].some(i=>{const x=a.x+i%(a.width+1),y=a.y+Math.floor(i/(a.width+1));return global.has(y*p.width+x)&&!(attachedPair(a,b)&&!(occupied(a,x-a.x,y-a.y)&&occupied(b,x-b.x,y-b.y)));})))return false;
  if((p.staticModels||[]).some(m=>global.has(m.y*p.width+m.x)))return false;
@@ -43,7 +43,7 @@ export function canPlace(p,b){
 }
 export function validateProject(p){
  const fail=m=>{throw Error(m);};
- if(!p||![1,2,3,4,5,6,7,8,9,10,11,12,13,14].includes(p.version)||!Number.isInteger(p.width)||!Number.isInteger(p.height)||p.width<256||p.height<256||p.width>2048||p.height>2048||p.width%256||p.height%256)fail('Unsupported project size or version.');
+ if(!p||![1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18].includes(p.version)||!Number.isInteger(p.width)||!Number.isInteger(p.height)||p.width<256||p.height<256||p.width>2048||p.height>2048||p.width%256||p.height%256)fail('Unsupported project size or version.');
  validateFenceLines(p);validateGameZones(p);validateZoneAuthoring(p,roomNames);validateLinearFeatures(p);validateModelProject(p);validateGeneration(p);validateSourceSites(p);
  validatePalettes(p.resourcePalettes===undefined?[]:p.resourcePalettes);if(p.resourcePalettes?.length&&p.version<8)fail('Resource palettes require project format 8.');
  decodeTerrainEdits(p);if(p.version<6&&(p.terrainEdits?.length||p.worldSection)||p.worldSection!==undefined&&typeof p.worldSection!=='boolean')fail('Manual terrain edits and world sections require format 6.');

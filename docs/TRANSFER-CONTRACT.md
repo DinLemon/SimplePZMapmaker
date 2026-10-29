@@ -181,3 +181,24 @@ Implementation note: authoritative `WorldProject.Fences` survive isolated sectio
 - every fence that crosses a section edge is continuous in the exported cells;
 - the native exporter output passes the structural verifier and the installed-class game probe;
 - a dedicated Build 42 server starts with the mod.
+
+## Large source buildings
+
+Raised facade details use `BuildingEdge.overlayLevelOffset`: `0` keeps `overlayTile` on its wall floor; `1` places it one floor above (for example, a gable above the top-storey wall). A raised detail requires an overlay tile and must remain within native levels −32..31. Preview bounds include the raised detail even without a generated roof. Files containing raised details require map format 17, shared-world format 12 and building-template format 10; older files keep their previous versions. Wall operations preserve the offset with the detail and clear it when removing the detail.
+
+Source and authored buildings support 2–512 tiles per footprint side with a shared budget of 262144 floor cells per building (width × height × total occupied/design floors). Generation checks this before allocating floor layers; validation applies the same bound in C# and JavaScript. Section totals retain their existing 20 million floor-cell budget. Large footprints require map format 16, shared-world format 11 and building-template format 9. Older small-footprint formats remain readable. TBX/TMX subset and captured-module limits remain explicit independent limits. Native room rectangles are clipped at cell boundaries; source identity and source outline remain attached to the single building.
+
+
+### Source transport placement and remaining artwork limits
+
+Imported straightened source footprints retain their positions over a generated road-width raster. The source road path and tags remain intact, and overlaps are counted in import notes for review. Water and native decks still block incompatible buildings. A preserve-edits refresh keeps its conservative road protection; ordinary generated building placement still avoids roads.
+
+Only `railway=rail` creates a track candidate; a platform remains source evidence. Unsupported diagonal rail artwork retains a bounded Dirt ballast corridor, preserving water and road/paved crossing cells, with original railway geometry and gauge/bridge metadata kept as evidence. This fallback is explicitly incomplete rail artwork. Rail bridges import as native z=0 decks over retained water; an OSM `layer` tag does not establish native vertical separation or a driveable overpass.
+
+Shared source buildings follow the same input source order as local ones. During a successful seam placement, later unmodified automatic local footprints may be deferred to source evidence; modified, attached and site-owned local buildings remain protected. A failed shared placement restores the removed local placements. Deferred identities and reasons remain in the section report.
+
+### Deck-owned floor artwork (map 18 / world 13)
+
+`LinearFeature.deckArtwork` is a list of `{x, y, tile}` cells in the same coordinate space as `points` (section-local for map features, absolute tiles for shared world features). The owning feature must have a structural deck; artwork uses its `level`. Each cell must lie on that deck, must be unique, and must not intersect any local or shared stair opening. Artwork is an additional native floor layer above the original game deck. It does not repaint terrain, water, authored ground surfaces, edit masks, or navigation. Removing the feature removes its artwork.
+
+Resources must be complete dry floors without added collision or stairs. Native structural/railway IDs cannot be repurposed as artwork, even through a mod override. `assetSources` on the feature records each artwork tile's actual provider; maps and projected world sections retain those providers and required mods. Loaded-world, selected-section and streamed-world exports include the same resource dependencies. Moving a path without moving or clearing artwork fails rather than silently detaching its cells. A source `bridge=yes` or `layer` tag still does not establish a measured native bridge height.

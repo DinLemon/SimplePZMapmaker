@@ -17,11 +17,12 @@ public sealed class SiteParcel
     public List<string> LinearFeatureIds { get; set; } = [];
     public List<string> AssociationNotes {get;set;}=[];
     public bool Locked { get; set; }
+    public ParcelGenerationState? ParcelGeneration {get;set;}
 }
 
 public static class SiteModel
 {
-    public const int MaximumSites = 512, MaximumVertices = 4096;
+    public const int MaximumSites = 512, MaximumVertices = 4096, MaximumRings = GeographicEvidence.MaximumRings;
 
     /// <summary>Explicit editor deletions detach membership, in the same history transaction as the removed object.</summary>
     public static void DetachMissingMembers(MapProject p)
@@ -41,11 +42,14 @@ public static class SiteModel
         long vertices = 0, members = 0;
         foreach (var site in project.Sites)
         {
+            if(site.ParcelGeneration is {} generated){
+                if(generated.Objects is null||generated.Objects.Count>256||generated.Objects.Any(v=>v.Key.Length>128||!v.Key.StartsWith("building:",StringComparison.Ordinal)&&!v.Key.StartsWith("fence:",StringComparison.Ordinal)&&!v.Key.StartsWith("decoration:",StringComparison.Ordinal)||v.Value is not {Length:64}||!v.Value.All(char.IsAsciiHexDigit))||generated.Ground is null||generated.Ground.Count>100_000||generated.Ground.Any(v=>v.Key<0||v.Key>=project.Terrain.Length||v.Value is null||!Enum.IsDefined(v.Value.Before)||!Enum.IsDefined(v.Value.After)))throw new ArgumentException("Invalid parcel generation ownership state.");
+            }
             if(site.AssociationNotes is null||site.AssociationNotes.Count>8||site.AssociationNotes.Any(n=>n is null||n.Length>300))throw new ArgumentException("Invalid site association notes.");
             if (!Text(site.Id, 100) || !Text(site.Name, 100) || site.Origin is not ("authored" or "source" or "source-edited" or "inferred") || site.SourceId is not null && !Text(site.SourceId, 100) || site.SourceFeatureId is not null && !Text(site.SourceFeatureId, 100))
                 throw new ArgumentException("Invalid site identity, name or provenance.");
-            if (site.Boundary is null || site.Boundary.Count is < 1 or > 32 || site.Boundary.Any(r => r is null || r.Count is < 3 or > MaximumVertices) || site.Boundary.Sum(r => r.Count) > MaximumVertices)
-                throw new ArgumentException("A site needs an outer polygon and at most 31 holes, within 4,096 vertices.");
+            if (site.Boundary is null || site.Boundary.Count is < 1 or > MaximumRings || site.Boundary.Any(r => r is null || r.Count is < 3 or > MaximumVertices) || site.Boundary.Sum(r => r.Count) > MaximumVertices)
+                throw new ArgumentException("A site needs an outer polygon and at most 1,023 holes, within 4,096 vertices.");
             vertices += site.Boundary.Sum(r => r.Count);
             if (vertices > 65536) throw new ArgumentException("Site boundaries exceed the 65,536 vertex project budget.");
             foreach (var ring in site.Boundary)

@@ -80,14 +80,14 @@ public static class ZoneImportTests
 public static class ReferenceFenceTests
 {
  public static IEnumerable<(string,Action)> Cases(){
-  yield return("reference fences alternate west1/west2, frame their wickets and keep corners on alternate pieces",()=>{
+  yield return("reference fences alternate their pieces and omit empty vanilla gate-frame slots",()=>{
    var planks=GeographicImporter.DefaultFenceStyles.Single(s=>s.Id=="vanilla-planks");var wicket=GeographicImporter.DefaultGateStyles.Single(g=>g.Id==GeographicImporter.WicketFor("vanilla-planks"));
    Check(GeographicImporter.DefaultFenceStyles.Length==14&&GeographicImporter.DefaultGateStyles.All(g=>g.OpenW.Count==1),"TileZed reference sets are incomplete");
    var line=new FenceLine{Id="a",Style=planks.Id,Points=[new(10,10),new(14,10)],Gates=[new(){At=1,Style=wicket.Id}]};var corner=new FenceLine{Id="b",Style=planks.Id,Points=[new(20,25),new(20,20),new(25,20)]};
    FenceLines.Validate([line,corner],[planks],[wicket],258048);var pieces=FenceLines.Compose([line,corner],[planks],[wicket],256,256).Pieces;
    string[] At(int x,int y)=>pieces.Where(p=>p.X==x&&p.Y==y).Select(p=>p.Tile).ToArray();
    Check(At(10,10).SequenceEqual(["fencing_01_8"])&&At(12,10).SequenceEqual(["fencing_01_8"])&&At(13,10).SequenceEqual(["fencing_01_9"]),"north1/north2 do not alternate");
-   Check(At(11,10).SequenceEqual(["fencing_01_47","fixtures_doors_fences_01_13"]),"The wicket needs its gate frame under it");
+   Check(At(11,10).SequenceEqual(["fixtures_doors_fences_01_13"]),"Vanilla empty gate-frame slots must not become missing native tiles");
    Check(At(20,20).SequenceEqual(["fencing_01_12"]),"An alternate W and N piece should still meet in the NW corner");
   });
  }

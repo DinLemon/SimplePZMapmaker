@@ -1,0 +1,39 @@
+/* One task surface, with project commands kept separate from drawing tools. */
+[hidden]{display:none!important}
+.topbar{min-height:72px;flex-wrap:nowrap;gap:18px}
+.topbar .brand{flex:none}.topbar .project-title{flex:1;min-width:100px;max-width:240px}
+.topbar nav{display:flex;flex:none;align-items:center;flex-wrap:nowrap;gap:6px;margin-left:auto}
+.command-menu{position:relative;border:0;margin:0;padding:0;flex:none}
+.command-menu>summary{list-style:none;cursor:pointer;padding:10px 12px;border:1px solid transparent;border-radius:2px;font-size:12px;white-space:nowrap}
+.command-menu>summary::-webkit-details-marker{display:none}
+.command-menu>summary::after{content:'▾';font-size:10px;margin-left:7px;color:var(--muted)}
+.command-menu[open]>summary,.command-menu>summary:hover{border-color:var(--line);background:var(--panel2)}
+.command-menu-items{position:absolute;top:calc(100% + 7px);left:0;min-width:230px;max-height:70vh;overflow:auto;padding:7px;background:var(--panel);border:1px solid var(--line);box-shadow:0 12px 35px #0006;z-index:30;display:grid;gap:3px}
+.command-menu:last-of-type .command-menu-items{left:auto;right:0}
+.command-menu-items button{text-align:left;width:100%;font-size:12px;border:0;color:var(--paper);padding:10px 12px;background:transparent}
+.command-menu-items button:hover{background:var(--panel2)}
+.command-menu>summary:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.workspace{grid-template-columns:216px minmax(300px,1fr) 270px}
+.tools,.inspector{padding:16px}.tools .eyebrow{display:none}.tool-grid{gap:5px}
+.tool-grid button{min-height:38px;padding:8px 10px}.tools section{margin-top:18px;padding-top:16px}
+#appearance-current-panel{padding-top:0;border:0;margin-top:5px}
+#appearance-current-panel .hint{margin:0}
+#inspector-context{font-size:16px;margin:0 0 16px}
+#project-properties{margin:18px 0 0;border-top:1px solid var(--line);padding-top:14px}
+#project-properties>summary,.map-layers-workbench>summary{cursor:pointer;font-size:12px;font-weight:600}
+#project-properties #inspector-title{font-size:18px;margin-top:12px}
+#project-properties .eyebrow,#project-properties .target{display:none}
+#project-properties section{padding-top:10px;margin-top:10px}
+#tool-help-panel{border:0;padding-top:6px;margin-top:12px}
+#tool-help-panel h2{display:none}#tool-help{font-size:11px;line-height:1.6}
+#zone-tools{margin-top:0;border:0;padding-top:0}#zone-tools>summary{display:none}
+.inspector .geographic-authoring-workbench{margin-top:14px}
+.map-toolbar .view-controls{gap:5px}.map-toolbar button{font-size:11px;padding:7px 9px;white-space:nowrap}
+.map-toolbar #map-level{max-width:150px;font-size:11px}
+.be-resource-palette .building-resource-tools{display:none}
+.be-resource-palette>label:has(#be-palette-role){display:none}
+.be-tool-resources{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.native-asset-card{height:144px}.native-asset-card strong{display:block;font-size:10px;line-height:12px;max-height:24px;overflow:hidden;overflow-wrap:anywhere}.native-asset-card .resource-source-badge{font-size:9px;max-height:12px}
+@media(max-width:1150px){.topbar{gap:10px;padding-left:12px;padding-right:12px}.topbar .brand small{display:none}.topbar .brand{font-size:14px}.topbar .project-title{max-width:160px}.command-menu>summary{padding:9px 8px}.workspace{grid-template-columns:185px minmax(280px,1fr) 240px}.tools,.inspector{padding:12px}.map-toolbar .view-controls{flex-wrap:wrap}}
+@media(max-width:850px){.topbar{flex-wrap:wrap}.topbar .project-title{max-width:none}.topbar nav{width:100%;justify-content:flex-end}.workspace{grid-template-columns:155px minmax(220px,1fr) 215px}.command-menu-items{min-width:200px}.map-toolbar{align-items:flex-start}}
+@media(max-width:620px){.workspace{grid-template-columns:126px minmax(180px,1fr)}.inspector{grid-column:1/-1;max-height:38vh}.topbar nav{gap:2px;justify-content:space-between}.command-menu>summary{font-size:11px;padding:8px 5px}.command-menu-items{left:0;right:auto}.command-menu:nth-of-type(n+3) .command-menu-items{left:auto;right:0}.topbar nav>button{padding:8px;font-size:11px}}

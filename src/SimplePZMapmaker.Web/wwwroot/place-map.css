@@ -1,0 +1,56 @@
+.place-map {
+  --place-ink: #e7dfc9;
+  --place-green: #172623;
+  color: var(--place-ink);
+  background: var(--place-green);
+  border: 1px solid #63725e;
+  padding: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.45;
+  min-width: 0;
+  isolation: isolate;
+}
+.place-map[hidden], .place-map [hidden] { display: none !important; }
+.place-map-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.place-map .place-map-tools button {
+  min-height: 44px;
+  padding: 7px 12px;
+  border: 1px solid #71856a;
+  border-radius: 3px;
+  background: #284237;
+  color: var(--place-ink);
+  font: inherit;
+  cursor: pointer;
+}
+.place-map .place-map-tools button:hover:enabled { background: #365442; }
+.place-map .place-map-tools button[aria-pressed="true"] { background: #e7dfc9; color: #172623; }
+.place-map .place-map-tools button:disabled { opacity: .5; cursor: default; }
+.place-map :focus-visible { outline: 3px solid #e3c77f; outline-offset: 2px; }
+.place-map .place-map-hint { margin: 8px 0; color: #c2ccb9; max-width: 76ch; }
+.place-map .place-map-viewport {
+  width: 100%;
+  height: clamp(240px, 47vh, 480px);
+  min-height: 240px;
+  background: #cdd7c3;
+  color: #172623;
+  border: 1px solid #71856a;
+  box-sizing: border-box;
+  font-family: inherit;
+  z-index: 0;
+}
+.place-map .place-map-viewport.place-map-selecting { cursor: crosshair; }
+.place-map .leaflet-control-zoom a { min-width: 40px; height: 40px; line-height: 40px; background: #f1ead5; color: #172623; }
+.place-map .place-map-attribution { margin: 4px 0 8px; font-size: 12px; text-align: right; }
+.place-map a { color: #e7dfc9; text-decoration: underline; text-underline-offset: 3px; }
+.place-map a:hover { color: #fff7e0; }
+.place-map .place-map-links { display: flex; flex-wrap: wrap; gap: 6px 20px; }
+.place-map .place-map-links a { display: inline-flex; align-items: center; min-height: 44px; }
+.place-map a[aria-disabled="true"] { opacity: .5; cursor: default; }
+.place-map .place-map-coordinates { display: block; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.place-map .place-map-status, .place-map .place-map-tile-status { margin: 8px 0 0; padding: 8px; background: #233b32; }
+.place-map .place-map-error, .place-map .place-map-tile-status { color: #ffcfab; }
+@media (max-width: 500px) {
+  .place-map { padding: 8px; }
+  .place-map .place-map-tools button { flex: 1 1 42%; }
+}

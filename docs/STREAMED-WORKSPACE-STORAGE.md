@@ -27,8 +27,8 @@ World format 8 adds shared `Decorations` to the metadata blob. Each group keeps 
 
 ## Explicit budgets
 
-- One section blob: 48 MiB; shared metadata: 16 MiB; manifest: 1 MiB.
-- Layout: 128 sections and 8,192 non-overlapping native cells. There is no aggregate source-byte limit for section reads/saves or workspace export jobs.
+- One section blob: 128 MiB; shared authored metadata (including full plans for seam-crossing buildings): 128 MiB; manifest: 32 MiB. The metadata limit was aligned with authored sections after the dense Moscow import exceeded the former 16 MiB limit.
+- Layout: 65,536 sections and 65,536 non-overlapping native cells. There is no aggregate source-byte limit for section reads/saves or workspace export jobs.
 - Native output: 256 MiB compressed; zone/atlas descriptions: 64 million characters/UTF-8 bytes respectively; attribution: 16 million UTF-8 bytes; static models: 100,000 placements.
 - Jobs: at most two workers and eight queued; 30 minute execution deadline. Existing cache and artifact retention budgets still apply.
 - The compatibility full-world JSON request/response path retains its 128 MiB source budget. Creating a workspace from one monolithic request also retains that HTTP limit.
@@ -48,3 +48,5 @@ To restore the workspace without constructing a complete `WorldProject` in RAM:
 5. Copy the index last, as `<storageId>.pzworld.index.json`. Reopen the workspace normally; each section is independently validated when loaded.
 
 Selected-section ZIPs include only that section's source, a readable `project.pzmap.json`, complete shared source metadata and the original layout context. Their index alone cannot restore absent neighbour section files. Export the complete workspace for a complete restore.
+
+New real-place section imports also write incrementally before publication. Their private staging, bounded seam windows and failure cleanup are described in [the workspace guide](WORKSPACE-UI.md). A new large import does not materialize complete-world JSON.

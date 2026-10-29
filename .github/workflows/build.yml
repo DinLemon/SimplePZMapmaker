@@ -48,6 +48,14 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Browser dependency installation failed.' }
           node tools/BrowserSmoke/node_modules/playwright/cli.js install chromium
           if ($LASTEXITCODE -ne 0) { throw 'Browser installation failed.' }
+      - name: Geographic selection and expanded-layout browser contracts
+        shell: pwsh
+        run: |
+          . ./scripts/WorkspaceEnv.ps1
+          $env:PZMAP_PLACE_MAP_BROWSER='1'
+          $env:PZMAP_WORLD_WIZARD_BROWSER='1'
+          node --test tests/place-map.test.mjs tests/osm-world-layout.test.mjs tests/osm-world-wizard.test.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Geographic browser contracts failed.' }
       - name: Launch the published application and exercise its editor
         shell: pwsh
         run: ./scripts/verify-actions-startup.ps1
@@ -61,7 +69,7 @@ jobs:
         shell: pwsh
         run: |
           . ./scripts/WorkspaceEnv.ps1
-          node scripts/verify-public-paths.mjs artifacts/SimplePZMapmaker-0.12.0-win-x64.zip
+          node scripts/verify-public-paths.mjs artifacts/SimplePZMapmaker-0.13.0-win-x64.zip
           if ($LASTEXITCODE -ne 0) { throw 'Public package path check failed.' }
       - name: Verify signed basement example
         shell: pwsh

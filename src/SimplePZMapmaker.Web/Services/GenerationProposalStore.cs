@@ -10,7 +10,7 @@ public sealed record GenerationStudioApplied(string ProposalId, string BaseFinge
 public sealed class GenerationProposalStore
 {
     const int MaxCount = 12;
-    const long MaxBytes = 64 * 1024 * 1024;
+    const long MaxBytes = 256 * 1024 * 1024;
     readonly object gate = new();
     readonly Dictionary<string, Entry> entries = new(StringComparer.Ordinal);
     long bytes;
@@ -19,7 +19,7 @@ public sealed class GenerationProposalStore
     public GenerationStudioProposal Add(GenerationStudioPreview preview)
     {
         var candidate = JsonSerializer.SerializeToUtf8Bytes(preview.Project);
-        if (candidate.LongLength > MaxBytes) throw new ArgumentException("The generation preview exceeds the 64 MiB proposal budget. Use a smaller map.");
+        if (candidate.LongLength > ProjectValidator.MaximumProjectBytes) throw new ArgumentException("The generation preview exceeds the 128 MB project budget. Use smaller world sections.");
         lock (gate)
         {
             Prune();

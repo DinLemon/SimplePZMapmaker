@@ -7,6 +7,7 @@ internal sealed partial class TileComposer
     private readonly MapProject project;
     private readonly int ox,oy;
     private readonly Dictionary<int,List<string>> ground=[];
+    private readonly Dictionary<int,List<string>> groundOverlays=[];
     private readonly HashSet<int> roofs=[];
     private readonly HashSet<int> decorationCells=[];
     private readonly HashSet<string> authoredTiles=new(StringComparer.Ordinal);
@@ -47,6 +48,8 @@ internal sealed partial class TileComposer
         authoredTiles.Add(tile);
         var i=y*256+x;if(!ground.ContainsKey(i))ground[i]=At(x,y,0);
         ground[i].Add(tile);Navigation[i]|=flags;
+        if(!groundOverlays.TryGetValue(i,out var overlays))groundOverlays[i]=overlays=[];
+        overlays.Add(tile);
     }
     private void AddRoom(string name,int x,int y,int w,int h,List<int> building) {
         var endX=Math.Min(256,x+w);var endY=Math.Min(256,y+h);x=Math.Max(0,x);y=Math.Max(0,y);w=endX-x;h=endY-y;if(w<=0||h<=0)return;

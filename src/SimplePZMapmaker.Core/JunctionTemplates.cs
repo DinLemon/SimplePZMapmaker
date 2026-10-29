@@ -23,5 +23,5 @@ public static class JunctionTemplates
   return result;
  }
  public static MapProject Apply(MapProject p,Request r)=>LinearFeatureEditor.PutGroup(p,r.GroupId,Create(r));
- public static string[] Warnings(Request r)=>r.Kind is "overpass" or "underpass" or "stacked-crossing"?["Access uses native pedestrian stairs. Project Zomboid does not provide continuous driveable road ramps; these decks do not connect vehicle traffic between floors."]:[];
+ public static string[] Warnings(Request r)=>r.Kind is "overpass" or "underpass" or "stacked-crossing"?["Access uses native pedestrian stairs. These templates do not generate vehicle ramp approaches, so their decks do not connect vehicle traffic between floors."]:[];
 }

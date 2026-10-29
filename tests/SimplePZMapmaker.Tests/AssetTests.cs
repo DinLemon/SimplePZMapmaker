@@ -7,6 +7,47 @@ using SimplePZMapmaker.Core.Export;
 public static class AssetTests
 {
  public static IEnumerable<(string,Action)> Cases(){
+  yield return ("legacy forests use B42-visible tree frames in preview and native archive",()=>{
+   var p=MapGenerator.Generate(new(){Kind="blank"});p.SurfaceTheme="legacy";
+   for(var y=0;y<24;y++)for(var x=0;x<24;x++)p.Terrain[y*p.Width+x]=Terrain.Forest;
+   var sprites=NativeScene.Cell(p,0,0,24,24,0).Sprites;
+   var trees=sprites.Where(s=>s.Tile.StartsWith("e_")||s.Tile.StartsWith("vegetation_trees_")).Select(s=>s.Tile).Distinct().ToArray();
+   if(trees.Length==0||trees.Any(t=>!new[]{"e_americanholly_1_2","e_canadianhemlock_1_2","e_redmaple_1_2","e_cockspurhawthorn_1_2","e_virginiapine_1_2"}.Contains(t)))throw new Exception("Legacy forest still uses a tree without a Build 42 image");
+   using var archive=new ZipArchive(new MemoryStream(NativeMapExporter.Export(p)));using var header=archive.Entries.Single(e=>e.Name.EndsWith(".lotheader")).Open();using var bytes=new MemoryStream();header.CopyTo(bytes);
+   var names=Encoding.ASCII.GetString(bytes.ToArray());if(trees.Any(t=>!names.Contains(t,StringComparison.Ordinal))||names.Contains("vegetation_trees_01_8",StringComparison.Ordinal))throw new Exception("Native archive differs from the B42-visible preview");
+  });
+  yield return ("whole-object palette groups before paging and keeps variants directions and raw search",()=>WithPaletteFixture((assets,root)=>{
+   var page=PaletteJson(assets.SearchObjects("Bed","furniture",0,1));
+   if(page.GetProperty("total").GetInt32()!=4||page.GetProperty("items").GetArrayLength()!=1)throw new Exception("Expected four objects, one per page");
+   var first=page.GetProperty("items")[0];if(first.GetProperty("id").GetString()!="furniture_bed_0"||first.GetProperty("parts").GetArrayLength()!=2||!first.GetProperty("wholeObject").GetBoolean())throw new Exception("Bed parts not assembled");
+   var second=PaletteJson(assets.SearchObjects("Bed","furniture",1,1)).GetProperty("items")[0];if(second.GetProperty("id").GetString()!="furniture_bed_2")throw new Exception("Different bed variant collapsed");
+   if(PaletteJson(assets.SearchObjects("Bed","furniture",0,12,null,"N")).GetProperty("total").GetInt32()!=2)throw new Exception("Facing filter collapsed orientations");
+   var byPart=PaletteJson(assets.SearchObjects("furniture_bed_1",null));if(byPart.GetProperty("total").GetInt32()!=1||byPart.GetProperty("items")[0].GetProperty("parts").GetArrayLength()!=2)throw new Exception("Part-ID search truncated the object");
+   if(PaletteJson(assets.Search(null,null)).GetProperty("total").GetInt32()!=12)throw new Exception("Raw search lost tiles");
+   if(PaletteJson(assets.SearchObjects(null,null,100,12)).GetProperty("items").GetArrayLength()!=0)throw new Exception("Past-end page is not empty");
+   Reject(()=>assets.SearchObjects(null,null,-1));Reject(()=>assets.SearchObjects(null,null,0,121));
+  }));
+  yield return ("whole-object palette rejects incomplete uncertain and mixed-source grids and refreshes on activation",()=>WithPaletteFixture((assets,root)=>{
+   if(PaletteJson(assets.SearchObjects("Broken",null)).GetProperty("total").GetInt32()!=0||PaletteJson(assets.SearchObjects("Uncertain",null)).GetProperty("total").GetInt32()!=0)throw new Exception("Partial grid claimed complete");
+   var media=Path.Combine(root,"mods","one","media");Directory.CreateDirectory(media);File.WriteAllText(Path.Combine(root,"mods","one","mod.info"),"id=one\nname=One\ntiledef=fixture 900\n");
+   File.WriteAllText(Path.Combine(media,"fixture.tiles.txt"),PaletteTile("furniture_bed_0","Bed","0,1","N")+PaletteTile("furniture_bed_100","Bed","0,1","N")+PaletteTile("furniture_bed_101","Bed","0,0","N"));
+   assets.DiscoverMods([Path.Combine(root,"mods")],"42.0.0");assets.ActivateMods(["one"]);
+   Reject(()=>assets.PlacementFor("furniture_bed_1"));
+   var page=PaletteJson(assets.SearchObjects("Bed",null,0,12,"one"));if(page.GetProperty("total").GetInt32()!=1)throw new Exception("Mod and base parts were merged");
+   var card=page.GetProperty("items")[0];if(card.GetProperty("parts").GetArrayLength()!=2||card.GetProperty("modId").GetString()!="one"||card.GetProperty("requirements")[0].GetString()!="one")throw new Exception("Object provenance/dependencies lost");
+   if(PaletteJson(assets.SearchObjects("Bed",null,0,12,"game")).GetProperty("total").GetInt32()!=3)throw new Exception("Game source included mixed grid");
+   assets.ActivateMods([]);if(PaletteJson(assets.SearchObjects("Bed",null)).GetProperty("total").GetInt32()!=4)throw new Exception("Object index stale after mods disabled");
+  }));
+  yield return ("whole-object palette placement callers cannot damage cached object footprints",()=>WithPaletteFixture((assets,root)=>{
+   var placement=assets.PlacementFor("furniture_bed_0");placement.Parts.Clear();
+   if(assets.PlacementFor("furniture_bed_1").Parts.Count!=2||PaletteJson(assets.SearchObjects("furniture_bed_0",null)).GetProperty("items")[0].GetProperty("parts").GetArrayLength()!=2)throw new Exception("Mutable placement leaked into object index");
+  }));
+  yield return ("whole-object palette never promotes the rectangular remainder of a renamed mod override",()=>WithPaletteFixture((assets,root)=>{
+   var game=Path.Combine(root,"game");File.AppendAllText(Path.Combine(game,"media","newtiledefinitions.tiles.txt"),PaletteTile("furniture_double_0","Double","0,0")+PaletteTile("furniture_double_1","Double","1,0")+PaletteTile("furniture_double_2","Double","0,1")+PaletteTile("furniture_double_3","Double","1,1"));assets.Refresh(game,false);
+   if(PaletteJson(assets.SearchObjects("Double",null)).GetProperty("total").GetInt32()!=1)throw new Exception("Full four-cell fixture missing");
+   var media=Path.Combine(root,"mods","one","media");Directory.CreateDirectory(media);File.WriteAllText(Path.Combine(root,"mods","one","mod.info"),"id=one\nname=One\ntiledef=fixture 900\n");File.WriteAllText(Path.Combine(media,"fixture.tiles.txt"),PaletteTile("furniture_double_1","Changed","1,0")+PaletteTile("furniture_double_3","Changed","1,1"));assets.DiscoverMods([Path.Combine(root,"mods")],"42.0.0");assets.ActivateMods(["one"]);
+   if(PaletteJson(assets.SearchObjects("Double",null)).GetProperty("total").GetInt32()!=0)throw new Exception("Half of an overridden object claimed complete");Reject(()=>assets.PlacementFor("furniture_double_0"));
+  }));
   yield return ("rejected appearance changes leave the whole project unchanged",()=>{
    var p=MapGenerator.Generate(new(){Kind="blank"});var b=new Building{X=40,Y=40};BuildingDesigner.Generate(b,1,42);p.Buildings.Add(b);p.Version=5;
    for(var i=0;i<128;i++)p.SurfaceRegions.Add(new(){X=i,Y=0,Width=1,Height=1,Theme="dry"});
@@ -76,6 +117,14 @@ public static class AssetTests
   yield return ("texture pack rejects truncated or unreasonable pages",()=>{foreach(var data in new[]{Array.Empty<byte>(),"PZPK"u8.ToArray(),"PZPK\x01\x00\x00\x00\xff\xff\xff\x7f"u8.ToArray()}){try{TexturePackIndex.Read(new MemoryStream(data),"bad");}catch(ArgumentException){continue;}throw new Exception("Invalid pack accepted");}});
  }
  static void Text(BinaryWriter w,string s){var bytes=Encoding.ASCII.GetBytes(s);w.Write(bytes.Length);w.Write(bytes);}
+ static JsonElement PaletteJson(object value)=>JsonSerializer.SerializeToElement(value,new JsonSerializerOptions(JsonSerializerDefaults.Web));
+ static string PaletteTile(string id,string name,string? grid,string facing="")=>$"// {id}\ntile\n{{\nCustomName = {name}\nGroupName = Fixture\nFacing = {facing}\nsolidtrans =\n"+(grid is null?"":$"SpriteGridPos = {grid}\n")+"}\n";
+ static void WithPaletteFixture(Action<GameAssetCatalog,string> action){
+  var root=Path.Combine(Path.GetTempPath(),"pz-palette-tests",Guid.NewGuid().ToString("N"));var game=Path.Combine(root,"game");Directory.CreateDirectory(Path.Combine(game,"media","texturepacks"));
+  try{var tiles=PaletteTile("furniture_bed_0","Bed","0,1","N")+PaletteTile("furniture_bed_1","Bed","0,0","N")+PaletteTile("furniture_bed_2","Bed","0,1","N")+PaletteTile("furniture_bed_3","Bed","0,0","N")+PaletteTile("furniture_bed_4","Bed","1,0","S")+PaletteTile("furniture_bed_5","Bed","0,0","S")+PaletteTile("furniture_bed_6","Bed",null)+PaletteTile("furniture_broken_0","Broken","0,1")+PaletteTile("furniture_broken_1","Broken","1,0")+PaletteTile("furniture_broken_2","Broken","1,1")+PaletteTile("furniture_uncertain_0","Uncertain","0,0")+PaletteTile("furniture_attached_0","Attached",null).Replace("solidtrans =","attachedN =");
+   File.WriteAllText(Path.Combine(game,"media","newtiledefinitions.tiles.txt"),tiles);action(new GameAssetCatalog(Path.Combine(root,"workspace"),game),root);
+  }finally{var checkedRoot=Path.GetFullPath(root);var prefix=Path.GetFullPath(Path.Combine(Path.GetTempPath(),"pz-palette-tests"))+Path.DirectorySeparatorChar;if(!checkedRoot.StartsWith(prefix,StringComparison.OrdinalIgnoreCase))throw new Exception("Unsafe fixture cleanup");Directory.Delete(checkedRoot,true);}
+ }
  internal static List<string> NativeTiles(ZipArchive archive,MapProject p,int x,int y,int z){
   var root=$"{NativeMapExporter.ModId(p)}/42/media/maps/{NativeMapExporter.ModId(p)}/";var cx=p.WorldX+x/256;var cy=p.WorldY+y/256;
   using var header=archive.GetEntry(root+$"{cx}_{cy}.lotheader")!.Open();using var h=new BinaryReader(header);h.ReadBytes(8);var names=new List<string>();var count=h.ReadInt32();for(var i=0;i<count;i++){var bytes=new List<byte>();byte value;while((value=h.ReadByte())!=10)bytes.Add(value);names.Add(Encoding.ASCII.GetString(bytes.ToArray()));}h.ReadInt32();h.ReadInt32();var min=h.ReadInt32();

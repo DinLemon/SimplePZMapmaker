@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {validateLinearFeatures} from '../src/SimplePZMapmaker.Web/wwwroot/linear-editing.js';
+import {mapAuthoringVersion} from '../src/SimplePZMapmaker.Web/wwwroot/editor.js';
+import {worldAuthoringVersion} from '../src/SimplePZMapmaker.Web/wwwroot/world-geography.js';
+const fixture=()=>({width:256,height:256,linearFeatures:[{id:'deck',kind:'bridge',level:0,width:4,interpolation:'polyline',points:[{x:40,y:80},{x:70,y:80}],underlay:[],decorationIds:[],generatedDecorations:[],deckArtwork:[{x:50,y:80,tile:'pilna_bridge_000_0'}]}]});
+test('deck artwork rejects duplicate cells before submitting a path',()=>{const p=fixture();p.linearFeatures[0].deckArtwork.push({...p.linearFeatures[0].deckArtwork[0]});assert.throws(()=>validateLinearFeatures(p),/deck artwork/i);});
+test('deck artwork requires a deck and bounded finite integer coordinates',()=>{for(const mutate of [f=>f.kind='road',f=>f.deckArtwork[0].x=NaN,f=>f.deckArtwork[0].y=-1,f=>f.deckArtwork[0].x=.5,f=>f.deckArtwork[0].tile='../bad']){const p=fixture();mutate(p.linearFeatures[0]);assert.throws(()=>validateLinearFeatures(p),/deck artwork/i);}});
+test('deck artwork survives client validation without changes to water or artwork',()=>{for(const z of [-2,0,2]){const p=fixture();p.linearFeatures[0].level=z;const before=structuredClone(p);validateLinearFeatures(p);assert.deepEqual(p,before);}});
+test('deck artwork upgrades both local and shared authoring format before serialization',()=>{const p=fixture();p.version=17;assert.equal(mapAuthoringVersion(p),18);assert.equal(worldAuthoringVersion({version:12,maps:[{project:p}]}),13);assert.equal(worldAuthoringVersion({version:12,linearFeatures:p.linearFeatures}),13);assert.equal(mapAuthoringVersion({version:4}),4);});

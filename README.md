@@ -1,14 +1,47 @@
+<p align="center">
+  <img src="docs/branding/logo.png" width="360" alt="SimplePZMapmaker: a folded map, a continuous road and a home">
+</p>
+
 # SimplePZMapmaker
 
 A local visual map and building editor for **Project Zomboid Build 42**, written in C#/.NET 10 with a browser interface. Create maps without programming, assemble rooms from your installed game's resources, import OpenStreetMap geography, and join adjacent sections into one world.
 
-**Current release: 0.12.0.** The Windows x64 download includes the .NET Runtime. The editor supports 24 original editable building plans, up to 32 above-ground levels and basements **−1 to −32** (64 signed levels, **Z −32…31**), game/mod sprites and static models, shared buildings across section boundaries, measured DEM elevation, and MCP planning with a review before changes enter your project.
+**Current release: [0.13.0](https://github.com/DinLemon/SimplePZMapmaker/releases/tag/v0.13.0) (prerelease).** The Windows x64 download includes the .NET Runtime. The editor supports 24 original editable building plans, up to 32 above-ground levels and basements **−1 to −32** (64 signed levels, **Z −32…31**), game/mod sprites and static models, shared buildings across section boundaries, measured DEM elevation, and MCP planning with a review before changes enter your project.
 
 [Download releases](https://github.com/DinLemon/SimplePZMapmaker/releases) · [Verification status](docs/STATUS.md) · [Code and data provenance](docs/PROVENANCE.md)
 
-![The English map editor](docs/screenshots/01-editor.png)
+[Real-place transfer workflow and acceptance](docs/TRANSFER-LESSONS-IMPLEMENTATION.md) · [Cadastral and survey sources](docs/CADASTRAL-SOURCES.md) · [Shared geographic deformation](docs/GEOGRAPHIC-DEFORMATION.md)
 
-## Streamed world editor (development branch)
+[Interactive guide](docs/INTERACTIVE-GUIDE.md): open **Project → Interactive guide and help** for six contextual workflows in English or Russian, with pause and resume.
+
+![Illustrated workflow: select an area, create terrain, add buildings and export connected sections](docs/branding/world-assembly.gif)
+
+*Workflow illustration; the editor screenshots and verified limits are documented below.*
+
+## What is new in 0.13.0
+
+- **One task at a time:** Create, Edit map, and Check & export share the same project. Save and Build mod stay visible; drawing tools, layers and properties appear where they are needed.
+- **Keep the selected area and scale:** when a real-place selection exceeds the ordinary 128-section / 768-cell allowance, approve its expanded layout instead of shrinking it. New section imports save incrementally; source buildings and fences are resolved across seams before atomic publication.
+- **Larger connected worlds:** up to 65,536 sections and 65,536 native cells, within separate source, object and coordinate budgets. A sparse 15,552-cell / 972-section fixture was imported at 1 metre per tile and sampled in the editor; this is not a dense-city memory guarantee.
+- **Detailed terrain:** large forest and water outlines use active-edge rasterization, retaining holes and section continuity without counting a distant perimeter on every row. Retained sources can be rebuilt without another download. See [terrain import and recovery](docs/OSM-TERRAIN-COMPLEXITY.md).
+- **A complete local toolchain:** offline saved geographic sources, an interactive guide, Project Doctor, building exchange, reviewed agent assets, native transport authoring and the headless CLI ship with the application. The Windows ZIP includes .NET.
+
+Validation for the release candidate: **1,015 C# checks**, **511 JavaScript checks**, a production offline large-world import, section opening and selected native export. See [verification details and limitations](docs/STATUS.md) and [incremental world import](docs/WORKSPACE-UI.md).
+
+## Real-place creation workflow
+
+The editor has three task workspaces: **Create**, **Edit map**, and **Check & export**. Commands and the active project are shared; tools, properties and build history appear in their relevant workspace. Expanded geographic layouts offer explicit approval beyond the ordinary 128-section allowance. See [workspace navigation and expanded layouts](docs/WORKSPACE-UI.md).
+
+**Create → Choose a real place** opens an interactive OSM map with search and rectangle selection. One panel separates choosing an area from inspecting imported objects/sites; its Google Maps link opens the selected location externally. The exact bounds and chosen source transfer into linked-world setup. See the [workflow and usability checks](docs/REAL-PLACES.md).
+
+**World from OpenStreetMap** now connects area/source selection, generated terrain and furnished buildings, native background compilation and an explicit final mod installation. Imports from this wizard are saved by section from the start. Advanced layout settings can measure the dominant local street grid and apply its suggested rotation; optional saved Overture building GeoJSON fills missing roofprints while preserving the baseline, source credits and courtyards. Existing-world refresh retains its original frame.
+
+[Transport source layout](docs/TRANSPORT-SOURCE-LAYOUT.md) adds one road-width policy, polygon-contained native parking and conservative native fuel-station placement. [Native road ramps](docs/NATIVE-ROAD-RAMPS.md) support explicit straight cardinal approaches through shared section boundaries; pedestrian stair access remains available. The complete [KnoxMap adaptation inventory](docs/KNOXMAP-PIPELINE.md) tracks remaining road shaping, building quality, optional Workshop integrations and client game checks. These integrations do not claim full feature parity. [Code reuse and licences](docs/licenses/KNOXMAP.md).
+
+
+![Create workspace with geographic import and the current map](docs/screenshots/41-create-workspace.png)
+
+## Edit connected worlds by section
 
 - **Work on one section:** save a world as a section workspace, browse its manifest and open only the section being edited. Switching saves committed edits first; stale revisions retain the local copy and offer an explicit reload/discard action.
 - **See neighbouring geometry:** section outlines distinguish loaded and unloaded terrain. Crossing buildings, decorations, fences and infrastructure remain visible and reserved; shared geometry is read-only in an isolated section.
@@ -25,7 +58,7 @@ A local visual map and building editor for **Project Zomboid Build 42**, written
 
 ![A polygon authoring preview with native density-cell changes](docs/images/polygon-zone-editor.png)
 
-## Accurate real-place transfer (development branch)
+## Accurate real-place transfer
 
 - **Source evidence:** retain original geographic geometry, stable source identities, addresses, entrance/access tags, observed facilities and barriers across OSM, tiled requests, regional PBF and GeoJSON point/polygon imports.
 - **Editable sites:** group fully contained buildings, props, models and paths; adapt polygon vertices, review moves/copies, pin sites and apply changes with grouped undo/redo. Source boundaries stay separate from authored edits.
@@ -35,7 +68,7 @@ A local visual map and building editor for **Project Zomboid Build 42**, written
 
 ![Real Smolensk source data and transfer diagnostics](docs/screenshots/28-real-place-evidence.png)
 
-## Generation studio (development branch)
+## Generation studio
 
 - **Context-aware districts:** era, land use, density, road setbacks, floors and courtyards; road-facing buildings with connected entrance paths.
 - **Selective completion and regeneration:** fill empty OSM areas, preserve source/manual content, pin buildings or protect rectangles, compare two reproducible variants and apply one undoable change.
@@ -163,12 +196,12 @@ Validation for this implementation: **190 C# checks, 129 JavaScript checks and 1
 ### 2. Download the application ZIP
 
 1. Open [GitHub Releases](https://github.com/DinLemon/SimplePZMapmaker/releases).
-2. Select **v0.12.0**, or a newer published release. The project publishes prereleases, so use the release list rather than assuming GitHub's `/latest` page shows the newest build.
-3. Expand **Assets** and download **`SimplePZMapmaker-0.12.0-win-x64.zip`**. Example map ZIPs contain game mods, not the editor. GitHub's automatic **Source code** archives are development sources, not the ready-to-run application.
+2. Select **v0.13.0**, or a newer published release. The project publishes prereleases, so use the release list rather than assuming GitHub's `/latest` page shows the newest build.
+3. Expand **Assets** and download **`SimplePZMapmaker-0.13.0-win-x64.zip`**. Example map ZIPs contain game mods, not the editor. GitHub's automatic **Source code** archives are development sources, not the ready-to-run application.
 4. Optionally download the release checksum file and compare the archive's SHA-256 before extracting it. Run this command from the folder containing the downloaded archive:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath './SimplePZMapmaker-0.12.0-win-x64.zip'
+Get-FileHash -Algorithm SHA256 -LiteralPath './SimplePZMapmaker-0.13.0-win-x64.zip'
 ```
 
 ### 3. Extract the entire archive
@@ -233,8 +266,12 @@ Most example mods use native world origin **100,100**. Enable them **one at a ti
 1. Create blank land, a small town or a forest-and-river map. One section is 256–2048 tiles; the seed makes generation repeatable.
 2. Choose terrain/brush width at the left. **B** paints, **A** draws a rectangle, **R** draws a road at the selected width.
 3. **H** places a building with a type, shape, 1–32 above-ground levels and 0–32 basements. Floor 1 is Z=0; Floor 32 is Z=31 and uses **No automatic roof**, because an additional roof at Z=32 is outside the game range. Buildings must stay on land without intersecting occupied structures. Native cell boundaries (each cell is 256×256 tiles) are supported.
-4. **V** selects objects for moving, removal or editing. **P** places an outdoor spawn on land; at least one valid spawn must remain in the exported map/world. **Z** paints density 0–255 at 8×8 chunk resolution.
+4. **V** selects objects for moving, removal or editing. **P** places an outdoor spawn on land; at least one valid spawn must remain in the exported map/world. **Z** opens the unified zone editor: rectangles, polygons, density regions and room rules share preview/apply controls. **Paint density brush** in this context paints density 0–255 at 8×8 chunk resolution.
 5. **Ctrl+Z / Ctrl+Shift+Z** undo/redo. Wheel zooms; middle/right dragging or Space pans. Save a `.pzmap.json` before a large replacement/import.
+
+**Project** contains New/Open, World, recovery versions and help. **Import** contains geographic import and source tools. **Tools** contains building/environment editors, map appearance, generation and section preview. **Settings** contains game resources and agent sessions. **Save** and **Build mod** remain visible. Tool settings and the selection inspector follow the current task; project properties and the single **Map layers** panel remain available on the right.
+
+The building catalog starts with **On map / Templates / My templates** tabs and search above results. Built-in templates keep their category filters and previews; My templates supports create/import/edit/place. The workshop's central tools select their matching resource palette. Roof resources use a separate picker; registered models retain their own picker. Furniture cards show complete objects by default; **Advanced: raw tiles** exposes individual sprites. Ambiguous or incomplete object grids remain available in raw mode.
 
 The 3D overview is schematic. The local game-sprite preview shows a 48×48-tile area using the native-export composer without running the game renderer.
 
@@ -242,7 +279,7 @@ To style terrain, open **Map appearance**, choose the whole map or a rectangular
 
 ## Edit buildings and environment visually
 
-Open **Building editor** from the toolbar, select a building with **V**, or create a template before placement. In game view, choose a resource picture and paint directly into the building. Multi-cell furniture is placed and checked as one object. Walls, doors and windows attach to the nearest tile edge.
+Open **Tools → Building editor**, select a building with **V**, or create a template before placement. In game view, choose a resource picture and paint directly into the building. Multi-cell furniture is placed and checked as one object. Walls, doors and windows attach to the nearest tile edge.
 
 - Edit independent floor shapes, L/T forms, courtyards and extensions by adding footprint or removing floor. Maximum overall footprint: 64×64 tiles.
 - Define rooms and purposes, then edit walls, doors, windows and passages. Balconies export as outdoor platforms with railings.
@@ -262,14 +299,16 @@ The gallery includes **24** original izbas, cottages, farmsteads, bathhouses, du
 
 1. Open real-place import, search for a town/address and select a result.
 2. Choose the full settlement/district when small enough, or define a smaller area.
-3. Preview bounds, choose size/source and import. Save first: geography replaces the current terrain.
+3. Preview bounds, choose size/source and import. Automatic selects covering Geofabrik regional PBFs for the chosen location. Use Check regional download to inspect the first download size and cache state. Save first: geography replaces the current terrain.
 4. Review imported/adapted/skipped features, scale and source date. On repeat imports of the same layout, preserve manual edits when desired.
 
 Roads/polygons retain geographic proportions; widths use metres. Footprints become cell outlines with generated interiors. `building:levels`, `building:levels:underground`, `height` and `roof:shape` are read, distinguishing explicit data, height estimates and assumptions. Unsuitable geometry is reported.
 
-For Smolensk, the regional source downloads an oblast PBF from [OSM France](https://download.openstreetmap.fr/extracts/russia/central_federal_district/smolensk_oblast-latest.osm.pbf), then extracts selected bounds locally without Overpass. The verified first download was about 44 MB; `work/geodata-cache/region-smolensk-oblast.pbf` is reused for seven days. The sample covers 1.5 km of the centre, not the whole city. The provider's `latest` snapshot can change.
+Automatic imports use the official Geofabrik region catalogue, resumable regional downloads and local disk-backed PBF clipping. Supported file limits are 8 GiB per automatic download, 16 GiB regional cache and 16 GiB temporary indexes; coverage and first-download size depend on the location. Overpass remains a fallback. The previous Smolensk-specific source is retained as an explicit legacy choice.
 
-Automatic OSM selection retries temporary failures through backup servers. A 504 is an external timeout; availability cannot be guaranteed. Failed/cancelled imports keep the current project. Saved GeoJSON/Overpass JSON imports work offline: WGS 84 `[longitude, latitude]`, supported lines/polygons/multipolygons, limits of 16 MB, 250,000 points and 30,000 features, plus polygon complexity limits.
+Failed/cancelled imports keep the current project. Single-map imports stream download/index/composition progress and apply only a complete result. Save prepared source JSON for offline use, or choose local GeoJSON/Overpass JSON/PBF. Manual PBF uploads remain capped at 64 MiB and selected JSON at 16 MB; automatic selected JSON allows 16 MB per map or 64 MB per world. A reused snapshot discloses its original date. All paths retain geometry/work limits.
+
+**World from OpenStreetMap** is available in the import dialog and world tools. Search for a place, set width/height in kilometres and metres per tile, check the section/cell preview, then assemble and explicitly open the ready result. Large results are saved as linked section workspaces: browse their index and open only the section you need. Current projects remain unchanged until a section is explicitly opened. Exact bounds, origin and rotation are under Advanced; preserving a geographic world locks its frame. See [sources, offline backup and world workflow](docs/OSM-RESILIENCE.md).
 
 The interface and authored examples are English; original imported OSM place names and source tags remain unchanged so the geographic source stays reproducible. OSM attribution is retained; its geography has separate ODbL obligations. Google Maps is not an exportable-geometry source. The editable railway layer uses original cardinal track sprites; diagonal and curved railway artwork is rejected explicitly.
 
@@ -288,7 +327,7 @@ Choose **Game view** above the main map to edit floors, rooms, outlines, walls, 
 5. Import ESRI ASCII DEM (EPSG:4326/3857), or download from [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/). Use the elevation overlay to plan.
 6. Save `.pzworld.json` or export one combined mod with shared spawns, zones and atlas.
 
-**One editor section is limited to 2048×2048 tiles; this does not limit the entire PZ world.** Worlds allow 128 sections/8,192 native cells, with files up to 128 MB and ZIPs up to 256 MB. OSM world imports share one projection, split requests, and allow at most 768 cells/15 minutes. Preserved reimports require identical bounds, scale and layout.
+**One editor section is limited to 2048 by 2048 tiles; this does not limit the whole world.** Saved worlds support up to 65,536 connected sections and 65,536 non-overlapping native cells. Real-place imports above the ordinary 128-section / 768-cell allowance require approval of the exact expanded layout. New section imports write to disk sequentially and resolve shared buildings and fences using bounded neighbor windows, preserving area and detail. Source geometry, shared objects, coordinates, per-section JSON and export size retain independent budgets; complete-world JSON remains within 128 MB. A supplied complete-world preserve-edits refresh retains its 8,192-cell compatibility cap and requires identical bounds, scale and layout. See [workspace and incremental import](docs/WORKSPACE-UI.md). Regional download/extraction deadlines remain separate from world assembly.
 
 DEM retains heights, NODATA, coordinates, source, license and import time; import time is not measurement time. Limits: one million samples, two-minute network budget, seven-day cache. **Native PZ ground stays flat.** `elevation.asc` is exported as a data sidecar, not floors or invented slopes. Details: [World and environment](docs/WORLD-AND-ENVIRONMENT.md).
 
@@ -377,7 +416,7 @@ QA downloads/screenshots/logs stay in `work/qa-results/` or `work/logs/`. Develo
 1. Open **Actions** in the GitHub repository and select **Build and verify**.
 2. Choose **Run workflow**, select `develop` or the branch to verify, then start.
 3. Inspect build/startup/browser steps in the run.
-4. Download the completed application artifact for local use. Extract GitHub's outer artifact archive, then extract the contained `SimplePZMapmaker-0.12.0-win-x64.zip` into the application folder and follow the installation steps above. The diagnostic artifact contains startup evidence and screenshots. GitHub may require sign-in for artifacts.
+4. Download the completed application artifact for local use. Extract GitHub's outer artifact archive, then extract the contained `SimplePZMapmaker-0.13.0-win-x64.zip` into the application folder and follow the installation steps above. The diagnostic artifact contains startup evidence and screenshots. GitHub may require sign-in for artifacts.
 
 CI runs on pushes to `develop`, pull requests and manual dispatch. The Windows runner uses its mapped checkout as the workspace and keeps task caches there. Its no-game fallback check does not replace local installed-game probes.
 
@@ -390,7 +429,7 @@ CI runs on pushes to `develop`, pull requests and manual dispatch. The Windows r
 - **Blank browser / startup timeout:** inspect `work/logs/server.log` and `server-errors.log`, check extraction, and open the loopback address manually.
 - **Missing game images:** verify game path and refresh the catalog. Basic editing/saving work without the game; resource-aware operations need the owning catalog.
 - **Mod activation failed:** follow the missing dependency chain, add its root or install it or select the right version. The previous catalog remains active.
-- **OSM 504 / timeout:** retry later, use the Smolensk regional source when applicable, or import saved geography. Failed/cancelled imports retain the project.
+- **OSM 504 / timeout:** choose Automatic/Geofabrik regional PBF, inspect its download plan, or import saved geography. Failed/cancelled imports retain the project.
 - **Building cannot apply/export:** inspect disconnected rooms, entrances, stairs/landings, furniture/model overlap, water and section coverage. Drafts remain editable.
 - **Agent conflict:** read the current revision and generate a new review; only the reviewed revision can be received.
 - **Example map conflict:** examples can share origin 100,100. Enable one or relocate/re-export them.
@@ -409,3 +448,5 @@ Use **Game zones and vehicles** to draw ground-level biome or vehicle-distributi
 ## Check lighting without leaving the editor
 
 Use **Check lighting** in **Game view** to calculate a selected area with the installed game's native lighting library. The editor displays actual returned cell colors and engine/scene fingerprints, with controls for sky input, room power and authored model lights. No game session or character walk is started. Signed basements and neighboring stitched sections participate in the calculation. The browser visualizes the native light field; game FBO shaders, material rendering, model-mesh shadows, live weather and switches remain explicit limitations. Follow the [illustrated native lighting guide](docs/NATIVE-LIGHTING.md).
+
+Settlement strategies, shared parcel rules, native generated fences, TBX/TMX exchange, street automapping and Project Doctor: [shared authoring guide](docs/SHARED-AUTHORING.md).

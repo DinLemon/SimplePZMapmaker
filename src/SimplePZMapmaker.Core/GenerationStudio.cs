@@ -12,16 +12,23 @@ public static class GenerationStudio
 {
     public static string Fingerprint(MapProject project) => Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(project)));
 
-    public static GenerationStudioPreview Preview(MapProject project, GenerationArea area, int seed, int variant = 0, string mode = "fill", SettlementRules? rules = null, GenerationStudioWorldContext? worldContext = null)
+    public static GenerationStudioPreview Preview(MapProject project, GenerationArea area, int seed, int variant = 0, string mode = "fill", SettlementRules? rules = null, GenerationStudioWorldContext? worldContext = null, string strategy = "contextual", NeighborhoodConstraints? neighborhood = null, ParcelRegionalResources? parcelResources = null)
     {
         ProjectValidator.Validate(project);
         GenerationControl.Validate(project);
         GenerationArea.Validate(area, project);
         worldContext?.ValidateSource(project);
         if (variant is < 0 or > 10000 || mode is not ("fill" or "regenerate")) throw new ArgumentException("Generation needs fill/regenerate mode and a variant between 0 and 10,000.");
+        if(strategy is not ("contextual" or "templates" or "parcels")) throw new ArgumentException("Choose contextual, templates or surveyed-parcels placement strategy.");
+        if(strategy=="parcels"){
+            var parcelPreview=ParcelGenerator.Preview(project,area,variant==0?seed:unchecked(seed*16777619^variant*486187739),mode=="regenerate",worldContext?.ReservedCells,parcelResources);
+            var parcelCandidate=parcelPreview.Project;var parcelControl=parcelCandidate.Generation??=new();parcelControl.LastSeed=seed;parcelControl.LastVariant=variant;parcelControl.LastMode=mode;worldContext?.ValidateCandidate(parcelCandidate);
+            var beforeIds=project.Buildings.Select(b=>b.Id).ToHashSet();var afterIds=parcelCandidate.Buildings.Select(b=>b.Id).ToHashSet();
+            return new(Fingerprint(project),parcelCandidate,new(afterIds.Except(beforeIds).Count(),beforeIds.Except(afterIds).Count(),beforeIds.Intersect(afterIds).Count(),project.Buildings.Count(b=>project.Generation?.LockedBuildingIds.Contains(b.Id)==true||project.Sites.Any(s=>s.Locked&&s.BuildingIds.Contains(b.Id))),project.Terrain.Where((t,i)=>t!=parcelCandidate.Terrain[i]).Count(),parcelPreview.Warnings),Provenance(parcelCandidate),worldContext?.WorldFingerprint,worldContext?.MemberId);
+        }
         var inheritedRules = rules ?? project.Generation?.Rules ?? new SettlementRules();
         SettlementRules.Validate(inheritedRules);
-        if (rules is { Preset: not "contextual" }) throw new ArgumentException("Selective completion uses contextual district rules. Legacy random towns are available when creating a new map.");
+        if (rules is { Preset: not "contextual" }) throw new ArgumentException("Selective completion uses contextual district rules. Legacy random towns remain available through the compatibility API.");
         rules = Copy(inheritedRules);
         rules.Preset = "contextual";
         var fingerprint = Fingerprint(project);
@@ -44,6 +51,7 @@ public static class GenerationStudio
         {
             stage.Terrain = (Terrain[])worldContext.ProjectedProject.Terrain.Clone();
             stage.Decorations = Copy(worldContext.ProjectedProject.Decorations);
+            stage.Fences=Copy(worldContext.ProjectedProject.Fences);stage.FenceStyles=Copy(worldContext.ProjectedProject.FenceStyles);stage.GateStyles=Copy(worldContext.ProjectedProject.GateStyles);
             if (worldContext.ProjectedProject.SharedInfrastructure is { } shared) stage.SharedInfrastructure = new([..shared.Tiles], [..shared.Holes]);
         }
         var existing = candidate.Buildings.Select(b => b.Id).ToHashSet(StringComparer.Ordinal);
@@ -51,9 +59,17 @@ public static class GenerationStudio
         // Road tiles remain traversable so frontage can connect to a protected existing street.
         var stageMask = TerrainEditMask.Decode(stage);
         for (var i = 0; i < reserved.Length; i++) if (reserved[i] && stage.Terrain[i] != Terrain.Road) stageMask[i / 8] |= (byte)(1 << (i % 8));
-        stage.TerrainEdits = TerrainEditMask.Encode(stageMask);
+        if(strategy=="contextual"){stage.TerrainEdits = TerrainEditMask.Encode(stageMask);stage.Version=Math.Max(6,stage.Version);}
         var runSeed = variant == 0 ? seed : unchecked(seed * 16777619 ^ variant * 486187739);
-        var population = SettlementGenerator.Populate(stage, Copy(rules), runSeed, 100);
+        SettlementPopulationResult population;
+        NeighborhoodPlan? templatePlan=null;
+        if(strategy=="templates"){
+            var constraints=Copy(neighborhood??new NeighborhoodConstraints());constraints.X=area.X;constraints.Y=area.Y;constraints.Width=area.Width;constraints.Height=area.Height;constraints.Seed=runSeed;constraints.MinimumLevels=Math.Max(constraints.MinimumLevels,rules.MinimumFloors);constraints.MaximumLevels=Math.Min(constraints.MaximumLevels,rules.MaximumFloors);constraints.MinimumBuildings=0;
+            templatePlan=NeighborhoodPlanner.Create(stage,constraints,reservations:reserved);NeighborhoodPlanner.Apply(stage,templatePlan,reservations:reserved);
+            foreach(var entry in templatePlan.Buildings){var generated=stage.Buildings.Single(b=>b.Id==entry.Building.Id);generated.Modified=false;generated.SourceKind="settlement-generator";generated.LevelsOrigin="inferred";}
+            population=new(){PlacedBuildings=templatePlan.Buildings.Count,Warnings=[..templatePlan.Warnings]};
+        }
+        else population=SettlementGenerator.Populate(stage, Copy(rules), runSeed, 100);
         var added = new List<Building>();
         foreach (var building in stage.Buildings.Where(b => !existing.Contains(b.Id)))
         {
@@ -63,15 +79,20 @@ public static class GenerationStudio
             added.Add(building);
             ReserveBuilding(reserved, building, project.Width);
         }
+        if(templatePlan is not null&&added.Count!=templatePlan.Buildings.Count)throw new ArgumentException("The template strategy could not retain its complete validated parcel plan. Preview another area or variant.");
         var changed = 0;
         // Only unedited natural ground near an accepted building may become access or a court.
         for (var y = area.Y; y < area.Y + area.Height; y++) for (var x = area.X; x < area.X + area.Width; x++)
         {
             var index = y * project.Width + x;
-            if (terrainReserved[index] || stage.Terrain[index] == project.Terrain[index] || stage.Terrain[index] is not (Terrain.Pavement or Terrain.Dirt) || project.Terrain[index] is not (Terrain.Grass or Terrain.Forest or Terrain.Dirt or Terrain.Sand)) continue;
+            if (terrainReserved[index] || stage.Terrain[index] == project.Terrain[index] || stage.Terrain[index] is not (Terrain.Pavement or Terrain.Dirt or Terrain.Road) || project.Terrain[index] is not (Terrain.Grass or Terrain.Forest or Terrain.Dirt or Terrain.Sand)) continue;
             var reach = rules.Setback + 18;
-            if (!added.Any(b => x >= b.X - reach && y >= b.Y - reach && x <= b.X + b.Width + reach && y <= b.Y + b.Height + reach)) continue;
+            if (templatePlan is null && !added.Any(b => x >= b.X - reach && y >= b.Y - reach && x <= b.X + b.Width + reach && y <= b.Y + b.Height + reach)) continue;
             candidate.Terrain[index] = stage.Terrain[index]; changed++;
+        }
+        if(templatePlan is not null&&added.Count==templatePlan.Buildings.Count){
+            ParcelFences.MergeStyles(candidate,templatePlan.FenceStyles);
+            candidate.Fences.AddRange(Copy(templatePlan.Fences.Select(f=>f.Line).ToList()));
         }
         control.Rules = Copy(rules); control.LastSeed = seed; control.LastVariant = variant; control.LastMode = mode;
         control.GeneratedBuildingIds = candidate.Buildings.Where(IsGenerated).Select(b => b.Id).ToList();
@@ -86,7 +107,7 @@ public static class GenerationStudio
     {
         var locks = (project.Generation?.LockedBuildingIds ?? []).ToHashSet(StringComparer.Ordinal);
         return project.Buildings.Select(b => new GenerationBuildingProvenance(b.Id,
-            b.FootprintOrigin == "manual-source-edit" ? "source-edited" : b.SourceOutline.Count > 0 || b.FootprintOrigin == "source-grid" ? "osm-source" : b.SourceId is not null ? "source-approximated" : IsGenerated(b) ? "generated" : "authored",
+            b.SourceKind=="parcel-generator"?"generated":b.FootprintOrigin == "manual-source-edit" ? "source-edited" : b.SourceOutline.Count > 0 || b.FootprintOrigin == "source-grid" ? "osm-source" : b.SourceId is not null ? "source-approximated" : IsGenerated(b) ? "generated" : "authored",
             b.LevelsOrigin, b.Modified ? "authored" : b.SourceId is not null ? "inferred" : IsGenerated(b) ? "generated" : "authored", b.Modified, locks.Contains(b.Id), b.SourceId)).ToArray();
     }
 
@@ -103,6 +124,7 @@ public static class GenerationStudio
             var index = y * project.Width + x;
             reserved[index] = reserved[index] || !selected.Contains(x, y) || TerrainEditMask.IsEdited(mask, index) || project.SurfaceTiles.ContainsKey(index) || project.Terrain[index] is Terrain.Road or Terrain.Water || preserveUneditedPavement && project.Terrain[index] == Terrain.Pavement || (project.Generation?.ProtectedAreas.Any(a => a.Contains(x, y)) ?? false);
         }
+        foreach(var piece in FenceLines.Compose(project.Fences,project.FenceStyles,project.GateStyles,project.Width,project.Height).Pieces)reserved[piece.Y*project.Width+piece.X]=true;
         foreach (var d in project.Decorations) foreach (var part in d.Parts) reserved[(d.Y + part.Dy) * project.Width + d.X + part.Dx] = true;
         foreach (var m in project.StaticModels) foreach (var part in StaticModelPlacement.FootprintCells(m)) reserved[(m.Y + part.Dy) * project.Width + m.X + part.Dx] = true;
         foreach (var spawn in project.Spawns) reserved[spawn.Y * project.Width + spawn.X] = true;

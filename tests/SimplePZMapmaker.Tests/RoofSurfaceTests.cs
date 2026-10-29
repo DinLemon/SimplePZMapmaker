@@ -9,6 +9,16 @@ using SimplePZMapmaker.Web.Services;
 public static class RoofSurfaceTests
 {
  public static IEnumerable<(string,Action)> Cases(){
+  yield return ("stepped pitched building uses authored flat surface on lower wing roofs only",()=>{
+   var b=new Building{X=40,Y=40,Width=12,Height=10,Name="Station roof",Kind="shop"};b.Design=BuildingDesigner.Generate(b,2,42);var upper=b.Design.Floors[1];
+   upper.Cells=new string(Enumerable.Range(0,120).Select(i=>i%12<5?upper.Cells[i]:'.').ToArray());upper.Objects.Clear();upper.Edges=BuildingDesigner.AutoEdges(b,upper,1);
+   b.Design.Roof="gabled";b.Design.FlatRoofTile="blends_street_01_48";BuildingDesigner.Validate(b);
+   var scene=NativeScene.Building(b);Check(scene.Sprites.Any(s=>s.X==10&&s.Y==10&&s.Z==1&&s.Tile=="blends_street_01_48"),"Exposed lower wing ignored its flat roof surface");
+   Check(scene.Sprites.Any(s=>s.X==4&&s.Y==10&&s.Z==2&&s.Tile=="floors_interior_tilesandwood_01_40"),"Pitched roof underlay changed");
+   var p=MapGenerator.Generate(new(){Kind="blank"});p.Buildings.Add(b);using var zip=new ZipArchive(new MemoryStream(NativeMapExporter.Export(p)));
+   Check(AssetTests.NativeTiles(zip,p,48,48,1).SequenceEqual(new[]{"blends_street_01_48"}),"Native lower wing does not match preview");
+   b.Design.FlatRoofTile=null;Check(!NativeScene.Building(b).Sprites.Any(s=>s.Tile=="blends_street_01_48"),"Removing the chosen surface was not reversible");
+  });
   yield return ("authored flat roof survives JSON preview resource enumeration and native square export",()=>{
    var b=WithRoof(House(),"floors_interior_tilesandwood_01_8");
    var json=JsonSerializer.SerializeToNode(b,NativeMapExporter.JsonOptions)!;

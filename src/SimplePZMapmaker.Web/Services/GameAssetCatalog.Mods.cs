@@ -10,25 +10,61 @@ public sealed partial class GameAssetCatalog
  private Dictionary<string,Atlas> gameAtlases=[];
  private Dictionary<string,ModDescriptor> discoveredMods=new(StringComparer.Ordinal);
  private IReadOnlyList<ModDescriptor> activeMods=[];
+  // Workspace packages are validated later by AgentTilesetStore, not discovered from user mod roots.
+  private Dictionary<string,ModDescriptor> agentTilesetMods=new(StringComparer.Ordinal);
+  private HashSet<string> knownAgentTilesetIds=new(StringComparer.Ordinal);
+  private string[] requestedModIds=[];
+  private bool modSelectionLoaded;
  private List<ModDiagnostic> discoveryDiagnostics=[];
  private List<ModDiagnostic> modDiagnostics=[];
  private string[] modRoots=string.IsNullOrWhiteSpace(ModRegistry.WorkshopRoot)?[]:[ModRegistry.WorkshopRoot];
  private string gameVersion="42.21.0";
  public bool HasActiveMods {get {lock(sync)return activeMods.Count>0;}}
- private sealed record SavedMods(string[] Roots,string GameVersion,string[] Ids);
- private void RestoreMods(){var file=Path.Combine(cache,"mods.json");if(!File.Exists(file))return;if(new FileInfo(file).Length>128*1024)throw new ArgumentException("Mod settings are too large.");var saved=JsonSerializer.Deserialize<SavedMods>(File.ReadAllText(file),new JsonSerializerOptions{PropertyNameCaseInsensitive=true})??throw new ArgumentException("Invalid mod settings.");DiscoverMods(saved.Roots,saved.GameVersion);ActivateMods(saved.Ids);}
+ // Registry membership alone does not establish that a tile is active: callers must also check its current catalog owner.
+ internal bool IsAgentTileset(string modId){lock(sync)return agentTilesetMods.ContainsKey(modId);}
+  private sealed record SavedMods(string[] Roots,string GameVersion,string[] Ids,string[]? WorkspaceIds=null);
+  private SavedMods? LoadModSettings(){
+   var file=Path.Combine(cache,"mods.json");if(!File.Exists(file)){modSelectionLoaded=true;return null;}if(new FileInfo(file).Length>128*1024)throw new ArgumentException("Mod settings are too large.");
+   var saved=JsonSerializer.Deserialize<SavedMods>(File.ReadAllText(file),new JsonSerializerOptions{PropertyNameCaseInsensitive=true})??throw new ArgumentException("Invalid mod settings.");
+   if(saved.Ids is null||saved.Ids.Length>512||saved.WorkspaceIds?.Length>512)throw new ArgumentException("Invalid saved mod selection.");
+   requestedModIds=saved.Ids.Distinct(StringComparer.Ordinal).ToArray();knownAgentTilesetIds=new(saved.WorkspaceIds??[],StringComparer.Ordinal);
+   modSelectionLoaded=true;return saved;
+  }
+  private void RestoreMods(){
+   var saved=LoadModSettings();if(saved is null)return;
+   DiscoverMods(saved.Roots,saved.GameVersion);
+   var available=new Dictionary<string,ModDescriptor>(discoveredMods,StringComparer.Ordinal);
+   foreach(var id in knownAgentTilesetIds)available.Remove(id); // Never activate an unvalidated workspace package from settings.
+   var ordered=RestorableMods(available,requestedModIds,out var pending);var merged=MergeMods(gameItems,gameAtlases,ordered);
+   discoveredMods=available;activeMods=ordered;items=merged.Items;atlases=merged.Atlases;modDiagnostics=discoveryDiagnostics.Concat(pending).Concat(merged.Diagnostics).ToList();
+  }
+  private static IReadOnlyList<ModDescriptor> RestorableMods(Dictionary<string,ModDescriptor> available,IEnumerable<string> requested,out List<ModDiagnostic> pending){
+   var ordered=new List<ModDescriptor>();var seen=new HashSet<string>(StringComparer.Ordinal);pending=[];
+   // Resolve independent selections separately: a deferred workspace ID must not discard working normal mods.
+   foreach(var id in requested){try{foreach(var mod in ModRegistry.Order(available,[id]))if(seen.Add(mod.Id))ordered.Add(mod);}
+    catch(ArgumentException e){pending.Add(new("restore-deferred",e.Message,id));}}
+   return ordered;
+  }
+  private void SaveModSettings(IEnumerable<string> ids,IEnumerable<string> workspaceIds){
+   var bytes=JsonSerializer.SerializeToUtf8Bytes(new{roots=modRoots,gameVersion,ids=ids.Distinct(StringComparer.Ordinal).ToArray(),workspaceIds=workspaceIds.Order(StringComparer.Ordinal).ToArray()});
+   if(bytes.Length>128*1024)throw new ArgumentException("Mod settings are too large.");
+   Directory.CreateDirectory(cache);var file=Path.Combine(cache,"mods.json");var temporary=file+"."+Guid.NewGuid().ToString("N")+".tmp";
+   try{File.WriteAllBytes(temporary,bytes);File.Move(temporary,file,true);}finally{if(File.Exists(temporary))File.Delete(temporary);}
+  }
  public sealed record Requirement(string ModId,string Name,string? WorkshopId,string[] Dependencies);
  public object ModsStatus(){lock(sync)return new{gameVersion,roots=modRoots,active=activeMods.Select(m=>m.Id).ToArray(),mods=discoveredMods.Values.OrderBy(m=>m.Name).ToArray(),diagnostics=modDiagnostics.ToArray()};}
  public object DiscoverMods(string[]? roots=null,string? version=null)
  {
-  lock(sync){var nextRoots=roots??modRoots;var nextVersion=version??gameVersion;var found=ModRegistry.Discover(nextRoots,nextVersion);var activated=ModRegistry.Order(found.Mods,activeMods.Select(m=>m.Id));var merged=MergeMods(gameItems,gameAtlases,activated);
+   lock(sync){var nextRoots=roots??modRoots;var nextVersion=version??gameVersion;var found=ModRegistry.Discover(nextRoots,nextVersion);
+    foreach(var mod in agentTilesetMods.Values){if(found.Mods.TryGetValue(mod.Id,out var other)&&!other.Root.Equals(mod.Root,StringComparison.OrdinalIgnoreCase))throw new ArgumentException("ModId collides with a validated workspace mod: "+mod.Id);found.Mods[mod.Id]=mod;}
+    var activated=ModRegistry.Order(found.Mods,activeMods.Select(m=>m.Id));var merged=MergeMods(gameItems,gameAtlases,activated);
    modRoots=nextRoots;gameVersion=nextVersion;discoveredMods=found.Mods;discoveryDiagnostics=found.Diagnostics;activeMods=activated;items=merged.Items;atlases=merged.Atlases;modDiagnostics=found.Diagnostics.Concat(merged.Diagnostics).ToList();return ModsStatus();}
  }
  public object ActivateMods(string[] ids)
  {
-  lock(sync){if(discoveredMods.Count==0)DiscoverMods();var ordered=ModRegistry.Order(discoveredMods,ids);var merged=MergeMods(gameItems,gameAtlases,ordered);
+   lock(sync){if(!modSelectionLoaded)LoadModSettings();if(discoveredMods.Count==0)DiscoverMods();var ordered=ModRegistry.Order(discoveredMods,ids);var merged=MergeMods(gameItems,gameAtlases,ordered);
    // Parse every source before committing the new view. A broken mod never erases working assets.
-   Directory.CreateDirectory(cache);var file=Path.Combine(cache,"mods.json");var temporary=file+"."+Guid.NewGuid().ToString("N")+".tmp";File.WriteAllText(temporary,JsonSerializer.Serialize(new{roots=modRoots,gameVersion,ids=ids.Distinct().ToArray()}));File.Move(temporary,file,true);
+   SaveModSettings(ids,knownAgentTilesetIds);requestedModIds=ids.Distinct(StringComparer.Ordinal).ToArray();
    activeMods=ordered;items=merged.Items;atlases=merged.Atlases;modDiagnostics=discoveryDiagnostics.Concat(merged.Diagnostics).ToList();return ModsStatus();}
  }
  public IReadOnlyList<ResourceSource> ActiveSources(){lock(sync){var sources=new List<ResourceSource>{new("game","Project Zomboid",GamePath,null,[])};foreach(var mod in activeMods)foreach(var layer in mod.Layers)sources.Add(new("mod:"+mod.Id+":"+Path.GetFileName(layer),mod.Name,layer,mod.Id,RequirementsFor(mod.Id)));return sources;}}

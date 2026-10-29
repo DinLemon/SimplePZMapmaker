@@ -25,30 +25,20 @@ public static class NativeMapExporter {
     {
         using(var zip=new ZipArchive(output,ZipArchiveMode.Create,true)) {
             var slug=sectionModId??ModId(p);var root=$"{slug}/42/media/maps/{slug}/";
-            void Text(string path,string text){var e=zip.CreateEntry(path,CompressionLevel.Fastest);using var w=new StreamWriter(e.Open(),new UTF8Encoding(false));w.Write(text);}
-            void Bytes(string path,byte[] bytes){var e=zip.CreateEntry(path,CompressionLevel.Fastest);using var s=e.Open();s.Write(bytes);}
+            var metadata=new NativeExportMetadata(zip,slug,NativeMetadataKind.Map,p.WorldX,p.WorldY,p.Width,p.Height);
+            void Text(string path,string text)=>metadata.Text(path,text);
             zip.CreateEntry($"{slug}/common/");
-            var dependencies=ResourceDependencies.ForProject(p);var require=dependencies.Length>0?"require="+string.Join(',',dependencies)+"\n":"";
-            Text($"{slug}/42/mod.info",$"name={p.Name}\nid={slug}\ndescription=Map created with SimplePZMapmaker. Build 42; new world.\nversionMin=42.0\n{require}");
+            metadata.WriteModInfo(p.Name,"Map created with SimplePZMapmaker. Build 42; new world.",ResourceDependencies.ForProject(p));
             StaticModelExporter.Write(zip,slug,StaticModelExporter.Gather(p).Where(m=>m.X>=p.WorldX*256&&m.Y>=p.WorldY*256&&m.X<p.WorldX*256+p.Width&&m.Y<p.WorldY*256+p.Height));
-            Text(root+"map.info",$"title={p.Name}\nfixed2x=true\ndescription=Map {p.Width} x {p.Height}, SimplePZMapmaker\nzoomX={p.WorldX*256+p.Width/2}\nzoomY={p.WorldY*256+p.Height/2}\nzoomS=8\n");
-            
-            Text(root+"spawnpoints.lua",SpawnPlanner.Lua(p));Bytes(root+"thumb.png",MapThumbnail.Png(p));
-            Text(root+"spawnregions.lua",$"function SpawnRegions()\n return {{ {{ name = \"{slug}\", file = \"media/maps/{slug}/spawnpoints.lua\" }} }}\nend\n");
-            var zones=new StringBuilder("objects = {\n");
-            for(var cy=0;cy<p.Height/8;cy++)for(var cx=0;cx<p.Width/8;cx++) {
-                if(cx==0)token.ThrowIfCancellationRequested();
-                var t=p.Terrain[cy*8*p.Width+cx*8];var type=t switch{Terrain.Forest=>"Forest",Terrain.Water=>"Water",Terrain.Grass=>"Vegitation",_=>"TownZone"};
-                if(t==Terrain.Water)continue;
-                zones.Append(Culture($" {{ name = \"\", type = \"{type}\", x = {p.WorldX*256+cx*8}, y = {p.WorldY*256+cy*8}, z = 0, width = 8, height = 8 }},\n"));
-            }
-            zones.Append("}\n");Text(root+"objects.lua",p.GameZones.Count>0?GameZonesExporter.ObjectsLua(p,token):zones.ToString());
-            var attribution=p.Attribution.Concat(p.Buildings.Concat(p.BuildingLibrary).SelectMany(b=>b.Attribution)).Distinct();
-            Text($"{slug}/ATTRIBUTION.txt",string.Join('\n',attribution.Prepend("Created with SimplePZMapmaker. Native export format: Build 42 (256-cell / 8-chunk)."))+"\n");
+            metadata.WriteMapInfo(p.Name,$"Map {p.Width} x {p.Height}, SimplePZMapmaker",8);
+            metadata.AddSection(p,token);
+            metadata.WriteSpawns();
+            metadata.WriteZones();
+            metadata.WriteAttribution("Created with SimplePZMapmaker. Native export format: Build 42 (256-cell / 8-chunk).");
             using(var source=zip.CreateEntry($"{slug}/project.pzmap.json",CompressionLevel.Fastest).Open())JsonSerializer.Serialize(source,authoredSource??p,JsonOptions);
             if(sharedContext is not null)using(var contextEntry=zip.CreateEntry($"{slug}/section-world-context.json",CompressionLevel.Fastest).Open())JsonSerializer.Serialize(contextEntry,sharedContext,JsonOptions);
-            Text($"{slug}/INSTALL.txt",$"Extract {slug} into Zomboid/mods. Enable the mod, create a NEW game, and choose the {p.Name} map. Do not add it to an important existing world. The generator does not install the mod automatically. Other maps occupying the same coordinates may conflict. For a server, set Map={slug} and Mods={slug}. This is a B42 export; check compatibility in a separate new save. The identifier depends on the name and seed; changing either creates a different mod.\n");
-            var atlas=WorldMap(p);Text(root+"worldmap.xml",new XDocument(new XDeclaration("1.0","UTF-8",null),atlas).ToString());Bytes(root+"worldmap.xml.bin",NativeWorldMapBinary.Write(atlas));
+            Text($"{slug}/INSTALL.txt",$"Extract {slug} into Zomboid/mods. Enable the mod, create a NEW game, and choose the {p.Name} map. Do not add it to an important existing world. The generator does not install the mod automatically. Other maps occupying the same coordinates may conflict. For a server, set Map={slug} and Mods={slug}. This is a B42 export; check compatibility in a separate new save. The identifier depends on the name and seed; changing either creates a different mod.\n{NativeZombieIntensity.ExportNotice}\n");
+            metadata.WriteAtlas();
             WriteCells(p,zip,root,token,context);
         }
     }
@@ -72,14 +62,13 @@ public static class NativeMapExporter {
                 Bytes(root+$"maps/biomemap_{p.WorldX+cellX}_{p.WorldY+cellY}.png",BiomeMap.Png(p,cellX,cellY));context?.Cell();
             }
     }
-    private static string Culture(FormattableString s)=>s.ToString(System.Globalization.CultureInfo.InvariantCulture);
     private static void Line(BinaryWriter w,string text){w.Write(Encoding.ASCII.GetBytes(text));w.Write((byte)10);}
     private static byte[] Header(MapProject p,TileComposer c,string[] tiles,int cx,int cy) {
         using var s=new MemoryStream();using var w=new BinaryWriter(s);w.Write("LOTH"u8);w.Write(1);w.Write(tiles.Length);foreach(var tile in tiles)Line(w,tile);
         w.Write(8);w.Write(8);w.Write(c.MinLevel);w.Write(c.MaxLevel);w.Write(c.Rooms.Count);
         foreach(var r in c.Rooms){Line(w,r.Name);w.Write(r.Level);var rects=r.Rectangles??[new(r.X,r.Y,r.Width,r.Height)];w.Write(rects.Count);foreach(var rectangle in rects){w.Write(rectangle.X);w.Write(rectangle.Y);w.Write(rectangle.Width);w.Write(rectangle.Height);}w.Write(0);}
         w.Write(c.Buildings.Count);foreach(var b in c.Buildings){w.Write(b.Count);foreach(var id in b)w.Write(id);}
-        for(var x=0;x<32;x++)for(var y=0;y<32;y++)w.Write((byte)p.Zombies[(cy*32+y)*(p.Width/8)+cx*32+x]);
+        for(var x=0;x<32;x++)for(var y=0;y<32;y++)w.Write(NativeZombieIntensity.FromEditor(p.Zombies[(cy*32+y)*(p.Width/8)+cx*32+x]));
         return s.ToArray();
     }
     private static byte[] Pack(TileComposer c,Dictionary<string,int> ids) {
