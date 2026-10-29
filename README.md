@@ -23,9 +23,10 @@ A local visual map and building editor for **Project Zomboid Build 42**, written
 - **One task at a time:** Create, Edit map, and Check & export share the same project. Save and Build mod stay visible; drawing tools, layers and properties appear where they are needed.
 - **Keep the selected area and scale:** when a real-place selection exceeds the ordinary 128-section / 768-cell allowance, approve its expanded layout instead of shrinking it. New section imports save incrementally; source buildings and fences are resolved across seams before atomic publication.
 - **Larger connected worlds:** up to 65,536 sections and 65,536 native cells, within separate source, object and coordinate budgets. A sparse 15,552-cell / 972-section fixture was imported at 1 metre per tile and sampled in the editor; this is not a dense-city memory guarantee.
+- **Detailed terrain:** large forest and water outlines use active-edge rasterization, retaining holes and section continuity without counting a distant perimeter on every row. Retained sources can be rebuilt without another download. See [terrain import and recovery](docs/OSM-TERRAIN-COMPLEXITY.md).
 - **A complete local toolchain:** offline saved geographic sources, an interactive guide, Project Doctor, building exchange, reviewed agent assets, native transport authoring and the headless CLI ship with the application. The Windows ZIP includes .NET.
 
-Validation for the release candidate: **1,010 C# checks**, **511 JavaScript checks**, a production offline large-world import, section opening and selected native export. See [verification details and limitations](docs/STATUS.md) and [incremental world import](docs/WORKSPACE-UI.md).
+Validation for the release candidate: **1,015 C# checks**, **511 JavaScript checks**, a production offline large-world import, section opening and selected native export. See [verification details and limitations](docs/STATUS.md) and [incremental world import](docs/WORKSPACE-UI.md).
 
 ## Real-place creation workflow
 

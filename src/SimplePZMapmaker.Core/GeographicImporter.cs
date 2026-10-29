@@ -49,15 +49,13 @@ public static partial class GeographicImporter {
             projectedPoints+=rings.Sum(r=>(long)r.Count);if(projectedPoints>250_000)throw new ArgumentException("Projected geographic geometry exceeds 250,000 points. Reduce the section area or simplify the source; the original project was preserved.");
             if(rings.Count>0)transformed.Add(f with{OriginalRings=f.Rings,Rings=rings,OriginalRingIndices=sourceIndices});
         }
-        double work=0;
-        foreach(var f in transformed.Where(f=>f.Polygon&&!f.Tags.ContainsKey("building")&&(f.Tags.ContainsKey("landuse")||f.Tags.ContainsKey("natural")))){var outer=f.Rings[0];var rows=Math.Clamp(outer.Max(v=>v.Y)-outer.Min(v=>v.Y)+2,0,p.Height);var columns=Math.Clamp(outer.Max(v=>v.X)-outer.Min(v=>v.X)+2,0,p.Width);work+=rows*(columns+f.Rings.Sum(r=>r.Count));}
-        if(work>40_000_000)throw new ArgumentException("The outlines are too complex for this map. Reduce the area or map size, or simplify the GeoJSON.");
+        long terrainWork=0;
         var imported=0;var skipped=0;var limitedLevels=0;var singleFloorSmall=0;var appearanceProblems=new Dictionary<string,int>(StringComparer.Ordinal);var approximateRoofs=0;var skipReasons=new Dictionary<string,int>();var skippedOutlines=new List<SkippedImportOutline>();
         foreach(var f in transformed.Where(f=>f.Polygon&&!f.Tags.ContainsKey("building")&&(f.Tags.ContainsKey("landuse")||f.Tags.ContainsKey("natural")))) {
             cancellationToken.ThrowIfCancellationRequested();
             var natural=f.Tags.GetValueOrDefault("natural");var land=f.Tags.GetValueOrDefault("landuse");
             var terrain=natural is "water" or "wetland" || land=="reservoir" ? Terrain.Water : natural=="wood"||land=="forest" ? Terrain.Forest : natural is "beach" or "sand" ? Terrain.Sand : Terrain.Grass;
-            FillPolygon(p,f.Rings,terrain,cancellationToken);imported++;
+            FillPolygon(p,f.Rings,terrain,cancellationToken,ref terrainWork);imported++;
         }
         var editableLines=new List<LinearFeature>();var staticLines=0;var omittedRails=0;var omittedBridges=0;var simplifiedLines=0;var lineBudget=0;var roadWidths=new Dictionary<string,int>();var scaledWidths=0;
         bool RoadBridge(Feature f)=>(f.Tags.ContainsKey("highway")||f.Tags.GetValueOrDefault("railway")=="rail")&&f.Tags.TryGetValue("bridge",out var value)&&value is not("no" or "0" or "false")&&!string.IsNullOrWhiteSpace(value);
@@ -259,18 +257,6 @@ public static partial class GeographicImporter {
             if(ring.Count>=4&&ring[0]==ring[^1])result.Add(ring);else complete=false;
         }
         return result;
-    }
-    private static void FillPolygon(MapProject p,List<List<(double X,double Y)>> rings,Terrain terrain,CancellationToken token)
-    {
-        var ring=rings[0];
-        var minY=(int)Math.Clamp(Math.Floor(ring.Min(v=>v.Y)),0,p.Height-1);var maxY=(int)Math.Clamp(Math.Ceiling(ring.Max(v=>v.Y)),0,p.Height-1);
-        var intersections=new List<double>();
-        for(var y=minY;y<=maxY;y++) {
-            token.ThrowIfCancellationRequested();intersections.Clear();var scan=y+0.5;
-            foreach(var contour in rings)for(int i=0,j=contour.Count-1;i<contour.Count;j=i++)if((contour[i].Y>scan)!=(contour[j].Y>scan))intersections.Add(contour[i].X+(scan-contour[i].Y)*(contour[j].X-contour[i].X)/(contour[j].Y-contour[i].Y));
-            intersections.Sort();
-            for(var i=0;i+1<intersections.Count;i+=2){var first=(int)Math.Clamp(Math.Ceiling(intersections[i]-.5),0,p.Width);var end=(int)Math.Clamp(Math.Ceiling(intersections[i+1]-.5),0,p.Width);for(var x=first;x<end;x++)p.Terrain[y*p.Width+x]=terrain;}
-        }
     }
     private static bool Inside(double x,double y,List<(double X,double Y)> ring) {
         var inside=false;for(int i=0,j=ring.Count-1;i<ring.Count;j=i++)if((ring[i].Y>y)!=(ring[j].Y>y)&&x<(ring[j].X-ring[i].X)*(y-ring[i].Y)/(ring[j].Y-ring[i].Y)+ring[i].X)inside=!inside;return inside;

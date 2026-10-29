@@ -1,3 +1,9 @@
+# Detailed terrain rasterization — 2026-10-29
+
+Replaced the perimeter-times-height admission estimate with active-edge scanlines and an actual bounded work counter. Detailed off-section forest/water boundaries retain their coordinates, holes and section continuity. Excessive actual painting still fails without mutating the input. See [terrain recovery](OSM-TERRAIN-COMPLEXITY.md).
+
+The real retained source reproduced the old failure in section 5 of a 162-section layout: 100 terrain polygons, 47,954 terrain points and an old estimate of 53.2 million operations. That section now imports 455 buildings in about 10 seconds without simplifying its source. Five terrain regressions and the full **1015/1015 C#** suite passed. Geographic browser contracts: **33/33**; the legacy result test now awaits the actual asynchronous application callback.
+
 # Incremental real-place world import — 2026-10-29
 
 New saved-section imports now compose and write each section directly to private disk staging. Prepared source geometry restores seam buildings in original source order using bounded neighbor windows; world fences merge once with gates. The completed shared metadata and each projected section must validate before one atomic index publication. Failed/cancelled writes remove owned staging and preserve original worlds and saved sources. Expanded layouts support 65,536 sections / cells; source, shared-object, coordinate and per-section limits remain separate. Complete authored-world refresh retains its 8,192-cell compatibility limit. See [workspace and import guide](WORKSPACE-UI.md).

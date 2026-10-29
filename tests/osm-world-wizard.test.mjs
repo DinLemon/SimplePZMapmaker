@@ -127,7 +127,9 @@ test('expanded world wizard browser contract',{skip:process.env.PZMAP_WORLD_WIZA
       await page.locator('#osm-world-start').click();await page.locator('#osm-world-apply').waitFor({state:'visible'});
       assert.equal(await page.evaluate(()=>wizard.result.resultKind),'world');
       assert.equal(calls.find(c=>c.url==='/api/world/osm/jobs').body.allowExpandedLayout,undefined);
-      await page.locator('#osm-world-apply').click();assert.equal(await page.evaluate(()=>accepted[0].id),'legacy-world');
+      await page.locator('#osm-world-apply').click();
+      await page.waitForFunction(()=>accepted.length===1);
+      assert.equal(await page.evaluate(()=>accepted[0].id),'legacy-world');
      }
     }finally{await page.close();}
    }
