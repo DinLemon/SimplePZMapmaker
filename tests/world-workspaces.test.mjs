@@ -39,3 +39,8 @@ test('small complete-world action still opens the saved world',async()=>{
  ws.workshop={assertCanReplace:()=>calls.push('replace check'),acceptWorld:value=>{assert.equal(value,world);calls.push('replace');}};ws.saveActive=async()=>calls.push('save');ws.base=()=>'/workspace';ws.request=async url=>{assert.equal(url,'/workspace/world');calls.push('request');return world;};ws.session={detach:()=>calls.push('detach')};ws.update=()=>calls.push('update');ws.state=()=>{};
  await ws.loadComplete(new AbortController().signal);assert.deepEqual(calls,['replace check','save','request','replace','detach','update']);
 });
+test('load-all refreshes the saved index even when the clean active session has an older revision',async()=>{
+ const ws=Object.create(WorldWorkspaces.prototype),id='b'.repeat(32),memberId='c'.repeat(32),m={format:'SimplePZWorldSections',version:1,id,revision:4,name:'World',metadataBytes:1,sections:[{id:memberId,bytes:100,worldX:100,worldY:100,width:256,height:256}]},project=blank(),calls=[];
+ ws.manifest={...m,revision:3};ws.workspaceId=id;ws.generation=1;ws.workshop={current:()=>project,flush:()=>{},assertCanReplace:()=>{}};ws.session={};ws.saveActive=async()=>{};ws.request=async url=>{assert.equal(url,`/api/world/workspaces/${id}`);return m;};ws.update=()=>{};ws.createSession=()=>({loadAll:async(_id,manifest)=>{calls.push(manifest.revision);throw Error('stop before adoption');}});
+ await assert.rejects(ws.loadAll(),/stop before adoption/);assert.deepEqual(calls,[4]);
+});

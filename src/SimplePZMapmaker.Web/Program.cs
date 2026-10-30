@@ -57,7 +57,7 @@ app.Use(async(context,next)=> {
         context.Response.StatusCode=502;await context.Response.WriteAsJsonAsync(new{error=e is HttpRequestException?e.Message:"The service did not respond in time. Reduce the area or retry later."});
     }
 });
-app.UseDefaultFiles();app.UseStaticFiles();
+app.UseVersionedEditorAssets();
 app.MapZoneAuthoringEndpoints();app.MapFenceAuthoringEndpoints();app.MapSiteEndpoints();app.MapSourceTransferEndpoints();app.MapGenerationStudioEndpoints();app.MapGenerationQualityEndpoints();app.MapWorldInfrastructure();app.MapGenerationEndpoints();app.MapExportJobEndpoints();
 app.MapBuildingExchangeEndpoints();app.MapProjectDoctor();app.MapAutomappingEndpoints(StreetCatalog.LoadDefault());
 app.MapWalkabilityEndpoints();app.MapAgentDesignEndpoints();
@@ -80,7 +80,7 @@ app.MapPost("/api/building/presets/{id}",(string id,GameAssetCatalog assets)=>{v
 app.MapPost("/api/preview/cell",(GameAssetCatalog assets,StaticModelCatalog models,CellPreviewRequest request)=>{if(request.Project.Spawns.Count==0&&!request.Project.WorldSection)request.Project.Spawns.Add(MapGenerator.FindSafeSpawn(request.Project));AssetRules.Project(request.Project,assets);models.Validate(request.Project);return NativeScene.Cell(request.Project,request.X,request.Y,request.Width,request.Height,request.Level,request.X,request.Y,request.CellX,request.CellY);});
 app.MapPost("/api/preview/appearance",(GameAssetCatalog assets,AppearancePreviewRequest request)=>{AppearanceDesigner.Apply(request.Project,request.SurfaceTheme,request.Region,request.StyleBuildings);AssetRules.Project(request.Project,assets);return NativeScene.Cell(request.Project,request.X,request.Y,48,48,request.Level,request.X,request.Y,request.CellX,request.CellY);});
 app.MapPost("/api/styles/apply",(GameAssetCatalog assets,StyleApplyRequest request)=>{if(!assets.Ready)throw new ArgumentException("To apply appearance styles, locate the game installation under Game resources.");var changed=AppearanceDesigner.Apply(request.Project,request.SurfaceTheme,request.Region,request.StyleBuildings);AssetRules.Project(request.Project,assets);return new{project=request.Project,changed};});
-app.MapGet("/api/environment",(GameAssetCatalog assets)=>new {version="0.13.0",runtime=System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,selfContained=File.Exists(Path.Combine(AppContext.BaseDirectory,"coreclr.dll")),target="Project Zomboid Build 42",gameFound=assets.Ready,gamePath=assets.GamePath,cellSize=256,chunkSize=8,minLevel=ZLevels.Min,maxLevel=ZLevels.Max,maximumAboveGroundFloors=ZLevels.AboveGroundCount,maximumBasements=ZLevels.BasementCount,workspace});
+app.MapGet("/api/environment",(GameAssetCatalog assets)=>new {version="0.13.1",runtime=System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,selfContained=File.Exists(Path.Combine(AppContext.BaseDirectory,"coreclr.dll")),target="Project Zomboid Build 42",gameFound=assets.Ready,gamePath=assets.GamePath,cellSize=256,chunkSize=8,minLevel=ZLevels.Min,maxLevel=ZLevels.Max,maximumAboveGroundFloors=ZLevels.AboveGroundCount,maximumBasements=ZLevels.BasementCount,workspace});
 app.MapGet("/api/examples/pilna",async(CancellationToken token)=>{
     var file=Path.Combine(workspace,"examples","Pilna","pilna.pzmap.json");
     if(!File.Exists(file))file=Path.Combine(AppContext.BaseDirectory,"examples","Pilna","pilna.pzmap.json");
@@ -97,6 +97,7 @@ app.MapPost("/api/import/osm",async(OsmImportRequest request,OsmClient client,Ca
 app.MapPost("/api/building/design",(GameAssetCatalog assets,BuildingDesignRequest request)=>{var b=request.Building;if(b is null)throw new ArgumentException("No building specified.");b.Design=BuildingDesigner.Generate(b,request.Levels,request.Seed,request.Shape,request.Basements);VisualStyles.Apply(b,request.Style=="auto"&&!assets.Ready?"":request.Style);AssetRules.Building(b,assets);return b;});
 app.MapPost("/api/building/validate",(GameAssetCatalog assets,StaticModelCatalog models,Building b)=>{AssetRules.Building(b,assets);foreach(var m in b.Design?.Floors.SelectMany(f=>f.StaticModels)??[])models.Validate(m);return Results.Ok(new{valid=true,building=b});});
 app.MapPost("/api/buildings/regenerate",(BuildingRegenerateRequest request)=>{var changed=BuildingDesigner.Regenerate(request.Project,request.Id);return Results.Ok(new{project=request.Project,changed,skipped=request.Project.Buildings.Count-changed});});
+app.MapPost("/api/building/furnish",(BuildingFurnishRequest request,GameAssetCatalog assets,StaticModelCatalog models)=>{if(request.Building is null)throw new ArgumentException("No building specified.");var b=WorldAssembler.CloneBuilding(request.Building);BuildingDesigner.Refurnish(b,request.Level);AssetRules.Building(b,assets);foreach(var model in b.Design!.Floors.SelectMany(f=>f.StaticModels))models.Validate(model);return new{building=b};});
 app.MapPost("/api/search",async(SearchRequest request,OsmClient client,CancellationToken token)=>await client.Search(request.Query,token));
 app.MapPost("/api/export",async(HttpRequest request,GameAssetCatalog assets,StaticModelCatalog models,NativeExportService exporter,MapProject project,CancellationToken token)=>{var package=NativeExportService.Options(request);AssetRules.Project(project,assets);models.Validate(project);return await exporter.Map(project,token,package);});
 app.MapPost("/api/validate",(GameAssetCatalog assets,StaticModelCatalog models,MapProject project)=>{AssetRules.Project(project,assets);models.Validate(project);return Results.Ok(new{valid=true,project});});
@@ -108,6 +109,7 @@ public sealed record OsmImportRequest(MapProject Project,GeoBounds Bounds,bool P
 public sealed record SearchRequest(string Query);
 public sealed record BuildingDesignRequest(Building Building,int Levels=1,int Seed=42,string Shape="rect",int Basements=0,string Style="auto");
 public sealed record BuildingRegenerateRequest(MapProject Project,string? Id=null);
+public sealed record BuildingFurnishRequest(Building Building,int Level=0);
 public sealed record AssetSourceRequest(string GamePath);
 public sealed record BuildingPreviewRequest(Building Building,int? Level=null);
 public sealed record CellPreviewRequest(MapProject Project,int X,int Y,int Width=48,int Height=48,int? Level=0,int CellX=0,int CellY=0);

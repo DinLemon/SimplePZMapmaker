@@ -21,8 +21,8 @@ export function projectPoint(point,transform={}){
  const {zoom=1,pan={x:0,y:0},isometric=false}=transform,{x,y,z=0}=point;
  return isometric?{x:pan.x+(x-y)*zoom,y:pan.y+((x+y)/2-z*3)*zoom}:{x:pan.x+x*zoom,y:pan.y+y*zoom};
 }
-export function sectionOverlays({project,world,memberId,manifest,sections}={}){
- if(!project)return [];const loaded=new Set((world?.maps??[]).map(m=>m.id));if(memberId)loaded.add(memberId);
+export function sectionOverlays({project,world,memberId,manifest,sections,loadedSections,workspace}={}){
+ if(!project)return [];const loaded=new Set([...(world?.maps??[]).map(m=>m.id),...(loadedSections??workspace?.loadedSections??new Map()).keys()]);if(memberId)loaded.add(memberId);
  const standalone=!sections&&!manifest?.sections&&!world?.maps,rows=sections??manifest?.sections??world?.maps?.map(m=>({id:m.id,...m.project}))??[{id:memberId??'current',...project}],ox=(project.worldX??0)*256,oy=(project.worldY??0)*256;
  return rows.filter(s=>[s.worldX,s.worldY,s.width,s.height].every(Number.isFinite)).map(s=>({id:s.id,x:s.worldX*256-ox,y:s.worldY*256-oy,width:s.width,height:s.height,active:s.id===memberId||standalone,loaded:loaded.has(s.id)||standalone,label:`${s.name||'Section'} · ${loaded.has(s.id)||standalone?'loaded':'unloaded'}`}));
 }
@@ -52,7 +52,11 @@ export function installMapLayers({host,getProject=()=>null,getContext=()=>({proj
   if(id==='sections')for(const section of sectionOverlays(context)){
    const {x,y,width:w,height:h}=section;trace(ctx,[{x,y},{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h}],transform,true);
    ctx.lineWidth=section.active?2:1;ctx.strokeStyle=section.active?'#edc57e':section.loaded?'#91ba9d':'#ed987b';ctx.setLineDash(section.loaded?[]:[7,5]);if(!section.loaded){ctx.fillStyle='#ed987b0a';ctx.fill();}ctx.stroke();ctx.setLineDash([]);
-   const p=projectPoint({x,y},transform),view=transform.viewport;if(!view||p.x> -200&&p.y> -30&&p.x<view.width&&p.y<view.height){ctx.fillStyle=ctx.strokeStyle;ctx.font='11px system-ui';ctx.fillText(section.label,p.x+5,p.y+15);}
+   const p=projectPoint({x,y},transform),view=transform.viewport,labelWidth=Math.min(w,h)*(transform.zoom??1)-10;
+   if((section.active||labelWidth>=150)&&labelWidth>=40&&(!view||p.x> -200&&p.y> -30&&p.x<view.width&&p.y<view.height)){
+    ctx.fillStyle=ctx.strokeStyle;ctx.font='11px system-ui';let label=section.label;const measure=text=>ctx.measureText?.(text)?.width??text.length*6;
+    if(measure(label)>labelWidth){while(label.length&&measure(label+'…')>labelWidth)label=label.slice(0,-1);label+='…';}ctx.fillText(label,p.x+5,p.y+15);
+   }
   }
   if(id==='source'){ctx.strokeStyle='#6bc8e3';ctx.lineWidth=1.5;ctx.setLineDash([3,3]);for(const row of sourceOverlays(context.project??getProject())){trace(ctx,row.points,transform,row.kind==='polygon');if(row.kind==='point'){const p=projectPoint(row.points[0],transform);ctx.arc(p.x,p.y,4,0,Math.PI*2);}ctx.stroke();}}}
   ctx.restore();

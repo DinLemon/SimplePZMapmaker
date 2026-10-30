@@ -1,13 +1,26 @@
 // One editable raster and a small manifest. Unloaded sections never become fabricated blank maps.
 export class StreamedSectionSession{
- constructor({request,getProject,applySnapshot,validateManifest=m=>m}){Object.assign(this,{request,getProject,applySnapshot,validateManifest});this.workspaceId=null;this.manifest=null;this.activeId=null;this.shared=null;this.sections=[];this.infrastructure=null;this.dirty=false;this.mutations=0;this.epoch=0;this.loading=false;this.saving=null;this.applying=null;this.abort=null;}
+ constructor({request,getProject,applySnapshot,validateManifest=m=>m,validateProject=()=>{}}){Object.assign(this,{request,getProject,applySnapshot,validateManifest,validateProject});this.workspaceId=null;this.manifest=null;this.activeId=null;this.shared=null;this.sections=[];this.infrastructure=null;this.dirty=false;this.mutations=0;this.epoch=0;this.loading=false;this.saving=null;this.applying=null;this.abort=null;this.loadedSections=new Map();this.loadedWorkspaceId=null;this.loadedRevision=null;}
  get active(){return !!(this.workspaceId&&this.activeId);}
- markChanged(){if(this.loading||!this.active)return;this.mutations++;this.dirty=JSON.stringify(this.getProject())!==this.savedSnapshot;}
- context(){return this.active?{id:this.workspaceId,memberId:this.activeId,revision:this.manifest.revision,shared:this.shared,sections:this.sections,infrastructure:this.infrastructure}:null;}
+ markChanged(){if(this.loading||!this.active)return;this.mutations++;this.dirty=JSON.stringify(this.getProject())!==this.savedSnapshot;const cached=this.loadedSections.get(this.activeId);if(cached)cached.member.project=this.getProject();}
+ async loadAll(id,manifest,signal,onProgress=()=>{}){
+  if(this.active&&this.dirty)await this.save(signal);
+  const epoch=++this.epoch,baseline=JSON.stringify(this.getProject()),expected=id===this.workspaceId?this.manifest:manifest,pending=new Map();
+  const check=()=>{signal?.throwIfAborted();if(epoch!==this.epoch)throw new DOMException('Operation cancelled','AbortError');if(JSON.stringify(this.getProject())!==baseline)throw Error('The current section was edited while loading. Current edits are retained.');};
+  for(const section of expected.sections){
+   check();const snapshot=await this.request(`/api/world/workspaces/${id}/sections/${section.id}?includeSections=false`,null,signal);check();
+   if(snapshot.revision!==expected.revision||snapshot.member?.id!==section.id)throw Error('The workspace changed revision while loading. Refresh its index; current edits are retained.');
+   this.validateProject(snapshot.member.project);for(const key of ['worldX','worldY','width','height'])if(snapshot.member.project[key]!==section[key])throw Error('The loaded section does not match its saved layout.');
+   pending.set(section.id,snapshot);onProgress(pending.size,expected.sections.length);
+  }
+  const current=this.validateManifest(await this.request(`/api/world/workspaces/${id}`,null,signal));check();if(current.id!==expected.id||current.revision!==expected.revision)throw Error('The workspace changed revision while loading. Refresh its index.');
+  this.loadedSections=pending;this.loadedWorkspaceId=id;this.loadedRevision=expected.revision;return pending;
+ }
+ context(){return this.active?{id:this.workspaceId,memberId:this.activeId,revision:this.manifest.revision,shared:this.shared,sections:this.sections,infrastructure:this.infrastructure,loadedSections:this.loadedWorkspaceId===this.workspaceId?this.loadedSections:null}:null;}
  async save(signal,{force=false}={}){
   if(this.saving)await this.saving;if(!this.active||!this.dirty&&!force)return this.manifest;
   const id=this.workspaceId,member=this.activeId,revision=this.manifest.revision,project=structuredClone(this.getProject());
-  this.saving=(async()=>{const m=this.validateManifest(await this.request(`/api/world/workspaces/${id}/sections/${member}`,{project,expectedRevision:revision},signal));if(this.workspaceId!==id||this.activeId!==member)throw Error('The active workspace changed during saving. Refresh its section index.');if(m.id!==this.manifest.id||!Number.isSafeInteger(m.revision)||m.revision<=revision||!Array.isArray(m.sections)||!m.sections.some(s=>s.id===member))throw Error('The section save returned an invalid workspace revision.');this.manifest=m;this.sections=m.sections;this.savedSnapshot=JSON.stringify(project);this.dirty=JSON.stringify(this.getProject())!==this.savedSnapshot;return m;})();
+  this.saving=(async()=>{const m=this.validateManifest(await this.request(`/api/world/workspaces/${id}/sections/${member}`,{project,expectedRevision:revision},signal));if(this.workspaceId!==id||this.activeId!==member)throw Error('The active workspace changed during saving. Refresh its section index.');if(m.id!==this.manifest.id||!Number.isSafeInteger(m.revision)||m.revision<=revision||!Array.isArray(m.sections)||!m.sections.some(s=>s.id===member))throw Error('The section save returned an invalid workspace revision.');if(this.loadedWorkspaceId===id&&this.loadedRevision===revision){this.loadedRevision=m.revision;const cached=this.loadedSections.get(member);if(cached)cached.member.project=project;}this.manifest=m;this.sections=m.sections;this.savedSnapshot=JSON.stringify(project);this.dirty=JSON.stringify(this.getProject())!==this.savedSnapshot;return m;})();
   try{return await this.saving;}finally{this.saving=null;}
  }
  async open(id,manifest,memberId,signal){
@@ -19,7 +32,12 @@ export class StreamedSectionSession{
    if(this.active&&this.dirty)await this.save(abort.signal);
    if(epoch!==this.epoch||abort.signal.aborted)return null;
    const expected=id===this.workspaceId?this.manifest:manifest,previousProject=JSON.stringify(this.getProject());
-   const snapshot=await this.request(`/api/world/workspaces/${id}/sections/${memberId}`,null,abort.signal);
+   let snapshot;
+   if(this.loadedWorkspaceId===id&&this.loadedSections.has(memberId)){
+    const current=this.validateManifest(await this.request(`/api/world/workspaces/${id}`,null,abort.signal));
+    if(current.id!==expected.id||current.revision!==expected.revision||this.loadedRevision!==expected.revision)throw Error('The workspace changed revision. Reload all sections before using the cached world. Your current edits remain.');
+    snapshot={...this.loadedSections.get(memberId),revision:expected.revision,sections:expected.sections};
+   }else snapshot=await this.request(`/api/world/workspaces/${id}/sections/${memberId}`,null,abort.signal);
    if(epoch!==this.epoch||abort.signal.aborted)return null;
    if(JSON.stringify(this.getProject())!==previousProject)throw Error('The current section was edited while loading. Open the next section again to save these edits first.');
    if(snapshot.member?.id!==memberId||snapshot.revision!==expected.revision)throw Error('The workspace changed. Refresh the section index before opening it. Your current edits remain.');
@@ -29,5 +47,5 @@ export class StreamedSectionSession{
    try{return await this.applying;}finally{this.applying=null;}
   }finally{signal?.removeEventListener('abort',forward);if(this.abort===abort)this.abort=null;}
  }
- detach(){if(this.dirty)throw Error('Save the active section before opening another project.');this.abort?.abort();this.epoch++;this.workspaceId=null;this.activeId=null;this.shared=null;this.manifest=null;this.sections=[];this.infrastructure=null;}
+ detach(){if(this.dirty)throw Error('Save the active section before opening another project.');this.abort?.abort();this.epoch++;this.workspaceId=null;this.activeId=null;this.shared=null;this.manifest=null;this.sections=[];this.infrastructure=null;this.loadedSections.clear();this.loadedWorkspaceId=null;this.loadedRevision=null;}
 }

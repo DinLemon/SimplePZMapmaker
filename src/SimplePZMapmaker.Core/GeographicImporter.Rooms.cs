@@ -28,14 +28,15 @@ public static partial class GeographicImporter
  public static IEnumerable<string> MappedRoomNames=>WholeBuildingRooms.Values.Concat(SalesRooms.Values.SelectMany(v=>new[]{v.Room,v.BackRoom}.OfType<string>())).Distinct();
  /// <summary>Renames rooms of an imported building from its tags. Unknown room names are reported, never fatal.</summary>
  public static void ApplyRoomTags(Building b,IReadOnlyDictionary<string,string> tags,Action<string> problem){
-  if(b.Design is not {} d)return;
+  if(b.Design is not {} d)return;var before=d.Floors.Select(f=>string.Join("|",f.Rooms.Select(r=>$"{r.Key}:{r.Value}"))).ToArray();
+  void FurnishChanged(){if(b.Modified)return;for(var z=0;z<d.Floors.Count;z++)if(before[z]!=string.Join("|",d.Floors[z].Rooms.Select(r=>$"{r.Key}:{r.Value}")))BuildingDesigner.Furnish(b,z,new Random(unchecked(d.Variant+z*1009)));}
   string? Valid(string? name){if(name is null)return null;if(BuildingDesigner.AllRoomNames.Contains(name))return name;problem($"room '{name}' is not a Build 42 room name");return null;}
   IEnumerable<string> Keys(){foreach(var k in new[]{"pz:kind","shop","amenity","building"})if(tags.TryGetValue(k,out var v))yield return k+"="+v;}
   var aboveGround=d.Floors.Where((_,i)=>i+d.MinLevel>=0).ToList();
-  if(tags.TryGetValue("pz:room",out var explicitRoom)){if(Valid(explicitRoom) is {} room)RenameMain(aboveGround,room);return;}
+  if(tags.TryGetValue("pz:room",out var explicitRoom)){if(Valid(explicitRoom) is {} room)RenameMain(aboveGround,room);FurnishChanged();return;}
   foreach(var key in Keys()){
-   if(SalesRooms.TryGetValue(key,out var sales)){if(Valid(sales.Room) is {} room){var ground=d.Floors[-d.MinLevel];if(!RenameAll(ground,"conveniencestore",room))RenameMain([ground],room);if(Valid(sales.BackRoom) is {} back)RenameAll(ground,"storage",back);}return;}
-   if(WholeBuildingRooms.TryGetValue(key,out var whole)){if(Valid(whole) is {} room)foreach(var f in aboveGround)foreach(var k in f.Rooms.Keys.Where(k=>k!="0").ToList())f.Rooms[k]=room;return;}
+   if(SalesRooms.TryGetValue(key,out var sales)){if(Valid(sales.Room) is {} room){var ground=d.Floors[-d.MinLevel];if(!RenameAll(ground,"conveniencestore",room))RenameMain([ground],room);if(Valid(sales.BackRoom) is {} back)RenameAll(ground,"storage",back);}FurnishChanged();return;}
+   if(WholeBuildingRooms.TryGetValue(key,out var whole)){if(Valid(whole) is {} room)foreach(var f in aboveGround)foreach(var k in f.Rooms.Keys.Where(k=>k!="0").ToList())f.Rooms[k]=room;FurnishChanged();return;}
   }
  }
  static bool RenameAll(BuildingFloor f,string from,string to){var keys=f.Rooms.Where(r=>r.Value==from).Select(r=>r.Key).ToList();foreach(var k in keys)f.Rooms[k]=to;return keys.Count>0;}
