@@ -21,6 +21,7 @@ import {MainNativeEditor} from './main-native-editor.js';
 import {nativeBuildingList,nativeWorldOperation,applyNativeWorldOperation} from './main-native-operations.js';
 import {installLinearEditing} from './linear-editing.js';
 import {MapNativePreview} from './map-native-preview.js';
+import {ResidentWorldView,residentSections,residentBounds,residentFit,residentSectionAt,rebaseSectionPan} from './resident-world-view.js';
 import {ImportQualityPanel} from './import-quality.js';
 import {validatePalettes} from './palette-data.js';
 import {blank,paint,line,canPlace as canPlaceLocal,History,mapAuthoringVersion,validateProject as validateLocalProject,geographicBase} from './editor.js';
@@ -65,6 +66,8 @@ let zoom=1,pan={x:0,y:0},space=false,busy=false,controller=null,saveTimer,toastT
 const canvas=$('map-canvas'),ctx=canvas.getContext('2d'),mini=$('minimap'),mctx=mini.getContext('2d');
 const raster=document.createElement('canvas'),rctx=raster.getContext('2d');
 const rasterCache=new TerrainRasterCache(raster);
+const residentView=new ResidentWorldView();
+const residentStatus=document.createElement('p');residentStatus.id='resident-world-status';residentStatus.className='hint';residentStatus.setAttribute('role','status');residentStatus.hidden=true;$('canvas-wrap').after(residentStatus);
 let viewport={width:800,height:600},canvasMeasured=false,pendingMapFocus=null;
 function focusMapPoint(point){
  editorShell?.showWorkspace('edit');
@@ -146,6 +149,13 @@ history=createMapHistory();
 
 function guardedToolLayer(){if(nativeView){if(nativeEditor.tool==='select'||nativeEditor.tool==='zone-area')return null;return nativeEditor.selection?.building?'buildings':({model:'models',object:'decorations','erase-object':'decorations',building:'buildings'})[nativeEditor.tool]??'buildings';}return ({building:'buildings',spawn:'spawns','static-model':'models','world-asset':'decorations','erase-decor':'decorations',zombies:'zombies',road:'roads','appearance-area':'terrain'})[tool]??(['brush','rectangle','surface-asset'].includes(tool)?terrainLayer(terrain):null);}
 for(const type of ['pointerdown','pointermove','pointerup'])canvas.addEventListener(type,event=>{
+ if(type==='pointerdown'&&!busy&&event.button===0&&!space&&tool!=='pan'){
+  const point=nativeView?nativeEditor.point(event):gridPoint(event),target=!within(point)&&residentSectionAt(residentSections(getNativeContext()),point);
+  if(target){event.stopImmediatePropagation();event.preventDefault();if(geometryTools.drawing){toast('Finish or cancel the current outline before changing section.',true);return;}
+   const previous=project,camera={zoom,pan:{...pan},isometric};
+   task('Activating loaded section…',async signal=>{try{await worldWorkshop.workspaces.activateLoaded(signal,target.id);zoom=camera.zoom;pan=rebaseSectionPan(camera.pan,zoom,previous,project,camera.isometric);cursor=null;update();}catch(error){zoom=camera.zoom;pan=camera.pan;requestDraw();throw error;}});return;
+  }
+ }
  try{if(geometryTools.drawing&&event.button!==1&&event.button!==2&&!space){if(type==='pointerdown')canvas.setPointerCapture(event.pointerId);const point=nativeView?nativeEditor.point(event):gridPoint(event);geometryTools[type==='pointerdown'?'pointerDown':type==='pointermove'?'pointerMove':'pointerUp'](point);event.stopImmediatePropagation();event.preventDefault();return;}if(type==='pointerdown'&&event.button===0&&!space&&tool!=='pan'){const layer=guardedToolLayer();if(layer)mapLayers.guardEdit(layer,()=>{});}}
  catch(e){toast(e.message,true);event.stopImmediatePropagation();event.preventDefault();}
 },true);
@@ -203,7 +213,7 @@ function autosave(){
 function update(){
  for(const id of ["world-x","world-y"])$(id).disabled=!!worldWorkshop.workspaces.context();
  $('project-name').value=project.name;$('inspector-title').textContent=project.name;$('size-stat').textContent=`${project.width} × ${project.height}`;
- $('map-summary').textContent=`${project.width} × ${project.height} / ${project.width*project.height/65536} cell.`;
+ const resident=residentSections(getNativeContext()),bounds=residentBounds(resident);$('map-summary').textContent=bounds?`${resident.length} sections · ${bounds.width} × ${bounds.height} tiles · active ${project.width} × ${project.height}`:`${project.width} × ${project.height} / ${project.width*project.height/65536} cell.`;
  $('building-count').textContent=project.buildings.length;$('spawn-count').textContent=project.spawns.length;$('seed-stat').textContent=project.seed;
  $('world-x').value=project.worldX;$('world-y').value=project.worldY;$('undo').disabled=!(nativeView&&worldWorkshop.editedId?worldWorkshop.session.history.past:history.past).length;$('redo').disabled=!(nativeView&&worldWorkshop.editedId?worldWorkshop.session.history.future:history.future).length;
  $('attribution').textContent=project.attribution.length?project.attribution.join(' · '):'Geodata is not used';
@@ -222,8 +232,8 @@ function update(){
  const help={'appearance-area':'Draw a rectangle on the map. Then choose a preset for the selected area.',brush:'Draw with the left button. The wheel changes scale. The middle button or Space moves the map.',rectangle:'Extend a rectangular area from one corner to the other.',road:'Press at the beginning of the road and release at the end. The brush size determines the width of the road.',building:'Click on the vacant ground. A red outline indicates an intersection, water, or cell boundary.',spawn:'Click on the dry land outside the building. You can select and delete a point using the Select tool and the Delete key.',select:'Click on a building to change its position and size. Delete deletes the selected object.',pan:'Drag the map with the mouse. The wheel changes scale.',zombies:'Draw the zombie density. One square of density corresponds to an 8×8 chunk.'};
  $('tool-help').textContent=help[tool]??(tool==='zones'?'Choose a zone type, draw its outline, then preview and apply.':nativeView?'Choose a tool and resource, then edit the selected floor.':'Select a resource to place or remove objects.');editorShell?.update(tool,{nativeView,selection:!!b});canvas.dataset.editorTool=tool;requestDraw();
 }
-function changed(){buildingLibrary.refresh();sourceWorkbench.invalidate();nativeEditor.cancel();zonePanel?.refresh();mapLayers?.refresh();geometryTools?.refresh();fenceControls?.refresh();dirty=true;worldWorkshop.currentChanged(project);agentSession?.localChanged();autosave();update();}
-function adopt(p,options={}){validateLocalProject(p);if(!options.worldManaged)worldWorkshop.beforeAdopt(p,options);validateGlobalProtection(p,worldMask(p));zonePanel?.cancel();polygonReceiver=null;p.version=Math.max(4,mapAuthoringVersion(p));p.surfaceTheme??='legacy';p.surfaceRegions??=[];p.surfaceTiles??={};p.decorations??=[];p.staticModels??=[];p.requiredMods??=[];p.assetSources??={};p.resourcePalettes??=[];for(const b of [...p.buildings,...(p.buildingLibrary||[])])normalizeBuilding(b);project=p;nativeEditor.select(null);for(const m of (p.staticModels||[]).slice(0,200))modelSprites.load(m).then(()=>requestDraw());appearance.reset();history=createMapHistory();history.extraBlockedWater=index=>worldMask().has(index);selectedId=null;selectedSpawn=-1;gesture=null;dirty=true;fit();changed();globalThis.document?.dispatchEvent(new CustomEvent('editor-project-opened'));}
+function changed(){residentView.invalidate(worldWorkshop.workspaces.memberId);buildingLibrary.refresh();sourceWorkbench.invalidate();nativeEditor.cancel();zonePanel?.refresh();mapLayers?.refresh();geometryTools?.refresh();fenceControls?.refresh();dirty=true;worldWorkshop.currentChanged(project);agentSession?.localChanged();autosave();update();}
+function adopt(p,options={}){validateLocalProject(p);if(!options.worldManaged)worldWorkshop.beforeAdopt(p,options);validateGlobalProtection(p,worldMask(p));zonePanel?.cancel();polygonReceiver=null;p.version=Math.max(4,mapAuthoringVersion(p));p.surfaceTheme??='legacy';p.surfaceRegions??=[];p.surfaceTiles??={};p.decorations??=[];p.staticModels??=[];p.requiredMods??=[];p.assetSources??={};p.resourcePalettes??=[];for(const b of [...p.buildings,...(p.buildingLibrary||[])])normalizeBuilding(b);project=p;nativeEditor.select(null);for(const m of (p.staticModels||[]).slice(0,200))modelSprites.load(m).then(()=>requestDraw());appearance.reset();history=createMapHistory();history.extraBlockedWater=index=>worldMask().has(index);selectedId=null;selectedSpawn=-1;gesture=null;dirty=true;fit();changed();globalThis.document?.dispatchEvent(new CustomEvent('editor-project-opened',{detail:{edit:options.worldManaged===true}}));}
 function stopGeometryDrawing(){if(geometryTools?.drawing){geometryTools.cancel();polygonReceiver=null;}}
 function setTool(value){
  stopGeometryDrawing();
@@ -240,6 +250,7 @@ function setTool(value){
 }
 function fit(){
  const w=viewport.width,h=viewport.height;
+ const bounds=residentBounds(residentSections(getNativeContext()));if(bounds){({zoom,pan}=residentFit(bounds,viewport,isometric));update();return;}
  if(isometric){zoom=Math.min((w-90)/(project.width+project.height),(h-90)/((project.width+project.height)/2));pan={x:w/2,y:(h-(project.width+project.height)*zoom/2)/2};}
  else{zoom=Math.min((w-72)/project.width,(h-90)/project.height);pan={x:(w-project.width*zoom)/2,y:(h-project.height*zoom)/2};}
  zoom=Math.max(.08,zoom);update();
@@ -249,7 +260,7 @@ function inverse(x,y){x-=pan.x;y-=pan.y;return isometric?{x:Math.floor((x+2*y)/(
 function screen(x,y){return isometric?{x:pan.x+(x-y)*zoom,y:pan.y+(x+y)*zoom/2}:{x:pan.x+x*zoom,y:pan.y+y*zoom};}
 function within(p){return p.x>=0&&p.y>=0&&p.x<project.width&&p.y<project.height;}
 function scaleAt(factor,x=viewport.width/2,y=viewport.height/2){
- const old=zoom;zoom=Math.max(.08,Math.min(nativeView?96:20,zoom*factor));pan.x=x-(x-pan.x)*zoom/old;pan.y=y-(y-pan.y)*zoom/old;update();
+ const old=zoom,minZoom=(worldWorkshop.workspaces.context()?.loadedSections?.size??0)>0 ? .0001 : .08;zoom=Math.max(minZoom,Math.min(nativeView?96:20,zoom*factor));pan.x=x-(x-pan.x)*zoom/old;pan.y=y-(y-pan.y)*zoom/old;update();
 }
 function requestDraw(){if(!frame)frame=requestAnimationFrame(()=>{frame=0;draw();});}
 function rebuildRaster(){
@@ -260,6 +271,9 @@ function draw(){
  const nativeActive=nativeView&&isometric;
  if(nativeActive){const context=getNativeContext();const world=context.world?{...context.world,maps:context.world.maps.map(m=>m.id===context.memberId?{...m,project}:m)}:null;nativePreview.update({...context,world,viewport,zoom,pan,isometric:true});}
  rebuildRaster();const dpr=window.devicePixelRatio||1;ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,viewport.width,viewport.height);ctx.imageSmoothingEnabled=false;
+ const residentContext=getNativeContext(),resident=residentView.draw(ctx,residentContext,{screen,zoom,viewport,layers:mapLayers,drawBuilding:b=>{if(b.design&&zoom>=.8){drawDesignedBuilding(b);return;}polygon([[b.x,b.y],[b.x+b.width,b.y],[b.x+b.width,b.y+b.height],[b.x,b.y+b.height]].map(([x,y])=>screen(x,y)),b.kind==='house'?'#d5c8a4':'#a3aaa0','#555644');}});
+ Object.assign(canvas.dataset,{residentSections:String(resident.sections.length),visibleSections:String(resident.visible.length),activeSection:residentContext.memberId??'',worldPanX:String(pan.x),worldPanY:String(pan.y),worldZoom:String(zoom)});
+ residentStatus.hidden=!resident.sections.length;if(resident.sections.length)residentStatus.textContent=`${resident.sections.length} sections on this canvas · Editing ${project.name}. Click a neighbour to switch; edits save first, and the first click does not paint.${nativeActive?' Game sprites show the active section; neighbours show their plans.':''}`;
  ctx.save();if(isometric)ctx.transform(zoom,zoom/2,-zoom,zoom/2,pan.x,pan.y);else ctx.transform(zoom,0,0,zoom,pan.x,pan.y);
  ctx.shadowColor='#0007';ctx.shadowBlur=12;if(!nativeActive||canvas.dataset.nativeState==='loading')ctx.drawImage(raster,0,0);ctx.shadowBlur=0;
  if(nativeActive){ctx.restore();const context=getNativeContext(),revision=context.revision,shared=context.workspace?.shared??context.world;if(nativeLayerCache?.revision!==revision||nativeLayerCache.project!==project)nativeLayerCache={revision,project,classify:nativeLayerClassifier({...project,fenceStyles:[...(project.fenceStyles??[]),...(shared?.fenceStyles??[])],gateStyles:[...(project.gateStyles??[]),...(shared?.gateStyles??[])]},sharedLocalBuildings())};nativePreview.draw(ctx,{skipModel:m=>nativeLighting.modelSuppressed(m),visible:node=>mapLayers.isVisible(nativeLayerCache.classify(node))});ctx.save();ctx.transform(zoom,zoom/2,-zoom,zoom/2,pan.x,pan.y);}
@@ -300,6 +314,7 @@ function draw(){
  }
  mctx.clearRect(0,0,150,150);mctx.drawImage(raster,0,0,150,150);mctx.fillStyle='#ddd1ae';for(const b of project.buildings)mctx.fillRect(b.x/project.width*150,b.y/project.height*150,Math.max(2,b.width/project.width*150),Math.max(2,b.height/project.height*150));
  mctx.strokeStyle='#f4d293';mctx.lineWidth=1;if(!isometric){const a=inverse(0,0),b=inverse(viewport.width,viewport.height);mctx.strokeRect(a.x/project.width*150,a.y/project.height*150,(b.x-a.x)/project.width*150,(b.y-a.y)/project.height*150);}
+ if(resident.sections.length){const bounds=residentBounds(resident.sections);mctx.clearRect(0,0,150,150);const scale=Math.min(150/bounds.width,150/bounds.height),screen=(x,y)=>({x:(x-bounds.x)*scale,y:(y-bounds.y)*scale});residentView.draw(mctx,{...residentContext,transform:{isometric:false}},{screen,zoom:scale,viewport:{width:150,height:150},layers:mapLayers,minimap:true});const a=screen(0,0);mctx.strokeStyle='#f4d293';mctx.strokeRect(a.x,a.y,project.width*scale,project.height*scale);}
 }
 function drawDesignedBuilding(b){
  const floors=visibleFloors(b,$('map-level').value,isometric);
@@ -356,7 +371,7 @@ function finish(){
 canvas.addEventListener('pointerup',e=>{if(nativeView&&nativeEditor.drag){nativeEditor.end();return;}if(gesture?.appearance){const start=gesture.start,point=gridPoint(e),end={x:Math.max(0,Math.min(project.width-1,point.x)),y:Math.max(0,Math.min(project.height-1,point.y))};gesture=null;appearance.setRegion({x:Math.min(start.x,end.x),y:Math.min(start.y,end.y),width:Math.abs(end.x-start.x)+1,height:Math.abs(end.y-start.y)+1});setTool('select');appearance.open('area');}else finish();});canvas.addEventListener('pointercancel',()=>{nativeEditor.cancel();finish();});canvas.addEventListener('lostpointercapture',()=>{nativeEditor.cancel();finish();});canvas.addEventListener('pointerleave',()=>{if(!gesture){cursor=null;requestDraw();}});
 canvas.addEventListener('wheel',e=>{e.preventDefault();const r=canvas.getBoundingClientRect();scaleAt(e.deltaY<0?1.15:1/1.15,e.clientX-r.left,e.clientY-r.top);},{passive:false});
 new ResizeObserver(entries=>{const r=entries[0].contentRect;if(r.width<1||r.height<1)return;const previous=viewport;viewport={width:r.width,height:r.height};const dpr=window.devicePixelRatio||1;canvas.width=Math.round(r.width*dpr);canvas.height=Math.round(r.height*dpr);if(!canvasMeasured){canvasMeasured=true;fit();}else{pan={x:pan.x+(r.width-previous.width)/2,y:pan.y+(r.height-previous.height)/2};requestDraw();}if(pendingMapFocus){const focus=pendingMapFocus;pendingMapFocus=null;focus();}}).observe($('canvas-wrap'));
-mini.addEventListener('pointerdown',e=>{if(isometric)return;const r=mini.getBoundingClientRect();pan.x=viewport.width/2-(e.clientX-r.left)/r.width*project.width*zoom;pan.y=viewport.height/2-(e.clientY-r.top)/r.height*project.height*zoom;requestDraw();});
+mini.addEventListener('pointerdown',e=>{if(isometric)return;const r=mini.getBoundingClientRect(),bounds=residentBounds(residentSections(getNativeContext()));if(bounds){const scale=Math.min(r.width/bounds.width,r.height/bounds.height);pan.x=viewport.width/2-(bounds.x+(e.clientX-r.left)/scale)*zoom;pan.y=viewport.height/2-(bounds.y+(e.clientY-r.top)/scale)*zoom;}else{pan.x=viewport.width/2-(e.clientX-r.left)/r.width*project.width*zoom;pan.y=viewport.height/2-(e.clientY-r.top)/r.height*project.height*zoom;}requestDraw();});
 document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>setTool(b.dataset.tool));
 document.querySelectorAll('[data-terrain]').forEach(b=>b.onclick=()=>{terrain=+b.dataset.terrain;document.querySelectorAll('[data-terrain]').forEach(a=>a.classList.toggle('active',a===b));if(!['brush','rectangle'].includes(tool))setTool('brush');update();});
 document.querySelectorAll('[data-building]').forEach(b=>b.onclick=()=>{buildingKind=b.dataset.building;$('building-preset').value=buildingKind;document.querySelectorAll('[data-building]').forEach(a=>a.classList.toggle('active',a===b));setTool('building');});

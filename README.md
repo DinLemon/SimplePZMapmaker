@@ -6,7 +6,7 @@
 
 A local visual map and building editor for **Project Zomboid Build 42**, written in C#/.NET 10 with a browser interface. Create maps without programming, assemble rooms from your installed game's resources, import OpenStreetMap geography, and join adjacent sections into one world.
 
-**Current release: [0.13.0](https://github.com/DinLemon/SimplePZMapmaker/releases/tag/v0.13.0) (prerelease).** The Windows x64 download includes the .NET Runtime. The editor supports 24 original editable building plans, up to 32 above-ground levels and basements **−1 to −32** (64 signed levels, **Z −32…31**), game/mod sprites and static models, shared buildings across section boundaries, measured DEM elevation, and MCP planning with a review before changes enter your project.
+**Current release: [0.13.1](https://github.com/DinLemon/SimplePZMapmaker/releases/tag/v0.13.1) (prerelease).** The Windows x64 download includes the .NET Runtime. The editor supports 24 original editable building plans, up to 32 above-ground levels and basements **−1 to −32** (64 signed levels, **Z −32…31**), game/mod sprites and static models, shared buildings across section boundaries, measured DEM elevation, and MCP planning with a review before changes enter your project.
 
 [Download releases](https://github.com/DinLemon/SimplePZMapmaker/releases) · [Verification status](docs/STATUS.md) · [Code and data provenance](docs/PROVENANCE.md)
 
@@ -18,7 +18,15 @@ A local visual map and building editor for **Project Zomboid Build 42**, written
 
 *Workflow illustration; the editor screenshots and verified limits are documented below.*
 
-## What is new in 0.13.0
+## What is new in 0.13.1
+
+- **One connected editing canvas:** load every saved section independently, including worlds above the 128 MiB portable JSON budget. The main canvas, minimap and Layers show all resident sections. Click a neighbour to activate it without shifting the geographic camera or downloading it again; edits save before switching.
+- **Reliable editor updates:** content-versioned assets keep the complete JavaScript module graph consistent after an update, including browsers that cached an older editor.
+- **Room-aware furniture:** new and retagged generated rooms use appropriate furnishings and preserve circulation, object fronts and stair access. **Building workshop → Automatic furniture → Refurnish this floor** is one undoable draft operation; authored tile groups, models and the building plan remain. The 24 housing examples were refreshed.
+
+Editing, validation and Undo belong to the active section; brush strokes stop at its seam. Game view renders native sprites in the active section and neighbouring plans around it. Shared crossing geometry remains protected. Browser memory is a practical limit when loading every section. See [connected section editing](docs/STREAMED-WORLD-EDITOR.md) and [furnishing rules](docs/FURNISHING.md).
+
+## Included from 0.13.0
 
 - **One task at a time:** Create, Edit map, and Check & export share the same project. Save and Build mod stay visible; drawing tools, layers and properties appear where they are needed.
 - **Keep the selected area and scale:** when a real-place selection exceeds the ordinary 128-section / 768-cell allowance, approve its expanded layout instead of shrinking it. New section imports save incrementally; source buildings and fences are resolved across seams before atomic publication.
@@ -26,7 +34,7 @@ A local visual map and building editor for **Project Zomboid Build 42**, written
 - **Detailed terrain:** large forest and water outlines use active-edge rasterization, retaining holes and section continuity without counting a distant perimeter on every row. Retained sources can be rebuilt without another download. See [terrain import and recovery](docs/OSM-TERRAIN-COMPLEXITY.md).
 - **A complete local toolchain:** offline saved geographic sources, an interactive guide, Project Doctor, building exchange, reviewed agent assets, native transport authoring and the headless CLI ship with the application. The Windows ZIP includes .NET.
 
-Validation for the release candidate: **1,016 C# checks**, **511 JavaScript checks**, a production offline large-world import, section opening and selected native export. See [verification details and limitations](docs/STATUS.md) and [incremental world import](docs/WORKSPACE-UI.md).
+Verification: **1,022 C# checks**, **508 JavaScript checks**, and dedicated browser workflows covering a 65-section / 132.1 MiB resident world, canvas switching, terrain painting, Undo, cached editor upgrades and the building workshop. Earlier large-world import and selected native export checks remain documented separately. See [verification details and limitations](docs/STATUS.md) and [incremental world import](docs/WORKSPACE-UI.md).
 
 ## Real-place creation workflow
 
@@ -43,7 +51,8 @@ The editor has three task workspaces: **Create**, **Edit map**, and **Check & ex
 
 ## Edit connected worlds by section
 
-- **Work on one section:** save a world as a section workspace, browse its manifest and open only the section being edited. Switching saves committed edits first; stale revisions retain the local copy and offer an explicit reload/discard action.
+- **Edit large saved worlds:** load all sections for editing through separate requests, even above the 128 MiB portable JSON limit, or open just one to save memory. The continuous canvas and minimap display resident terrain and building plans. Clicking a neighbour preserves the camera and saves committed edits per section; stale revisions retain the local copy. Shared crossing geometry keeps its protected section context.
+- **Room-aware furniture:** generated rooms retain circulation and clear stair landings. In the building workshop, **Automatic furniture → Refurnish this floor** rearranges furniture as one undoable draft operation while keeping the plan and individually placed tile groups/models. See [furnishing rules](docs/FURNISHING.md).
 - **See neighbouring geometry:** section outlines distinguish loaded and unloaded terrain. Crossing buildings, decorations, fences and infrastructure remain visible and reserved; shared geometry is read-only in an isolated section.
 - **Share decorations across seams:** move a section decoration group into the world's **Shared decorations** layer. It is stored once in world tiles, and every section draws the part inside it.
 - **Control editing layers:** hide or lock terrain, roads, paths, buildings, objects, models, spawns and authoring zones. Annotation order is adjustable; physical sprites keep their depth order.
@@ -196,12 +205,12 @@ Validation for this implementation: **190 C# checks, 129 JavaScript checks and 1
 ### 2. Download the application ZIP
 
 1. Open [GitHub Releases](https://github.com/DinLemon/SimplePZMapmaker/releases).
-2. Select **v0.13.0**, or a newer published release. The project publishes prereleases, so use the release list rather than assuming GitHub's `/latest` page shows the newest build.
-3. Expand **Assets** and download **`SimplePZMapmaker-0.13.0-win-x64.zip`**. Example map ZIPs contain game mods, not the editor. GitHub's automatic **Source code** archives are development sources, not the ready-to-run application.
+2. Select **v0.13.1**, or a newer published release. The project publishes prereleases, so use the release list rather than assuming GitHub's `/latest` page shows the newest build.
+3. Expand **Assets** and download **`SimplePZMapmaker-0.13.1-win-x64.zip`**. Example map ZIPs contain game mods, not the editor. GitHub's automatic **Source code** archives are development sources, not the ready-to-run application.
 4. Optionally download the release checksum file and compare the archive's SHA-256 before extracting it. Run this command from the folder containing the downloaded archive:
 
 ```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath './SimplePZMapmaker-0.13.0-win-x64.zip'
+Get-FileHash -Algorithm SHA256 -LiteralPath './SimplePZMapmaker-0.13.1-win-x64.zip'
 ```
 
 ### 3. Extract the entire archive
@@ -416,7 +425,7 @@ QA downloads/screenshots/logs stay in `work/qa-results/` or `work/logs/`. Develo
 1. Open **Actions** in the GitHub repository and select **Build and verify**.
 2. Choose **Run workflow**, select `develop` or the branch to verify, then start.
 3. Inspect build/startup/browser steps in the run.
-4. Download the completed application artifact for local use. Extract GitHub's outer artifact archive, then extract the contained `SimplePZMapmaker-0.13.0-win-x64.zip` into the application folder and follow the installation steps above. The diagnostic artifact contains startup evidence and screenshots. GitHub may require sign-in for artifacts.
+4. Download the completed application artifact for local use. Extract GitHub's outer artifact archive, then extract the contained `SimplePZMapmaker-0.13.1-win-x64.zip` into the application folder and follow the installation steps above. The diagnostic artifact contains startup evidence and screenshots. GitHub may require sign-in for artifacts.
 
 CI runs on pushes to `develop`, pull requests and manual dispatch. The Windows runner uses its mapped checkout as the workspace and keeps task caches there. Its no-game fallback check does not replace local installed-game probes.
 

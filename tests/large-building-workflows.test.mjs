@@ -148,13 +148,17 @@ const makeWorld=()=>{
 
 test('world 11 save and reopen preserve a shared large building across a seam',async()=>{
  const world=makeWorld();let output;
- const workshop={session:{world},flush(){},api:async(url,w)=>{assert.equal(url,'/api/world/validate');return {world:validateWorld(w)};},
+ const workshop={session:{world},workspaces:{session:{active:false}},flush(){},api:async(url,w)=>{assert.equal(url,'/api/world/validate');return {world:validateWorld(w)};},
   task:(_message,action)=>action(new AbortController().signal),download:blob=>{output=blob;},fileName:()=>world.name,state(){}};
  const get=register('world-workshop.js',"$('world-save').onclick=",{maxFile:128*1024*1024},workshop);
  await get('world-save').onclick();
  const restored=new WorldSession(JSON.parse(await output.text())).world;
  assert.equal(restored.version,11);assert.deepEqual(restored.buildings,world.buildings);
  assert.equal(restored.buildings[0].design.floors[0].cells.length,2970);
+});
+test('world toolbar saves a resident workspace by section without serializing a complete world',async()=>{
+ let saves=0;const world={maps:[]},workshop={world,session:{world},workspaces:{session:{active:true},saveSection:async()=>{saves++;}},flush(){},task:(_message,action)=>action(new AbortController().signal),api:()=>{throw Error('Complete-world API must not be used');}};
+ const get=register('world-workshop.js',"$('world-save').onclick=",{maxFile:128*1024*1024},workshop);await get('world-save').onclick();assert.equal(saves,1);
 });
 
 test('world validation promotes unstamped large section buildings and libraries before serialization',()=>{

@@ -64,7 +64,7 @@ export function installWorkspaceFlow({isBusy=()=>false}={}){
  doc.querySelector('.brand').onclick=event=>{event.preventDefault();show('create');};
  navigation.onkeydown=e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)||!e.target.id.startsWith('workspace-'))return;e.preventDefault();const index=modes.indexOf(e.target.id.slice('workspace-'.length));const next=e.key==='Home'?0:e.key==='End'?2:(index+(e.key==='ArrowRight'?1:2))%3;if(show(modes[next]))$(`workspace-${modes[next]}`).focus();};
  doc.addEventListener('workspace-show',event=>{if(modes.includes(event.detail))show(event.detail);});
- doc.addEventListener('editor-project-opened',()=>{state.projectOpened();applyPresentation();});
+ doc.addEventListener('editor-project-opened',event=>{if(event.detail?.edit)state.expectProject();state.projectOpened();applyPresentation();});
  for(const id of ['new-map','load-project','open-import'])$(id).addEventListener('click',()=>state.expectProject());
  $('export-map').addEventListener('click',()=>{if(!isBusy())show('check');});
  doc.addEventListener('keydown',event=>{if(event.key==='Escape'&&inspector.contains(event.target)&&!doc.querySelector('dialog[open]')){inspectorOpen=false;applyPresentation();inspectorToggle.focus();}});

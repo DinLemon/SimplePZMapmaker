@@ -55,6 +55,7 @@ public static class BuildingDesigner
    design.Floors.Add(floor);
   }
   b.Design=design;
+  SettlementAccess.ConnectLandings(b,seed,furnish:false,validate:false);
   for(var z=0;z<levels;z++){
    var f=design.Floors[z];f.Edges=AutoEdges(b,f,z+design.MinLevel);
    Furnish(b,z,rng);
@@ -76,20 +77,27 @@ public static class BuildingDesigner
    floor.Cells=new(cells);if(z<total-1)floor.Objects.Add(new(){X=stairX,Y=stairY,Kind="stairs",Direction=direction});design.Floors.Add(floor);
   }
   b.Design=design;
+  SettlementAccess.ConnectLandings(b,seed,furnish:false,validate:false);
   for(var z=0;z<total;z++){design.Floors[z].Edges=AutoEdges(b,design.Floors[z],z+design.MinLevel);Furnish(b,z,rng);}
   RoofGeometry.SelectSafeAutomaticRoof(b);Validate(b);return design;
  }
  /// <summary>Furnishes one floor. Bedrooms, kitchens, bathrooms and living rooms take TileZed furniture against their walls (map format 14);
  /// <paramref name="catalog"/> false keeps the single legacy object per room, as the distributed housing templates do.</summary>
- public static void Furnish(Building b,int z,Random rng,bool catalog=true){
-  var f=b.Design!.Floors[z];f.Objects.RemoveAll(o=>o.Kind!="stairs");
+ public static void Furnish(Building b,int z,Random rng,bool catalog=true,bool preserveAssets=false){
+  var f=b.Design!.Floors[z];f.Objects.RemoveAll(o=>o.Kind!="stairs"&&(!preserveAssets||o.Kind!="asset"));
   foreach(var code in f.Rooms.Keys.Where(k=>k!="0"&&f.Rooms[k]!="balcony")){
    var passages=f.Edges.Where(e=>e.Kind is "door" or "open").SelectMany(e=>e.Edge=="n"?new[]{e.Y*b.Width+e.X,(e.Y-1)*b.Width+e.X}:new[]{e.Y*b.Width+e.X,e.Y*b.Width+e.X-1}).ToHashSet();
    if(catalog&&FurnitureCatalog.Furnishes(f.Rooms[code])){FurnitureCatalog.Furnish(b,f,z,code[0],f.Rooms[code],passages,rng);continue;}
+   if(catalog){RoomFurnishing.Furnish(b,f,z,code[0],f.Rooms[code],passages);continue;}
    var kind=f.Rooms[code] switch{"kitchen"=>"counter","bedroom" or "hotelroom"=>"bed","livingroom"=>"seat","bathroom"=>"sink",_=>"storage"};var taken=f.Objects.Where(o=>o.Kind!="stairs").SelectMany(BuildingObjects.Cells).ToHashSet();
    var candidates=Enumerable.Range(0,f.Cells.Length).Where(i=>f.Cells[i]==code[0]).SelectMany(i=>new[]{"n","w"}.Select(direction=>new BuildingObject{X=i%b.Width,Y=i/b.Width,Kind=kind,Direction=direction,Style=b.Design.Style})).Where(o=>BuildingObjects.Cells(o).All(point=>Cell(b,f,point.X,point.Y)==code[0]&&!StairSpace(b,z,point.X,point.Y)&&!passages.Contains(point.Y*b.Width+point.X)&&!taken.Contains(point))).ToArray();
    if(candidates.Length>6)f.Objects.Add(candidates[rng.Next(candidates.Length)]);
   }
+ }
+ /// <summary>Refreshes only one floor's generated furniture. Authored tile groups, models, stairs and geometry remain.</summary>
+ public static void Refurnish(Building b,int level){
+  Validate(b);if(b.Design is null)throw new ArgumentException("Generate a building plan before furnishing it.");var z=level-b.Design.MinLevel;if(z<0||z>=b.Design.Floors.Count)throw new ArgumentException("Choose an existing floor to furnish.");
+  Furnish(b,z,new Random(unchecked(b.Design.Variant+z*1009)),preserveAssets:true);b.Modified=true;Validate(b);
  }
  public static bool StairSpace(Building b,int z,int x,int y)=>b.Design!.Floors.Where((_,level)=>level==z||level==z-1).SelectMany(f=>f.Objects).Any(o=>o.Kind=="stairs"&&(o.Direction=="n"?x==o.X&&y>=o.Y&&y<=o.Y+4:y==o.Y&&x>=o.X&&x<=o.X+4));
  public static List<BuildingEdge> AutoEdges(Building b,BuildingFloor f,int z){
@@ -164,6 +172,7 @@ public static class BuildingDesigner
     }
     design.Shape=old.Shape;if(b.SourceId is not null)design.Roof=old.Roof;
    }
+   SettlementAccess.ConnectLandings(b,design.Variant,furnish:false,validate:false);
    for(var z=0;z<design.Floors.Count;z++)Furnish(b,z,new Random(unchecked(design.Variant+z*1009)));
    Validate(b);if(id is not null)b.Modified=true;changed++;
   }ProjectValidator.Validate(project);return changed;

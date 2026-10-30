@@ -1,4 +1,4 @@
-param([string]$ArchiveName='SimplePZMapmaker-0.13.0-win-x64.zip')
+param([string]$ArchiveName='SimplePZMapmaker-0.13.1-win-x64.zip')
 $ErrorActionPreference='Stop'
 if([IO.Path]::GetFileName($ArchiveName) -ne $ArchiveName -or -not $ArchiveName.EndsWith('.zip')){throw 'Choose a ZIP filename only.'}
 . (Join-Path $PSScriptRoot 'WorkspaceEnv.ps1')

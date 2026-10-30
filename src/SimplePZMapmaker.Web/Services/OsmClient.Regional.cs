@@ -19,7 +19,7 @@ public sealed partial class OsmClient
    }
    var temporary=file+"."+Guid.NewGuid().ToString("N")+".tmp";
    try{
-    using var request=new HttpRequestMessage(HttpMethod.Get,"https://download.openstreetmap.fr/extracts/russia/central_federal_district/smolensk_oblast-latest.osm.pbf");request.Headers.UserAgent.ParseAdd("SimplePZMapmaker/0.13.0 (local-map-editor)");
+    using var request=new HttpRequestMessage(HttpMethod.Get,"https://download.openstreetmap.fr/extracts/russia/central_federal_district/smolensk_oblast-latest.osm.pbf");request.Headers.UserAgent.ParseAdd("SimplePZMapmaker/0.13.1 (local-map-editor)");
     using var response=await client.SendAsync(request,HttpCompletionOption.ResponseHeadersRead,token);response.EnsureSuccessStatusCode();if(response.Content.Headers.ContentLength>OsmSourceFiles.MaximumPbfBytes)throw new ArgumentException("The regional extract exceeds the 64 MiB limit.");
     await using(var input=await response.Content.ReadAsStreamAsync(token)){await using var output=File.Create(temporary);var buffer=new byte[81920];long total=0;while(true){var read=await input.ReadAsync(buffer,token);if(read==0)break;total+=read;if(total>OsmSourceFiles.MaximumPbfBytes)throw new ArgumentException("The regional extract exceeds the 64 MiB limit.");await output.WriteAsync(buffer.AsMemory(0,read),token);}}
     var parsed=PbfExtractReader.Read(temporary,bounds,token);token.ThrowIfCancellationRequested();File.Move(temporary,file,true);return Result(parsed,false,DateTimeOffset.UtcNow);

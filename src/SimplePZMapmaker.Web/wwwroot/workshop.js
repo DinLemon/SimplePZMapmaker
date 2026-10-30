@@ -9,6 +9,7 @@ import {installArchitectureControls} from './building-architecture.js';
 import {installBuildingUsabilityControls} from './building-usability.js';
 import {installBuildingModuleControls} from './building-modules.js';
 import {installParametricBuildingControls} from './parametric-buildings.js';
+import {installFurnishingControls} from './building-furnishing.js';
 const $=id=>document.getElementById(id),colors=['#b6ac83','#6d877c','#9b815e','#ad8c7d','#858aaa','#938c68','#a59883'];
 export class BuildingWorkshop{
  constructor({api,apply,template,download,attribution,resources,preview,getPalettes,savePalettes,getModules,saveModule}){
@@ -39,6 +40,7 @@ export class BuildingWorkshop{
   $('be-add-basement').onclick=()=>this.change(()=>{if(minLevel(this.draft)<=minZ)throw Error('Maximum: 32 basements (z=-32).');const f=structuredClone(this.draft.design.floors[0]);f.objects=f.objects.filter(o=>o.kind!=='stairs');f.staticModels=(f.staticModels||[]).map(m=>({...m,id:crypto.randomUUID().replaceAll('-',''),z:minLevel(this.draft)-1}));f.edges=[];this.draft.design.floors.unshift(f);this.draft.design.minLevel=minLevel(this.draft)-1;this.level=0;refreshEdges(this.draft,0);installStairLink(this.draft,0,0);});
   $('be-remove-basement').onclick=()=>this.change(()=>{if(minLevel(this.draft)===0)throw Error('There are no basements. The ground floor remains.');this.draft.design.floors.shift();this.draft.design.minLevel=minLevel(this.draft)+1;this.level=Math.max(0,this.level-1);});
   $('be-auto-stairs').onclick=()=>this.change(()=>autoStairs(this.draft));
+  installFurnishingControls(this);
   $('be-undo').onclick=()=>{this.draft=this.history.undo(this.draft);this.level=Math.min(this.level,this.draft.design.floors.length-1);this.update();};$('be-redo').onclick=()=>{this.draft=this.history.redo(this.draft);this.level=Math.min(this.level,this.draft.design.floors.length-1);this.update();};
   for(const button of document.querySelectorAll('[data-be-tool]'))button.onclick=()=>this.setTool(button.dataset.beTool);
   $('be-apply').onclick=async()=>{if(this.saving)return;try{this.saving=true;this.lock(true);await this.validateForSave();await this.apply(structuredClone(this.draft));$('building-dialog').close();}catch(e){this.message(e.message,true);}finally{this.saving=false;this.lock(false);}};

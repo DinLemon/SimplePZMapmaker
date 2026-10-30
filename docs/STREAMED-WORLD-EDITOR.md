@@ -14,6 +14,14 @@ Only that section's terrain and authoring data enter the editor. Other sections 
 
 Saving a complete in-memory world as a workspace is an initial conversion step. Subsequent isolated reads, saves and saved-workspace export jobs do not first rebuild a complete in-memory world. A workspace containing a large number of existing sections should therefore be edited through these controls rather than repeatedly opened through the compatibility complete-world command.
 
+### Load every section for editing
+
+Choose **Load all sections for editing** in the saved workspace panel. This downloads each section separately, including worlds above the 128 MiB portable JSON budget. Close the World window to use the continuous editor canvas: **Entire map** fits all resident sections, and the minimap covers the whole layout. Terrain, building plans and section boundaries remain visible around the active section. The layer panel counts every resident section.
+
+Click a neighbouring section to activate it without moving the geographic camera. This first click switches without painting; subsequent clicks use the selected tool. Switching reuses resident data and saves the preceding section independently. Empty gaps remain empty. A stroke, its Undo history and validation belong to one active section; a stroke does not paint across a seam. **Game view** renders native sprites for the active section and shows neighbouring section plans; activate a neighbour to inspect its sprites. **Save current section** and **Export saved world** retain the section-based storage/export paths.
+
+Loading reports its section count and can be cancelled. Until all sections validate at the same saved revision, the current edited map is retained. An external revision change prevents use of a stale cache; reload the workspace after preserving local edits. Browser memory can be several times the saved size, so **Open only this section** remains useful on machines with limited RAM. The action removes no per-section, coordinate, object or export budget. Shared crossing geometry retains the existing read-only section context; loading rasters does not enable shared-object editing or cross-section undo. For smaller worlds, **Advanced shared editing → Edit complete shared plans** retains the earlier complete-world editor, including shared-object operations, within its separate 128 MiB compatibility budget.
+
 ![Section workspace overview with loaded and unloaded sections](images/streamed-world-editor.png)
 
 ## Edit, switch and save
@@ -63,6 +71,7 @@ The native ZIP retains source sections and shared authoring metadata alongside n
 - Each section is 256–2,048 tiles per side, in multiples of 256. A world can extend beyond a single section's dimensions.
 - A saved section blob and shared authored metadata are each limited to 128 MiB; the manifest is limited to 32 MiB. Shared metadata includes full floor plans for buildings crossing section boundaries; the active section receives only the context that intersects it. The workspace index does not impose a 128 MiB aggregate raster budget.
 - Compatibility complete-world JSON loading/saving retains its explicit 128 MiB budget. Native ZIP/job output is currently bounded to 256 MiB; streaming does not mean unlimited output size. Export selected sections separately when a combined archive exceeds that limit.
+- **Load all sections for editing** bypasses the aggregate portable JSON budget through separate requests, rather than increasing it. All successfully loaded rasters remain resident until the workspace is replaced or reloaded; available browser memory is a practical limit.
 
 These are application storage/authoring budgets. They do not establish a 2,048-tile limit for an entire Project Zomboid world.
 

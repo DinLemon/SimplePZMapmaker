@@ -80,7 +80,7 @@ public sealed class RegionalDownloadCache(string directory,HttpClient client,lon
   if(used+expected>maximumCacheBytes)throw new ArgumentException("The geographic source cache is full. Remove unused regional/partial downloads or increase the source-cache budget.");
   var root=System.IO.Path.GetPathRoot(System.IO.Path.GetFullPath(directory));if(root is not null&&new DriveInfo(root).AvailableFreeSpace<Math.Max(0,expected-replacedBytes)+512L*1024*1024)throw new ArgumentException("Not enough disk space for the regional source and temporary index. Free space in the workspace drive before importing.");return maximumCacheBytes-used;
  }
- private static HttpRequestMessage Request(HttpMethod method,string url){var request=new HttpRequestMessage(method,GeofabrikCatalog.ValidateUrl(url));request.Headers.UserAgent.ParseAdd("SimplePZMapmaker/0.13.0 (+https://github.com/DinLemon/SimplePZMapmaker)");request.Headers.AcceptEncoding.ParseAdd("identity");return request;}
+ private static HttpRequestMessage Request(HttpMethod method,string url){var request=new HttpRequestMessage(method,GeofabrikCatalog.ValidateUrl(url));request.Headers.UserAgent.ParseAdd("SimplePZMapmaker/0.13.1 (+https://github.com/DinLemon/SimplePZMapmaker)");request.Headers.AcceptEncoding.ParseAdd("identity");return request;}
  private async Task<HttpResponseMessage> Send(HttpRequestMessage request,CancellationToken token)
  {
   HttpRequestMessage? redirected=null;
