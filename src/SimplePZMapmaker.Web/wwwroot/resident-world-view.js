@@ -1,6 +1,7 @@
 import {environmentPresets} from './appearance.js';
 import {terrainLayer} from './layer-edit-guards.js';
 import {buildingVisible} from './terrain-raster.js';
+import {sharedLocalDecorations} from './world-protection.js';
 
 // Coordinates remain relative to the active section. No giant MapProject, raster
 // or compatibility-world JSON is constructed for a resident workspace.
@@ -53,17 +54,17 @@ export class ResidentWorldView{
   for(const s of sections){
    if(!buildingVisible(s,screen,viewport.width,viewport.height,context.transform?.isometric))continue;
    if(!minimap&&s.id===context.memberId){visible.push(s.id);continue;}
-   visible.push(s.id);const p=s.project;
+   visible.push(s.id);const p=s.project,shared=context.workspace.loadedSections.get(s.id)?.shared;
    ctx.save();const a=screen(s.x,s.y),b=screen(s.x+1,s.y),c=screen(s.x,s.y+1);
    ctx.transform(b.x-a.x,b.y-a.y,c.x-a.x,c.y-a.y,a.x,a.y);
    ctx.imageSmoothingEnabled=false;ctx.drawImage(this.raster(s,layers,zoom),0,0,s.width,s.height);
+   ctx.beginPath();ctx.rect(0,0,s.width,s.height);ctx.clip();
    if(layers.isVisible('zombies'))for(let y=0;y<p.height/8;y++)for(let x=0;x<p.width/8;x++){const z=p.zombies[y*(p.width/8)+x];if(z){ctx.fillStyle=`rgba(171,53,32,${z/255*.7})`;ctx.fillRect(x*8,y*8,8,8);}}
-   if(layers.isVisible('paths')){ctx.lineWidth=1/zoom;ctx.strokeStyle='#b9c8a1';for(const f of p.fences??[]){ctx.beginPath();f.points.forEach((v,i)=>i?ctx.lineTo(v.x,v.y):ctx.moveTo(v.x,v.y));ctx.stroke();}}
-   if(layers.isVisible('decorations')){ctx.fillStyle='#d5b575';for(const d of p.decorations??[])for(const part of d.parts??[])ctx.fillRect(d.x+part.dx,d.y+part.dy,Math.max(1,2/zoom),Math.max(1,2/zoom));}
+   if(layers.isVisible('paths')){ctx.lineWidth=1/zoom;ctx.strokeStyle='#b9c8a1';const lines=[...(p.fences??[]),...(shared?.fences??[]).map(f=>({...f,points:f.points.map(v=>({x:v.x-p.worldX*256,y:v.y-p.worldY*256}))}))];for(const f of lines){ctx.beginPath();f.points.forEach((v,i)=>i?ctx.lineTo(v.x,v.y):ctx.moveTo(v.x,v.y));ctx.stroke();}}
+   if(layers.isVisible('decorations')){ctx.fillStyle='#d5b575';for(const d of [...(p.decorations??[]),...sharedLocalDecorations(shared,p)])for(const part of d.parts??[])ctx.fillRect(d.x+part.dx,d.y+part.dy,Math.max(1,2/zoom),Math.max(1,2/zoom));}
    if(layers.isVisible('models')){ctx.fillStyle='#9fc7d6';for(const m of p.staticModels??[])ctx.fillRect(m.x,m.y,Math.max(1,2/zoom),Math.max(1,2/zoom));}
    ctx.restore();
    ctx.save();ctx.beginPath();for(const [i,[x,y]] of [[s.x,s.y],[s.x+s.width,s.y],[s.x+s.width,s.y+s.height],[s.x,s.y+s.height]].entries()){const q=screen(x,y);i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y);}ctx.closePath();ctx.clip();
-   const shared=context.workspace.loadedSections.get(s.id)?.shared;
    const buildings=[...(p.buildings??[]).map(b=>({...b,x:b.x+s.x,y:b.y+s.y})),...(shared?.buildings??[]).map(b=>({...b,x:b.x-context.project.worldX*256,y:b.y-context.project.worldY*256}))];
    if(layers.isVisible('buildings'))for(const b of buildings){if(!buildingVisible(b,screen,viewport.width,viewport.height,context.transform?.isometric))continue;if(drawBuilding&&!minimap)drawBuilding(b);else{const q=screen(b.x,b.y);ctx.fillStyle='#d5c8a4';ctx.fillRect(q.x,q.y,Math.max(1,b.width*zoom),Math.max(1,b.height*zoom));}}
    ctx.restore();

@@ -153,7 +153,7 @@ for(const type of ['pointerdown','pointermove','pointerup'])canvas.addEventListe
   const point=nativeView?nativeEditor.point(event):gridPoint(event),target=!within(point)&&residentSectionAt(residentSections(getNativeContext()),point);
   if(target){event.stopImmediatePropagation();event.preventDefault();if(geometryTools.drawing){toast('Finish or cancel the current outline before changing section.',true);return;}
    const previous=project,camera={zoom,pan:{...pan},isometric};
-   task('Activating loaded section…',async signal=>{try{await worldWorkshop.workspaces.open(signal,target.id);zoom=camera.zoom;pan=rebaseSectionPan(camera.pan,zoom,previous,project,camera.isometric);cursor=null;update();}catch(error){zoom=camera.zoom;pan=camera.pan;requestDraw();throw error;}});return;
+   task('Activating loaded section…',async signal=>{try{await worldWorkshop.workspaces.activateLoaded(signal,target.id);zoom=camera.zoom;pan=rebaseSectionPan(camera.pan,zoom,previous,project,camera.isometric);cursor=null;update();}catch(error){zoom=camera.zoom;pan=camera.pan;requestDraw();throw error;}});return;
   }
  }
  try{if(geometryTools.drawing&&event.button!==1&&event.button!==2&&!space){if(type==='pointerdown')canvas.setPointerCapture(event.pointerId);const point=nativeView?nativeEditor.point(event):gridPoint(event);geometryTools[type==='pointerdown'?'pointerDown':type==='pointermove'?'pointerMove':'pointerUp'](point);event.stopImmediatePropagation();event.preventDefault();return;}if(type==='pointerdown'&&event.button===0&&!space&&tool!=='pan'){const layer=guardedToolLayer();if(layer)mapLayers.guardEdit(layer,()=>{});}}

@@ -34,7 +34,7 @@ Editing, validation and Undo belong to the active section; brush strokes stop at
 - **Detailed terrain:** large forest and water outlines use active-edge rasterization, retaining holes and section continuity without counting a distant perimeter on every row. Retained sources can be rebuilt without another download. See [terrain import and recovery](docs/OSM-TERRAIN-COMPLEXITY.md).
 - **A complete local toolchain:** offline saved geographic sources, an interactive guide, Project Doctor, building exchange, reviewed agent assets, native transport authoring and the headless CLI ship with the application. The Windows ZIP includes .NET.
 
-Verification: **1,022 C# checks**, **506 JavaScript checks**, and dedicated browser workflows covering a 65-section / 132.1 MiB resident world, canvas switching, terrain painting, Undo, cached editor upgrades and the building workshop. Earlier large-world import and selected native export checks remain documented separately. See [verification details and limitations](docs/STATUS.md) and [incremental world import](docs/WORKSPACE-UI.md).
+Verification: **1,022 C# checks**, **508 JavaScript checks**, and dedicated browser workflows covering a 65-section / 132.1 MiB resident world, canvas switching, terrain painting, Undo, cached editor upgrades and the building workshop. Earlier large-world import and selected native export checks remain documented separately. See [verification details and limitations](docs/STATUS.md) and [incremental world import](docs/WORKSPACE-UI.md).
 
 ## Real-place creation workflow
 

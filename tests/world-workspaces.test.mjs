@@ -44,3 +44,11 @@ test('load-all refreshes the saved index even when the clean active session has 
  ws.manifest={...m,revision:3};ws.workspaceId=id;ws.generation=1;ws.workshop={current:()=>project,flush:()=>{},assertCanReplace:()=>{}};ws.session={};ws.saveActive=async()=>{};ws.request=async url=>{assert.equal(url,`/api/world/workspaces/${id}`);return m;};ws.update=()=>{};ws.createSession=()=>({loadAll:async(_id,manifest)=>{calls.push(manifest.revision);throw Error('stop before adoption');}});
  await assert.rejects(ws.loadAll(),/stop before adoption/);assert.deepEqual(calls,[4]);
 });
+
+test('canvas activation stays in its loaded workspace after browsing another saved index',async()=>{
+ const ws=Object.create(WorldWorkspaces.prototype),id='a'.repeat(32),other='b'.repeat(32),memberId='c'.repeat(32),manifest={id,revision:7},calls=[];
+ ws.workspaceId=other;ws.manifest={id:other,revision:2};ws.session={workspaceId:id,manifest,loadedWorkspaceId:id,loadedSections:new Map([[memberId,{}]])};
+ ws.open=async(...args)=>{calls.push(args);return true;};await ws.activateLoaded(undefined,memberId);
+ assert.deepEqual(calls,[[undefined,memberId,{id,manifest}]]);assert.equal(ws.workspaceId,other);
+ await assert.rejects(ws.activateLoaded(undefined,'d'.repeat(32)),/not loaded/i);assert.equal(calls.length,1);
+});

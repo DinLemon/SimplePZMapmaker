@@ -27,6 +27,13 @@ try{
  await page.waitForFunction(()=>Number(document.querySelector('#map-canvas').dataset.residentSections)>0,{},{timeout:3000});
  assert.equal(await page.locator('#map-canvas').getAttribute('data-resident-sections'),String(manifest.sections.length),'The editor must display every resident section, not just the overview');
  assert.equal(await page.locator('#map-canvas').getAttribute('data-visible-sections'),String(manifest.sections.length),'Fit must include the entire world');
+ // Browsing an unrelated saved index must not change the canvas's owner.
+ const otherId='eeeeeeeeeeeeeeeeeeeeeeeeeeeeee22';
+ if((await fetch(`${base}/api/world/workspaces/${otherId}`)).status===404){
+  const project=await (await fetch(`${base}/api/generate`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'blank',size:256})})).json();
+  const created=await fetch(`${base}/api/world/workspaces/${otherId}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({world:{format:'SimplePZWorld',version:1,id:otherId,name:'Browsing index verification',maps:[{id:'e'.repeat(32),project}],buildings:[]},expectedRevision:null})});assert.equal(created.status,200,await created.text());
+ }
+ await openWorld();await page.locator('[data-ws-list]').click();await idle();await page.locator('[data-ws-world]').selectOption(otherId);await idle();await page.locator('#world-close').click();
  const camera=await page.locator('#map-canvas').evaluate(c=>({...c.dataset})),box=await page.locator('#map-canvas').boundingBox();
  const x=(second.worldX-first.worldX)*256+second.width/2,y=(second.worldY-first.worldY)*256+second.height/2;
  await page.mouse.click(box.x+Number(camera.worldPanX)+x*Number(camera.worldZoom),box.y+Number(camera.worldPanY)+y*Number(camera.worldZoom));await idle();
@@ -43,7 +50,7 @@ try{
  assert.equal(painted.member.project.terrain[index],value,'Brush must write to the clicked section, not the previous active section');
  await page.locator('#undo').click();await page.locator('#save-project').click();await idle();
  const undone=await (await fetch(`${base}/api/world/workspaces/${id}/sections/${second.id}?includeSections=false`)).json();assert.deepEqual(undone.member.project.terrain,beforePaint.member.project.terrain,'Undo must restore only this section');
- await openWorld();await page.locator(`[data-member-id="${first.id}"]`).click();await page.locator('#world-edit-section').click();await idle();
+ await openWorld();await page.locator('[data-ws-world]').selectOption(id);await idle();await page.locator(`[data-member-id="${first.id}"]`).click();await page.locator('#world-edit-section').click();await idle();
  const name='Edited resident section '+Date.now();await page.locator('#project-name').fill(name);await page.locator('#project-name').press('Tab');
  await openWorld();await page.locator('#world-save').click();await idle();await page.locator(`[data-member-id="${second.id}"]`).click();await page.locator('#world-edit-section').click();await idle();
  await openWorld();await page.locator(`[data-member-id="${first.id}"]`).click();await page.locator('#world-edit-section').click();await idle();
